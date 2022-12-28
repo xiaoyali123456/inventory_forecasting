@@ -1,5 +1,5 @@
 import pyspark.sql.functions as F
-from pyspark.sql.types import BooleanType
+from pyspark.sql.types import BooleanType, ArrayType, StringType, IntegerType, StructType, StructField
 from functools import reduce
 import pandas as pd
 import numpy as np
@@ -61,13 +61,17 @@ wt = spark.read.parquet('s3://hotstar-dp-datalake-processed-us-east-1-prod/event
 ext_cols = ['state', 'gender', 'city', 'region', 'pincode', 'device', 'partner_access', 'carrier', 'carrier_hs']
 wt1 = wt[['content_id', 'dw_p_id', 'watch_time', 'timestamp', 'language', 'country', 'platform', 'stream_type', 'play_type', 'content_type', 'user_segments', 'subscription_status']]
 
-content = pd.unique(playout_df['Content ID'])
-query = ",".join(f'"{c}"' for c in content)
-wt2 = wt1.where(f'content_id in ({query})')
+playout_gr2 = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
+    'End Time': list,
+    'Language': max,
+    'Tenant': max,
+    'Platform': lambda s: max(s).split('|')
+})
+playout_gr2['endtime'] = playout_gr2['End Time'].apply(lambda s: sorted(pd.to_datetime(s)))
+playout_gr2.reset_index(inplace=True)
 
-playout_gr2 = playout_df.groupby(['Content ID', 'Playout ID']).aggregate(list)
-playout_gr2['endtime']=playout_gr2['End Time'].apply(pd.to_datetime(s))
-
+# print(playout_gr2['Sr. No.'].apply(lambda s: len(s)-len(set(s))).describe())
+# print(playout_gr2['Break ID'].apply(lambda s: len(s)-len(set(s))).describe())
 # playout_gr2['endtime_hm']=playout_gr2.endtime.map(lambda s: [x.replace(second=0) for x in s])
 # plt.close()
 # for i in range(4):
@@ -75,3 +79,22 @@ playout_gr2['endtime']=playout_gr2['End Time'].apply(pd.to_datetime(s))
 #         label='+'.join([playout_gr2['Language'][i][0], playout_gr2['Tenant'][i][0], playout_gr2['Platform'][i][0]]))
 # plt.legend()
 # plt.savefig('test.png')
+
+# for (tournament, date, content id, playout id, Sr. No) x (user_segment)
+# @F.udf(returnType=ArrayType(StringType()))
+def match(content_id, language, country, platform, end, watch_time):
+    df = playout_gr2
+    df2 = df[(df['Content ID'] == content_id)
+                &(df.Language==language)
+                &(df.Tenant==country)
+                &(df.Platform.apply(lambda s: platform in s))]
+    if len(df2) == 0:
+        return []
+    playout = df2.iloc[0]
+    start = end - pd.Timedelta(seconds=watch_time)
+    return [playout['Playout ID']] + \
+        [i for i, t in enumerate(playout.endtime) if start <= t <= end]
+
+# row = wt1.head(1)[0]
+t=match('1540019068', row.language, row.country, row.platform, row.timestamp, row.watch_time)
+
