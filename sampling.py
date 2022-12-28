@@ -29,7 +29,6 @@ match_df = spark.read.parquet(match_meta_path) \
     .orderBy('date') \
     .distinct() \
     .cache()
-# match_df.unpersist()
 
 valid_dates = match_df.select('date').distinct().toPandas()['date']
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
@@ -39,18 +38,6 @@ play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log
 test_dates = valid_dates[-3:] # small data for test
 gen = (spark.read.csv(f"{play_out_log_input_path}/{d}", header=True) for d in test_dates)
 playout_df = reduce(lambda x, y: x.union(y), gen).toPandas()
-# End Time - Start Time = Delivered time <= Actual Time
-# (pd.to_datetime(playout_df['End Time']) - pd.to_datetime(playout_df['Start Time']) - playout_df['Delivered Time'].apply(pd.Timedelta)).describe()
-# (playout_df['Delivered Time'].apply(pd.Timedelta) / playout_df['Actual Time'].apply(pd.Timedelta)).describe()
-
-playout_gr = playout_df.groupby(['Content ID', 'Playout ID', 'Break ID']).aggregate(list)
-playout_gr['break_diff'] = playout_gr['End Time'].apply(pd.to_datetime).apply(lambda t:max(t)-min(t))
-playout_gr['break_mean'] = playout_gr['End Time'].apply(pd.to_datetime).apply(lambda x:x.mean())
-playout_gr['break_mean_diff'] = playout_gr.sort_values(['Content ID', 'Playout ID', 'break_mean']).groupby(['Content ID', 'Playout ID'])['break_mean'].diff()
-playout_gr['break_max'] = playout_gr['End Time'].apply(pd.to_datetime).apply(max)
-
-print(playout_gr.break_diff.quantile(np.arange(0,1.1,0.1)))
-print(playout_gr.break_mean_diff.quantile(np.arange(0,1.1,0.1)))
 
 # check playout ID is unique under lang,tenant,platform
 # playout_df[['Content ID', 'Playout ID', 'Language', 'Tenant', 'Platform']].drop_duplicates() \
@@ -70,18 +57,8 @@ playout_gr2 = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
 playout_gr2['endtime'] = playout_gr2['End Time'].apply(lambda s: sorted(pd.to_datetime(s)))
 playout_gr2.reset_index(inplace=True)
 
-# print(playout_gr2['Sr. No.'].apply(lambda s: len(s)-len(set(s))).describe())
-# print(playout_gr2['Break ID'].apply(lambda s: len(s)-len(set(s))).describe())
-# playout_gr2['endtime_hm']=playout_gr2.endtime.map(lambda s: [x.replace(second=0) for x in s])
-# plt.close()
-# for i in range(4):
-#     plt.hist(playout_gr2.endtime_hm[i], bins=150, alpha=0.7,
-#         label='+'.join([playout_gr2['Language'][i][0], playout_gr2['Tenant'][i][0], playout_gr2['Platform'][i][0]]))
-# plt.legend()
-# plt.savefig('test.png')
-
 # for (tournament, date, content id, playout id, Sr. No) x (user_segment)
-# @F.udf(returnType=ArrayType(StringType()))
+@F.udf(returnType=ArrayType(StringType()))
 def match(content_id, language, country, platform, end, watch_time):
     df = playout_gr2
     df2 = df[(df['Content ID'] == content_id)
@@ -93,8 +70,11 @@ def match(content_id, language, country, platform, end, watch_time):
     playout = df2.iloc[0]
     start = end - pd.Timedelta(seconds=watch_time)
     return [playout['Playout ID']] + \
-        [i for i, t in enumerate(playout.endtime) if start <= t <= end]
+        [str(i) for i, t in enumerate(playout.endtime) if start <= t <= end]
 
+#@Unit Test
 # row = wt1.head(1)[0]
-t=match('1540019068', row.language, row.country, row.platform, row.timestamp, row.watch_time)
+# t=match('1540019068', row.language, row.country, row.platform, row.timestamp, row.watch_time)
 
+wt2=wt1.withColumn('match', match('content_id', 'language', 'country', 'platform', 'timestamp', 'watch_time'))
+wt2.show()
