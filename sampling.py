@@ -1,9 +1,16 @@
 import pyspark.sql.functions as F
-from pyspark.sql.types import BooleanType, ArrayType, StringType, IntegerType, StructType, StructField
+from pyspark.sql.types import BooleanType, ArrayType, TimestampType
 from functools import reduce
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
+def uniq_check(df):
+    df2 = df[['content_id', 'language', 'country', 'platform']].drop_duplicates()
+    assert len(df) == len(df2)
+    na_df = df[df.platform == 'na']
+    na_df2 = pd.merge(df[df.platform != 'na'], na_df, on=['content_id', 'language', 'country'])
+    assert len(na_df2) == 0
 
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
@@ -33,48 +40,55 @@ match_df = spark.read.parquet(match_meta_path) \
 valid_dates = match_df.select('date').distinct().toPandas()['date']
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
-# start_time = spark.read.parquet(f"{live_ads_inventory_forecasting_root_path}/break_start_time_data_of_{tournament}").toPandas()
 
 test_dates = valid_dates[-3:] # small data for test
 gen = (spark.read.csv(f"{play_out_log_input_path}/{d}", header=True) for d in test_dates)
 playout_df = reduce(lambda x, y: x.union(y), gen).toPandas()
 
-# check playout ID is unique under lang,tenant,platform
-# playout_df[['Content ID', 'Playout ID', 'Language', 'Tenant', 'Platform']].drop_duplicates() \
-#     .groupby(['Content ID', 'Language', 'Tenant', 'Platform']).aggregate(list)
-# playout_gr['len'] = playout_gr['End Time'].apply(len)
-
 wt = spark.read.parquet('s3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/cd=2022-11-13/hr=13/')
 ext_cols = ['state', 'gender', 'city', 'region', 'pincode', 'device', 'partner_access', 'carrier', 'carrier_hs']
-wt1 = wt[['content_id', 'dw_p_id', 'watch_time', 'timestamp', 'language', 'country', 'platform', 'stream_type', 'play_type', 'content_type', 'user_segments', 'subscription_status']]
+wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
+    F.expr('lower(language) as language'),
+    F.expr('lower(platform) as platform'),
+    'stream_type', 'play_type', 'content_type', 'user_segments', 'subscription_status']]
 
-playout_gr2 = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
-    'End Time': list,
+playout_df['break_end'] = (playout_df['End Date'] + ' ' + playout_df['End Time']).apply(pd.to_datetime)
+playout_df['break_end'] = pd.Series(playout_df.break_end.dt.to_pydatetime(), dtype=object)
+playout_gr = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
     'Language': max,
     'Tenant': max,
-    'Platform': lambda s: max(s).split('|')
+    'Platform': lambda s: max(s).split('|'),
+    'break_end': lambda s: sorted(s),
 })
-playout_gr2['endtime'] = playout_gr2['End Time'].apply(lambda s: sorted(pd.to_datetime(s)))
-playout_gr2.reset_index(inplace=True)
+playout_gr = playout_gr.explode('Platform')
+playout_gr.reset_index(inplace=True)
+playout_gr.rename(columns={
+    'Content ID': 'content_id',
+    'Playout ID': 'playout_id',
+    'Language': 'language',
+    'Tenant': 'country',
+    'Platform': 'platform',
+}, inplace=True)
+playout_gr.language = playout_gr.language.str.lower()
+uniq_check(playout_gr)
+playout_gr2 = spark.createDataFrame(playout_gr)
+playout_gr3 = playout_gr2.where('platform == "na"').drop('platform')
 
-# for (tournament, date, content id, playout id, Sr. No) x (user_segment)
-@F.udf(returnType=ArrayType(StringType()))
-def match(content_id, language, country, platform, end, watch_time):
-    df = playout_gr2
-    df2 = df[(df['Content ID'] == content_id)
-                &(df.Language==language)
-                &(df.Tenant==country)
-                &(df.Platform.apply(lambda s: platform in s))]
-    if len(df2) == 0:
-        return []
-    playout = df2.iloc[0]
+@F.udf(returnType=ArrayType(TimestampType()))
+def match(end, watch_time, break_end):
     start = end - pd.Timedelta(seconds=watch_time)
-    return [playout['Playout ID']] + \
-        [str(i) for i, t in enumerate(playout.endtime) if start <= t <= end]
+    return [t for t in break_end if start <= t <= end]
 
-#@Unit Test
-# row = wt1.head(1)[0]
-# t=match('1540019068', row.language, row.country, row.platform, row.timestamp, row.watch_time)
+wt2a = wt1.join(playout_gr2, on=['content_id', 'language', 'country', 'platform'])
+wt2b = wt1.join(playout_gr3, on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
+wt2 =  wt2a.union(wt2b)
+wt3 = wt2.withColumn('match', match('timestamp', 'watch_time', 'break_end')).cache()
+wt3.where('size(match) > 0').show()
+wt3 = wt3.withColumnRenamed('Playout ID', 'playout_id')
+wt3.write.mode("overwrite").parquet('s3://hotstar-ads-ml-us-east-1-prod/tmp/minliang/sampling_wt3/')
 
-wt2=wt1.withColumn('match', match('content_id', 'language', 'country', 'platform', 'timestamp', 'watch_time'))
-wt2.show()
+# debug
+wt4=wt1.join(playout_gr2[['content_id']].distinct(), 'content_id').cache()
+wt5=wt4.join(wt3[['dw_p_id']], on='dw_p_id', how='left_anti')
+wt5.repartition(1).write.parquet('s3://hotstar-ads-ml-us-east-1-prod/tmp/minliang/sampling_wt5/')
+
