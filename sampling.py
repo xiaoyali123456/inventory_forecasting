@@ -1,9 +1,10 @@
 import pyspark.sql.functions as F
-from pyspark.sql.types import BooleanType, ArrayType, TimestampType
+from pyspark.sql.types import BooleanType, ArrayType, TimestampType, StringType
 from functools import reduce
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
 def uniq_check(df):
     df2 = df[['content_id', 'language', 'country', 'platform']].drop_duplicates()
@@ -34,10 +35,9 @@ match_df = spark.read.parquet(match_meta_path) \
                 'lower(title) as title',
                 'shortsummary') \
     .orderBy('date') \
-    .distinct() \
-    .cache()
+    .distinct()
 
-valid_dates = match_df.select('date').distinct().toPandas()['date']
+valid_dates = match_df.select('date').distinct().toPandas()['date'] #TODO: this is UTC but playout is IST
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 
@@ -51,9 +51,11 @@ wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
     F.expr('lower(language) as language'),
     F.expr('lower(platform) as platform'),
     'stream_type', 'play_type', 'content_type', 'user_segments', 'subscription_status']]
+# wt1 = wt1.where('substring(dw_p_id, 1, 1) == "0"') # 1/16 sampling
+# wt1 = wt1.replace('FireStick', 'firetv', 'platform').replace('webos', 'web', 'platform')
 
 playout_df['break_end'] = (playout_df['End Date'] + ' ' + playout_df['End Time']).apply(pd.to_datetime)
-playout_df['break_end'] = pd.Series(playout_df.break_end.dt.to_pydatetime(), dtype=object)
+playout_df['break_end'] = pd.Series(playout_df.break_end.dt.tz_localize('Asia/Kolkata').dt.to_pydatetime(), dtype=object)
 playout_gr = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
     'Language': max,
     'Tenant': max,
@@ -84,11 +86,16 @@ wt2b = wt1.join(playout_gr3, on=['content_id', 'language', 'country'])[wt2a.colu
 wt2 =  wt2a.union(wt2b)
 wt3 = wt2.withColumn('match', match('timestamp', 'watch_time', 'break_end')).cache()
 wt3.where('size(match) > 0').show()
-wt3 = wt3.withColumnRenamed('Playout ID', 'playout_id')
+print(wt3.where('size(match) > 0').count())
 wt3.write.mode("overwrite").parquet('s3://hotstar-ads-ml-us-east-1-prod/tmp/minliang/sampling_wt3/')
 
-# debug
-wt4=wt1.join(playout_gr2[['content_id']].distinct(), 'content_id').cache()
-wt5=wt4.join(wt3[['dw_p_id']], on='dw_p_id', how='left_anti')
-wt5.repartition(1).write.parquet('s3://hotstar-ads-ml-us-east-1-prod/tmp/minliang/sampling_wt5/')
+wt3 = spark.read.parquet('s3://hotstar-ads-ml-us-east-1-prod/tmp/minliang/sampling_wt3/')
+@F.udf(returnType=StringType())
+def parse(seg):
+    try:
+        return str(type(json.loads(seg)))
+    except:
+        return 'err'
 
+wt4 = wt3.select(parse('user_segments').alias('seg'))
+wt4.groupby('seg').count().toPandas()
