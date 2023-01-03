@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 import pandas as pd
 import pyspark.sql.functions as F
@@ -123,13 +124,19 @@ def main():
             .repartition(2048, 'content_id')
         cache_path = f'{output_path}cohort_agg_cache_wt/'
         wt1.write.mode('overwrite').parquet(cache_path)
+        print('wt1', datetime.now())
         wt1=spark.read.parquet(cache_path)
         wt2a = wt1.join(F.broadcast(playout_gr2), on=['content_id', 'language', 'country', 'platform'])
         wt2b = wt1.join(F.broadcast(playout_gr3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
         wt2 =  wt2a.union(wt2b)
+        cache2_path = f'{output_path}cohort_agg_cache2_wt/'
+        wt2.write.mode('overwrite').parquet(cache2_path)
+        print('wt2', datetime.now())
+        wt2=spark.read.parquet(cache_path)
         wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
         cache3_path = f'{output_path}cohort_agg_cache_wt3/'
         wt3.write.mode('overwrite').parquet(cache3_path) # 8 min on 32 m5.xlarge
+        print('wt3', datetime.now())
         wt3=spark.read.parquet(cache3_path)
         wt4 = wt3.where('ad_time > 0') \
             .withColumn('cohort', parse('user_segments')) \
@@ -139,6 +146,7 @@ def main():
                 F.countDistinct(F.col('dw_p_id')).alias('reach')
             ).repartition(16)
         wt4.write.mode('overwrite').parquet(final_path)
+        print('wt4', datetime.now())
 
 if __name__ == '__main__':
     main()
