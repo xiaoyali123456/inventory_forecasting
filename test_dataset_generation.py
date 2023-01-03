@@ -112,6 +112,11 @@ def load_blaze_pg_table(cursor, table_name, cols):
     return spark.createDataFrame(res_tuples, cols)
 
 
+def filter_users(df: DataFrame):
+    user_last_char = ['2', 'a', 'e', '8']
+    return df.filter(F.col("dw_p_id").substr(-1, 1).isin(user_last_char))
+
+
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
 
 
@@ -122,6 +127,7 @@ live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-pr
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 impression_path = "s3://hotstar-data-lake-northvirginia/data/source/campaignTracker/parquet_bifrost/impression_events"
 watch_video_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/"
+# watch_video_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
 
 # df = spark.read.parquet(watch_video_path+"/cd=2022-11-13")
 #
@@ -381,9 +387,10 @@ elif data_source == "watched_video":
     watch_video_df = reduce(lambda x, y: x.union(y),
                         [load_data_frame(spark, f"{watch_video_path}/cd={date[0]}")
                             .withColumn('date', F.lit(date[0]))
-                            .select('timestamp', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id', 'date') for date in valid_dates]) \
+                            .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id', 'date') for date in valid_dates]) \
         .join(match_df, ['date', 'content_id'])\
         .withColumn('end_timestamp', F.substring(F.col('timestamp'), 1, 19))\
+        .withColumn('end_timestamp', F.expr('if(end_timestamp <= received_at, end_timestamp, received_at)'))\
         .withColumn('watch_time', F.expr('cast(watch_time as int)'))\
         .withColumn('start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time')))\
         .withColumn('start_timestamp', F.substring(F.from_utc_timestamp(F.col('start_timestamp'), "IST"), 12, 8))\
@@ -391,9 +398,26 @@ elif data_source == "watched_video":
         .withColumn('start_timestamp_int', F.expr('cast(unix_timestamp(start_timestamp, "HH:mm:ss") as long)'))\
         .withColumn('end_timestamp_int', F.expr('cast(unix_timestamp(end_timestamp, "HH:mm:ss") as long)'))\
         .cache()
+    # watch_video_df = reduce(lambda x, y: x.union(y),
+    #                         [filter_users(load_data_frame(spark, f"{watch_video_path}/cd={date[0]}")
+    #                         .withColumn('date', F.lit(date[0]))
+    #                         .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id',
+    #                                 'date')) for date in valid_dates]) \
+    #     .join(match_df, ['date', 'content_id']) \
+    #     .withColumn('end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
+    #     .withColumn('end_timestamp', F.expr('if(end_timestamp <= received_at, end_timestamp, received_at)')) \
+    #     .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
+    #     .withColumn('start_timestamp', F.from_unixtime(
+    #     F.unix_timestamp(F.col('end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
+    #     .withColumn('start_timestamp', F.substring(F.from_utc_timestamp(F.col('start_timestamp'), "IST"), 12, 8)) \
+    #     .withColumn('end_timestamp', F.substring(F.from_utc_timestamp(F.col('end_timestamp'), "IST"), 12, 8)) \
+    #     .withColumn('start_timestamp_int', F.expr('cast(unix_timestamp(start_timestamp, "HH:mm:ss") as long)')) \
+    #     .withColumn('end_timestamp_int', F.expr('cast(unix_timestamp(end_timestamp, "HH:mm:ss") as long)')) \
+    #     .cache()
     # watch_video_df.show(2, False)
 
-for filter in [1, 2, 3, 4]:
+filter_list = [1, 2, 3, 4]
+for filter in filter_list[:1]:
     print(f"filter={filter}")
     # get_break_list(playout_df, filter)
     final_playout_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}") \
@@ -439,16 +463,27 @@ for filter in [1, 2, 3, 4]:
                  F.countDistinct("dw_d_id").alias('total_did_reach'))\
             .withColumn('total_inventory', F.expr('cast(total_inventory / 10 as int)'))\
             .cache()
-        save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+        save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset_2/{data_source}_{filter}_of_{tournament}")
 
+
+
+
+
+data_source = "watched_video"
+filter_list = [1]
+cols = ['date', 'content_id', 'title', 'shortsummary']
+for col in ['inventory', 'pid_reach', 'did_reach']:
+    for filter in filter_list:
+        cols.append(f"wt_{col}_{filter}")
 
 match_df.join(reduce(lambda x, y: x.join(y, ['date', 'content_id'], 'left'),
-    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
-                     .withColumnRenamed('total_inventory', 'total_inventory_'+str(filter))
-                     .withColumnRenamed('total_pid_reach', 'total_pid_reach_'+str(filter))
-                     .withColumnRenamed('total_did_reach', 'total_did_reach_'+str(filter))
-                     .select('date', 'content_id', 'total_inventory_'+str(filter), 'total_pid_reach_'+str(filter), 'total_did_reach_'+str(filter)) for filter in [1, 2, 3, 4]]),
+    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset_2/{data_source}_{filter}_of_{tournament}")
+                     .withColumnRenamed('total_inventory', 'wt_inventory_'+str(filter))
+                     .withColumnRenamed('total_pid_reach', 'wt_pid_reach_'+str(filter))
+                     .withColumnRenamed('total_did_reach', 'wt_did_reach_'+str(filter))
+                     .select('date', 'content_id', 'wt_inventory_'+str(filter), 'wt_pid_reach_'+str(filter), 'wt_did_reach_'+str(filter)) for filter in filter_list]),
               ['date', 'content_id'], 'left')\
     .orderBy('date', 'content_id')\
+    .select(*cols)\
     .show(200, False)
 
