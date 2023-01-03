@@ -81,25 +81,17 @@ def prepare_palyout_df(dt):
     playout_df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
     playout_df['break_start'] = load_playout_time(playout_df['Start Date'], playout_df['Start Time'])
     playout_df['break_end'] = load_playout_time(playout_df['End Date'], playout_df['End Time'])
-    playout_gr = playout_df.groupby(['Content ID', 'Playout ID']).aggregate({
-        'Language': max,
-        'Tenant': max,
-        'Platform': lambda s: max(s).split('|'),
-        'break_start': lambda s: sorted(s),
-        'break_end': lambda s: sorted(s),
-    })
-    playout_gr = playout_gr.explode('Platform')
-    playout_gr.reset_index(inplace=True)
-    playout_gr.rename(columns={
+    playout_df['Platform'] = playout_df['Platform'].apply(lambda s: s.split('|'))
+    playout_df = playout_df.explode('Platform')
+    playout_df.rename(columns={
         'Content ID': 'content_id',
         'Playout ID': 'playout_id',
         'Language': 'language',
         'Tenant': 'country',
         'Platform': 'platform',
     }, inplace=True)
-    playout_gr.language = playout_gr.language.str.lower()
-    uniq_check(playout_gr)
-    return playout_gr
+    playout_df.language = playout_df.language.str.lower()
+    return playout_df[['content_id', 'playout_id', 'language', 'contry', 'platform', 'break_start', 'break_end']]
 
 def main():
     tournament='wc2022'
@@ -108,8 +100,9 @@ def main():
     dates.remove('2022-10-22')
     for dt in dates:
         print('process', dt)
-        out_path = f'{output_path}cohort_agg/cd={dt}/_SUCCESS'
-        if os.system('aws s3 ls ' + out_path) == 0:
+        final_path = f'{output_path}cohort_agg/cd={dt}/'
+        success_path = f'{final_path}_SUCCESS'
+        if os.system('aws s3 ls ' + success_path) == 0:
             continue
         playout_gr = prepare_palyout_df(dt)
         playout_gr2 = spark.createDataFrame(playout_gr)
@@ -119,8 +112,8 @@ def main():
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
             'user_segments']]
-        wt2a = wt1.join(playout_gr2, on=['content_id', 'language', 'country', 'platform'])
-        wt2b = wt1.join(playout_gr3, on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
+        wt2a = wt1.join(F.broadcast(playout_gr2), on=['content_id', 'language', 'country', 'platform'])
+        wt2b = wt1.join(F.broadcast(playout_gr3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
         wt2 =  wt2a.union(wt2b)
         wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
         wt4 = wt3.withColumn('cohort', parse('user_segments')) \
@@ -130,7 +123,7 @@ def main():
                 F.sum(F.col('ad_time')).alias('ad_time'),
                 F.countDistinct(F.col('dw_p_id')).alias('reach')
             ).repartition(16)
-        wt4.write.mode('overwrite').parquet(f'{output_path}cohort_agg/cd={dt}/')
+        wt4.write.mode('overwrite').parquet(final_path)
 
 if __name__ == '__main__':
     main()
