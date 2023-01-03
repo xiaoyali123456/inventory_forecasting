@@ -105,7 +105,6 @@ def main():
     tournament='wc2022'
     dates = list(valid_dates(tournament))
     dates.remove('2022-10-17') #TODO: dirty hack; wrong data
-    dates.remove('2022-10-22')
     for dt in dates:
         print('process', dt)
         final_path = f'{output_path}cohort_agg/cd={dt}/'
@@ -121,7 +120,7 @@ def main():
             F.expr('lower(platform) as platform'),
             'user_segments']] \
             .where('substring(dw_p_id, 1, 1) < "4"') \
-            .repartition(2048, 'content_id', 'dw_p_id')
+            .repartition(2048, 'content_id')
         cache_path = f'{output_path}cohort_agg_cache_wt/'
         wt1.write.mode('overwrite').parquet(cache_path)
         wt1=spark.read.parquet(cache_path)
@@ -130,7 +129,7 @@ def main():
         wt2 =  wt2a.union(wt2b)
         wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
         cache3_path = f'{output_path}cohort_agg_cache_wt3/'
-        wt3.write.mode('overwrite').parquet(cache3_path)
+        wt3.write.mode('overwrite').parquet(cache3_path) # 8 min on 32 m5.xlarge
         wt3=spark.read.parquet(cache3_path)
         wt4 = wt3.where('ad_time > 0') \
             .withColumn('cohort', parse('user_segments')) \
