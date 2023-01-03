@@ -1,4 +1,5 @@
 import json
+import os
 
 import pandas as pd
 import pyspark.sql.functions as F
@@ -104,12 +105,15 @@ def main():
     tournament='wc2022'
     dates = list(valid_dates(tournament))
     dates.remove('2022-10-17') #TODO: dirty hack; wrong data
-    for dt in dates[-1:]:
+    dates.remove('2022-10-22')
+    for dt in dates:
         print('process', dt)
+        out_path = f'{output_path}cohort_agg/cd={dt}/_SUCCESS'
+        if os.system('aws s3 ls ' + out_path) == 0:
+            continue
         playout_gr = prepare_palyout_df(dt)
         playout_gr2 = spark.createDataFrame(playout_gr)
         playout_gr3 = playout_gr2.where('platform == "na"').drop('platform')
-        # wt = spark.read.parquet(f'{wt_path}cd={dt}/hr=13/')
         wt = spark.read.parquet(f'{wt_path}cd={dt}/')
         wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
             F.expr('lower(language) as language'),
