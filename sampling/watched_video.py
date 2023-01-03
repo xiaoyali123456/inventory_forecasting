@@ -45,7 +45,7 @@ def parse(segments):
     except:
         pass
 
-def valid_dates(tournament, save=True):
+def valid_dates(tournament, save=False):
     match_meta_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/match_meta'
     tournament_dic = {'wc2022': 'ICC Men\'s T20 World Cup 2022',
                     'ipl2022': 'TATA IPL 2022',
@@ -53,15 +53,15 @@ def valid_dates(tournament, save=True):
                     'ipl2021': 'VIVO IPL 2021'}
     match_df = spark.read.parquet(match_meta_path) \
         .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"') \
-        .where(is_valid_title('title')) \
         .selectExpr('substring(from_unixtime(startdate), 1, 10) as date',
                     'contentid as content_id',
                     'lower(title) as title',
                     'shortsummary') \
+        .where(is_valid_title('title')) \
         .orderBy('date') \
         .distinct()
     if save:
-        match_df.write.mode('overwrite').parquet(f'{output_path}/match_df/tournament={tournament}/')
+        match_df.write.mode('overwrite').parquet(f'{output_path}match_df/tournament={tournament}/')
     return match_df.select('date').distinct().toPandas()['date'] #TODO: this is UTC but playout is IST
 
 def load_playout_time(date_col, time_col):
@@ -108,8 +108,9 @@ def main():
     dates.remove('2022-10-22')
     for dt in dates:
         print('process', dt)
-        out_path = f'{output_path}cohort_agg/cd={dt}/_SUCCESS'
-        if os.system('aws s3 ls ' + out_path) == 0:
+        final_path = f'{output_path}cohort_agg/cd={dt}/'
+        success_path = f'{final_path}_SUCCESS'
+        if os.system('aws s3 ls ' + success_path) == 0:
             continue
         playout_gr = prepare_palyout_df(dt)
         playout_gr2 = spark.createDataFrame(playout_gr)
@@ -118,19 +119,27 @@ def main():
         wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
-            'user_segments']]
-        wt2a = wt1.join(playout_gr2, on=['content_id', 'language', 'country', 'platform'])
-        wt2b = wt1.join(playout_gr3, on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
+            'user_segments']] \
+            .where('substring(dw_p_id, 1, 1) < "4"') \
+            .repartition(2048, 'content_id', 'dw_p_id')
+        cache_path = f'{output_path}cohort_agg_cache_wt/'
+        wt1.write.mode('overwrite').parquet(cache_path)
+        wt1=spark.read.parquet(cache_path)
+        wt2a = wt1.join(F.broadcast(playout_gr2), on=['content_id', 'language', 'country', 'platform'])
+        wt2b = wt1.join(F.broadcast(playout_gr3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
         wt2 =  wt2a.union(wt2b)
         wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
-        wt4 = wt3.withColumn('cohort', parse('user_segments')) \
-            .where('ad_time > 0') \
+        cache3_path = f'{output_path}cohort_agg_cache_wt3/'
+        wt3.write.mode('overwrite').parquet(cache3_path)
+        wt3=spark.read.parquet(cache3_path)
+        wt4 = wt3.where('ad_time > 0') \
+            .withColumn('cohort', parse('user_segments')) \
             .groupby('content_id', 'playout_id', 'cohort') \
             .agg(
                 F.sum(F.col('ad_time')).alias('ad_time'),
                 F.countDistinct(F.col('dw_p_id')).alias('reach')
             ).repartition(16)
-        wt4.write.mode('overwrite').parquet(f'{output_path}cohort_agg/cd={dt}/')
+        wt4.write.mode('overwrite').parquet(final_path)
 
 if __name__ == '__main__':
     main()
