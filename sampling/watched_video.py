@@ -9,28 +9,12 @@ output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory
 playout_log_path = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 wt_path = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
 
-def uniq_check(df):
-    df2 = df[['content_id', 'language', 'country', 'platform']].drop_duplicates()
-    assert len(df) == len(df2)
-    na_df = df[df.platform == 'na']
-    na_df2 = pd.merge(df[df.platform != 'na'], na_df, on=['content_id', 'language', 'country'])
-    assert len(na_df2) == 0
-
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
     for arg in ['warm-up', 'follow on']:
         if arg in title:
             return False
     return ' vs ' in title
-
-@F.udf(returnType=FloatType())
-def intersect(end, watch_time, break_start, break_end):
-    start = end - pd.Timedelta(seconds=watch_time)
-    sm = 0.0
-    for s, e in zip(break_start, break_end):
-        inter = (min(e, end) - max(s, start)).total_seconds()
-        sm += max(inter, 0)
-    return sm
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -45,7 +29,7 @@ def parse(segments):
     except:
         pass
 
-def valid_dates(tournament, save=True):
+def valid_dates(tournament, save=False):
     match_meta_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/match_meta'
     tournament_dic = {'wc2022': 'ICC Men\'s T20 World Cup 2022',
                     'ipl2022': 'TATA IPL 2022',
@@ -53,11 +37,10 @@ def valid_dates(tournament, save=True):
                     'ipl2021': 'VIVO IPL 2021'}
     match_df = spark.read.parquet(match_meta_path) \
         .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"') \
-        .where(is_valid_title('title')) \
         .selectExpr('substring(from_unixtime(startdate), 1, 10) as date',
                     'contentid as content_id',
-                    'lower(title) as title',
-                    'shortsummary') \
+                    'lower(title) as title') \
+        .where(is_valid_title('title')) \
         .orderBy('date') \
         .distinct()
     if save:
@@ -104,16 +87,16 @@ def main():
         success_path = f'{final_path}_SUCCESS'
         if os.system('aws s3 ls ' + success_path) == 0:
             continue
-        playout_gr = prepare_palyout_df(dt)
-        playout_gr2 = spark.createDataFrame(playout_gr)
-        playout_gr3 = playout_gr2.where('platform == "na"').drop('platform')
+        playout_df = prepare_palyout_df(dt)
+        playout_df2 = spark.createDataFrame(playout_df)
+        playout_df3 = playout_df2.where('platform == "na"').drop('platform')
         wt = spark.read.parquet(f'{wt_path}cd={dt}/')
         wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
             'user_segments']]
-        wt2a = wt1.join(F.broadcast(playout_gr2), on=['content_id', 'language', 'country', 'platform'])
-        wt2b = wt1.join(F.broadcast(playout_gr3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
+        wt2a = wt1.join(F.broadcast(playout_df2), on=['content_id', 'language', 'country', 'platform'])
+        wt2b = wt1.join(F.broadcast(playout_df3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
         wt2 =  wt2a.union(wt2b)
         wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
         wt4 = wt3.withColumn('cohort', parse('user_segments')) \
