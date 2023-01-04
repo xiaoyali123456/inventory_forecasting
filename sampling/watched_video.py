@@ -6,9 +6,10 @@ import pandas as pd
 import pyspark.sql.functions as F
 from pyspark.sql.types import BooleanType, FloatType, StringType
 
-output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/'
+output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/'
 playout_log_path = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 wt_path = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
+DEBUG = True
 
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
@@ -40,17 +41,22 @@ def valid_dates(tournament, save=False):
         .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"') \
         .selectExpr('substring(from_unixtime(startdate), 1, 10) as date',
                     'contentid as content_id',
-                    'lower(title) as title',
+                    'lower(title) as title', # XXX: must before where
                     'shortsummary') \
         .where(is_valid_title('title')) \
-        .orderBy('date') \
         .distinct()
     if save:
         match_df.write.mode('overwrite').parquet(f'{output_path}match_df/tournament={tournament}/')
     return match_df.select('date').distinct().toPandas()['date'] #TODO: this is UTC but playout is IST
 
+def load_datetime(time_str):
+    try:
+        return pd.to_datetime(time_str)
+    except:
+        return None
+
 def load_playout_time(date_col, time_col):
-    ts = (date_col + ' ' + time_col).apply(pd.to_datetime)
+    ts = (date_col + ' ' + time_col).apply(load_datetime)
     return pd.Series(ts.dt.tz_localize('Asia/Kolkata').dt.tz_convert(None).dt.to_pydatetime(), dtype=object)
 
 def check_ist_utc_problem(dt):
@@ -66,8 +72,7 @@ def prepare_playout_df(dt):
     playout_df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
     playout_df['break_start'] = load_playout_time(playout_df['Start Date'], playout_df['Start Time'])
     playout_df['break_end'] = load_playout_time(playout_df['End Date'], playout_df['End Time'])
-    playout_df['Platform'] = playout_df['Platform'].apply(lambda s: s.split('|'))
-    playout_df = playout_df.explode('Platform')
+    playout_df = playout_df[~(playout_df.break_start.isna()|playout_df.break_end.isna())]
     playout_df.rename(columns={
         'Content ID': 'content_id',
         'Playout ID': 'playout_id',
@@ -76,53 +81,69 @@ def prepare_playout_df(dt):
         'Platform': 'platform',
     }, inplace=True)
     playout_df.language = playout_df.language.str.lower()
-    return playout_df[['content_id', 'playout_id', 'language', 'contry', 'platform', 'break_start', 'break_end']]
+    playout_df.platform = playout_df.platform.str.split('|')
+    playout_df = playout_df.explode('platform')
+    return playout_df[['content_id', 'playout_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
 
 def main():
     tournament='wc2022'
-    dates = list(valid_dates(tournament))
-    dates.remove('2022-10-17') #TODO: dirty hack; wrong data
+    dates = set(valid_dates(tournament))
+    n_par = 2048
+    if DEBUG:
+        dates = list(dates)[:1]
+        n_par = 8
     for dt in dates:
-        print('process', dt)
+        if DEBUG:
+            dt = '2022-10-17'
+        print('process', dt, 'at', datetime.now())
         final_path = f'{output_path}cohort_agg/cd={dt}/'
         success_path = f'{final_path}_SUCCESS'
-        if os.system('aws s3 ls ' + success_path) == 0:
-            continue
-        playout_df = prepare_palyout_df(dt)
-        playout_df2 = spark.createDataFrame(playout_df)
+        # if os.system('aws s3 ls ' + success_path) == 0:
+        #     continue
+        playout_df = prepare_playout_df(dt)
+        playout_df2 = spark.createDataFrame(playout_df).where('platform != "na"')
         playout_df3 = playout_df2.where('platform == "na"').drop('platform')
-        wt = spark.read.parquet(f'{wt_path}cd={dt}/')
-        wt1 = wt[['dw_p_id', 'content_id', 'watch_time', 'timestamp', 'country',
+        wt_path = f'{wt_path}cd={dt}/'
+        if DEBUG:
+            wt_path += 'hr=13/'
+        wt = spark.read.parquet(wt_path)
+        wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
-            'user_segments']] \
-            .where('substring(dw_p_id, 1, 1) < "4"') \
-            .repartition(2048, 'content_id')
-        cache_path = f'{output_path}cohort_agg_cache_wt/'
-        wt1.write.mode('overwrite').parquet(cache_path)
-        print('wt1', datetime.now())
-        wt1=spark.read.parquet(cache_path)
-        wt2a = wt1.join(F.broadcast(playout_gr2), on=['content_id', 'language', 'country', 'platform'])
-        wt2b = wt1.join(F.broadcast(playout_gr3), on=['content_id', 'language', 'country'])[wt2a.columns] # reorder cols for union
-        wt2 =  wt2a.union(wt2b)
-        cache2_path = f'{output_path}cohort_agg_cache2_wt/'
-        wt2.write.mode('overwrite').parquet(cache2_path)
-        print('wt2', datetime.now())
-        wt2=spark.read.parquet(cache_path)
-        wt3 = wt2.withColumn('ad_time', intersect('timestamp', 'watch_time', 'break_start', 'break_end'))
-        cache3_path = f'{output_path}cohort_agg_cache_wt3/'
-        wt3.write.mode('overwrite').parquet(cache3_path) # 8 min on 32 m5.xlarge
-        print('wt3', datetime.now())
-        wt3=spark.read.parquet(cache3_path)
+            F.expr('timestamp - make_interval(0,0,0,0,0,0,watch_time) as start_timestamp')
+        ]].repartition(n_par, 'content_id')
+        # cache_path = f'{output_path}cohort_agg_cache_wt/'
+        # wt1.write.mode('overwrite').parquet(cache_path)
+        # print('wt1', datetime.now())
+        # wt1=spark.read.parquet(cache_path)
+        # May be slower
+        # wt2a = wt1.join(playout_df2.hint("broadcast"), on=(
+        #     (wt1.content_id == playout_df2.content_id) &
+        #     (wt1.language == playout_df2.language) &
+        #     (wt1.country == playout_df2.country) &
+        #     (wt1.platform == playout_df2.platform) &
+        #     (F.max(wt1.start_timestamp, playout_df2.break_start) < F.min(wt1.timestamp, playout_df2.break_end))
+        # ))
+        # wt2b = wt1.join(F.broadcast(playout_df3), on=(
+        #     (wt1.content_id == playout_df3.content_id) &
+        #     (wt1.language == playout_df3.language) &
+        #     (wt1.country == playout_df3.country) &
+        #     (F.max(wt1.start_timestamp, playout_df3.break_start) < F.min(wt1.timestamp, playout_df3.break_end))
+        # ))[wt2a.columns] # reorder cols for union
+        wt2a = wt1.join(playout_df2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
+        wt2b = wt1.join(playout_df3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
+        wt2 = wt2a.union(wt2b)
+        wt3 = wt2.withColumn('ad_time', 
+            F.expr('bigint(least(timestamp, break_end) - greatest(start_timestamp, break_start))'))
         wt4 = wt3.where('ad_time > 0') \
             .withColumn('cohort', parse('user_segments')) \
             .groupby('content_id', 'playout_id', 'cohort') \
             .agg(
-                F.sum(F.col('ad_time')).alias('ad_time'),
-                F.countDistinct(F.col('dw_p_id')).alias('reach')
+                F.expr('sum(ad_time) as ad_time'),
+                F.expr('count(distinct dw_d_id) as reach')
             ).repartition(16)
         wt4.write.mode('overwrite').parquet(final_path)
-        print('wt4', datetime.now())
 
 if __name__ == '__main__':
     main()
+
