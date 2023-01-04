@@ -4,11 +4,11 @@ from datetime import datetime
 
 import pandas as pd
 import pyspark.sql.functions as F
-from pyspark.sql.types import BooleanType, FloatType, StringType
+from pyspark.sql.types import BooleanType, StringType
 
 output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/'
 playout_log_path = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
-wt_path = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
+wt_root = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
 
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
@@ -58,15 +58,6 @@ def load_playout_time(date_col, time_col):
     ts = (date_col + ' ' + time_col).apply(load_datetime)
     return pd.Series(ts.dt.tz_localize('Asia/Kolkata').dt.tz_convert(None).dt.to_pydatetime(), dtype=object)
 
-def check_ist_utc_problem(dt):
-    df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
-    print('check', dt)
-    try:
-        print(min((df['Start Date'] + ' ' + df['Start Time']).apply(pd.to_datetime)))
-        print(max((df['End Date'] + ' ' + df['End Time']).apply(pd.to_datetime)))
-    except Exception as e:
-        print(e)
-
 def prepare_playout_df(dt):
     playout_df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
     playout_df['break_start'] = load_playout_time(playout_df['Start Date'], playout_df['Start Time'])
@@ -87,7 +78,6 @@ def prepare_playout_df(dt):
 def main():
     tournament='wc2022'
     dates = sorted(valid_dates(tournament))
-    n_par = 2048
     for dt in dates:
         print('process', dt, 'at', datetime.now())
         final_path = f'{output_path}cohort_agg/cd={dt}/'
@@ -97,13 +87,13 @@ def main():
         playout_df = prepare_playout_df(dt)
         playout_df2 = spark.createDataFrame(playout_df).where('platform != "na"')
         playout_df3 = playout_df2.where('platform == "na"').drop('platform')
-        wt_path = f'{wt_path}cd={dt}/'
+        wt_path = f'{wt_root}cd={dt}/'
         wt = spark.read.parquet(wt_path)
         wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
             F.expr('timestamp - make_interval(0,0,0,0,0,0,watch_time) as start_timestamp')
-        ]].repartition(n_par, 'content_id')
+        ]]
         wt2a = wt1.join(playout_df2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
         wt2b = wt1.join(playout_df3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
         wt2 = wt2a.union(wt2b)
@@ -117,6 +107,7 @@ def main():
                 F.expr('count(distinct dw_d_id) as reach')
             ).repartition(16)
         wt4.write.mode('overwrite').parquet(final_path)
+        print('done', datetime.now())
 
 if __name__ == '__main__':
     main()
