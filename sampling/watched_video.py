@@ -9,7 +9,6 @@ from pyspark.sql.types import BooleanType, FloatType, StringType
 output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/'
 playout_log_path = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 wt_path = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
-DEBUG = True
 
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
@@ -87,49 +86,24 @@ def prepare_playout_df(dt):
 
 def main():
     tournament='wc2022'
-    dates = set(valid_dates(tournament))
+    dates = sorted(valid_dates(tournament))
     n_par = 2048
-    if DEBUG:
-        dates = list(dates)[:1]
-        n_par = 8
     for dt in dates:
-        if DEBUG:
-            dt = '2022-10-17'
         print('process', dt, 'at', datetime.now())
         final_path = f'{output_path}cohort_agg/cd={dt}/'
         success_path = f'{final_path}_SUCCESS'
-        # if os.system('aws s3 ls ' + success_path) == 0:
-        #     continue
+        if os.system('aws s3 ls ' + success_path) == 0:
+            continue
         playout_df = prepare_playout_df(dt)
         playout_df2 = spark.createDataFrame(playout_df).where('platform != "na"')
         playout_df3 = playout_df2.where('platform == "na"').drop('platform')
         wt_path = f'{wt_path}cd={dt}/'
-        if DEBUG:
-            wt_path += 'hr=13/'
         wt = spark.read.parquet(wt_path)
         wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
             F.expr('timestamp - make_interval(0,0,0,0,0,0,watch_time) as start_timestamp')
         ]].repartition(n_par, 'content_id')
-        # cache_path = f'{output_path}cohort_agg_cache_wt/'
-        # wt1.write.mode('overwrite').parquet(cache_path)
-        # print('wt1', datetime.now())
-        # wt1=spark.read.parquet(cache_path)
-        # May be slower
-        # wt2a = wt1.join(playout_df2.hint("broadcast"), on=(
-        #     (wt1.content_id == playout_df2.content_id) &
-        #     (wt1.language == playout_df2.language) &
-        #     (wt1.country == playout_df2.country) &
-        #     (wt1.platform == playout_df2.platform) &
-        #     (F.max(wt1.start_timestamp, playout_df2.break_start) < F.min(wt1.timestamp, playout_df2.break_end))
-        # ))
-        # wt2b = wt1.join(F.broadcast(playout_df3), on=(
-        #     (wt1.content_id == playout_df3.content_id) &
-        #     (wt1.language == playout_df3.language) &
-        #     (wt1.country == playout_df3.country) &
-        #     (F.max(wt1.start_timestamp, playout_df3.break_start) < F.min(wt1.timestamp, playout_df3.break_end))
-        # ))[wt2a.columns] # reorder cols for union
         wt2a = wt1.join(playout_df2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
         wt2b = wt1.join(playout_df3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
         wt2 = wt2a.union(wt2b)
@@ -146,4 +120,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
