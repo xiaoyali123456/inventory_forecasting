@@ -51,7 +51,7 @@ def main():
             path=f'{wt_path}cd={dt}/hr={i:02}'
             path2=f'{output_path}cd={dt}/hr={i:02}'
             if os.system(f'aws s3 ls {path2}/_SUCCESS'):
-                print(f'aws s3 sync {path} {path2}')
+                os.system(f'aws s3 sync {path} {path2}')
         
 if __name__ == '__main__':
     main()
