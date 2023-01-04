@@ -78,7 +78,7 @@ def check_ist_utc_problem(dt):
     except Exception as e:
         print(e)
 
-def prepare_palyout_df(dt):
+def prepare_playout_df(dt):
     playout_df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
     playout_df['break_start'] = load_playout_time(playout_df['Start Date'], playout_df['Start Time'])
     playout_df['break_end'] = load_playout_time(playout_df['End Date'], playout_df['End Time'])
@@ -112,7 +112,7 @@ def main():
         success_path = f'{final_path}_SUCCESS'
         if os.system('aws s3 ls ' + success_path) == 0:
             continue
-        playout_gr = prepare_palyout_df(dt)
+        playout_gr = prepare_playout_df(dt)
         playout_gr2 = spark.createDataFrame(playout_gr)
         playout_gr3 = playout_gr2.where('platform == "na"').drop('platform')
         wt = spark.read.parquet(f'{wt_path}cd={dt}/')
