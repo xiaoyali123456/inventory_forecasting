@@ -70,6 +70,7 @@ def prepare_playout_df(dt):
         'Tenant': 'country',
         'Platform': 'platform',
     }, inplace=True)
+    playout_df.content_id = playout_df.content_id.str.strip()
     playout_df.language = playout_df.language.str.lower()
     playout_df.platform = playout_df.platform.str.split('|')
     playout_df = playout_df.explode('platform')
@@ -77,18 +78,21 @@ def prepare_playout_df(dt):
 
 def main():
     tournament='wc2022'
-    dates = sorted(valid_dates(tournament))
+    # dates = sorted(valid_dates(tournament))
+    dates=['2022-10-16','2022-10-17','2022-10-18','2022-10-20','2022-10-30','2022-10-31','2022-11-02']
     for dt in dates:
-        print('process', dt, 'at', datetime.now())
+        print('process', dt)
+        print('begin', datetime.now())
         final_path = f'{output_path}cohort_agg/cd={dt}/'
         success_path = f'{final_path}_SUCCESS'
-        if os.system('aws s3 ls ' + success_path) == 0:
-            continue
+        # if os.system('aws s3 ls ' + success_path) == 0:
+        #     continue
         playout_df = prepare_playout_df(dt)
         playout_df2 = spark.createDataFrame(playout_df).where('platform != "na"')
         playout_df3 = playout_df2.where('platform == "na"').drop('platform')
         wt_path = f'{wt_root}cd={dt}/'
         wt = spark.read.parquet(wt_path)
+        # TODO: use received_at if received_at < timestamp
         wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
             F.expr('lower(language) as language'),
             F.expr('lower(platform) as platform'),
@@ -107,7 +111,7 @@ def main():
                 F.expr('count(distinct dw_d_id) as reach')
             ).repartition(16)
         wt4.write.mode('overwrite').parquet(final_path)
-        print('done', datetime.now())
+        print('end', datetime.now())
 
 if __name__ == '__main__':
     main()

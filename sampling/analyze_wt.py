@@ -1,8 +1,6 @@
 import numpy as np
 
 N=10
-
-# wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/cohort_agg/'
 wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/cohort_agg/'
 wt = spark.read.parquet(wt_path).toPandas()
 wt2 = wt.groupby(['cd', 'content_id', 'cohort']).sum().reset_index()
@@ -38,3 +36,7 @@ def corr(x):
 
 wt_cc = wt5.join(cc5, how='outer', rsuffix='_cc').fillna(0.0)
 print(wt_cc.groupby('cd').apply(corr))
+
+#####
+match_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/match_df/'
+match_df = spark.read.parquet(match_path).toPandas()
