@@ -140,6 +140,7 @@ else:
 match_df = load_data_frame(spark, match_meta_path)\
     .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)'))\
     .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"')\
+    .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)'))\
     .withColumn('title', F.expr('lower(title)'))\
     .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on')))\
     .where('title_valid_tag = 1')\
