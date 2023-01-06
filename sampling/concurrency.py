@@ -30,15 +30,19 @@ def prepare_playout_df(dt):
         'Tenant': 'country',
         'Platform': 'platform',
     }, inplace=True)
-    playout_df.language = playout_df.language.str.lower()
+    playout_df.playout_id = playout_df.playout_id.str.strip()
+    playout_df.content_id = playout_df.content_id.str.strip()
+    playout_df.language = playout_df.language.str.lower().str.strip()
+    playout_df.country = playout_df.country.str.upper().str.strip()
     playout_df.platform = playout_df.platform.str.split('|')
-    return playout_df.explode('platform')
+    playout_df = playout_df.explode('platform')
+    playout_df.platform = playout_df.platform.str.lower().str.strip()
+    return playout_df[['content_id', 'playout_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
 
 def main():
     tournament='wc2022'
     with open('dates.json') as f:
         dates = json.load(f)
-    dates.remove('2022-10-17')
     for dt in dates:
         playout = prepare_playout_df(dt)
         playout = playout[playout.platform == 'android'] # TODO: hack, select 1 palyout only
@@ -56,7 +60,7 @@ def main():
             .groupby('content_id', 'ssai_tag').sum('no_user') \
             .withColumnRenamed('sum(no_user)', 'ad_time') \
             .withColumn('ad_time', F.col('ad_time')*60) \
-            .write.parquet(final_path)
+            .write.mode('overwrite').parquet(final_path)
 
 if __name__ == '__main__':
     main()
