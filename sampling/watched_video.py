@@ -80,8 +80,15 @@ def prepare_playout_df(dt):
     return playout_df[['content_id', 'playout_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
 
 def main():
-    tournament='wc2022'
-    dates = sorted(valid_dates(tournament))
+    tournament='ipl2022' #'wc2022'
+    cache = tournament+'.json'
+    if os.path.exists(cache):
+        with open(cache) as f:
+            dates = json.load(f)
+    else:
+        dates = sorted(valid_dates(tournament))
+        with open(cache, 'w') as f:
+            json.dump(dates, f)
     for dt in dates:
         print('process', dt)
         print('begin', datetime.now())
