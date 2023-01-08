@@ -1,3 +1,5 @@
+# PYSPARK_DRIVER_PYTHON_OPTS='-m IPython' pyspark --name minliang --conf spark.sql.parquet.datetimeRebaseModeInRead=CORRECTED --conf spark.sql.parquet.int96RebaseModeInRead=CORRECTED
+
 import json
 import os
 from datetime import datetime
@@ -7,7 +9,7 @@ import pyspark.sql.functions as F
 from pyspark.sql.types import BooleanType, StringType
 
 output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/'
-playout_log_path = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
+playout_log_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
 wt_root = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
 
 @F.udf(returnType=BooleanType())
@@ -59,9 +61,11 @@ def load_playout_time(date_col, time_col):
     return pd.Series(ts.dt.tz_localize('Asia/Kolkata').dt.tz_convert(None).dt.to_pydatetime(), dtype=object)
 
 def prepare_playout_df(dt):
-    df = spark.read.csv(f'{playout_log_path}{dt}', header=True).toPandas()
-    df['break_start'] = load_playout_time(df['Start Date'], df['Start Time'])
-    df['break_end'] = load_playout_time(df['End Date'], df['End Time'])
+    df = spark.read.csv(f'{playout_log_path}cd={dt}', header=True).toPandas()
+    # df['break_start'] = load_playout_time(df['Start Date'], df['Start Time'])
+    # df['break_end'] = load_playout_time(df['End Date'], df['End Time'])
+    df['break_start'] = load_playout_time(dt, df['Start Time']) # hack fix for wrong
+    df['break_end'] = load_playout_time(dt, df['End Time'])
     df = df[~(df.break_start.isna()|df.break_end.isna())]
     df.rename(columns={
         'Content ID': 'content_id',
@@ -70,10 +74,11 @@ def prepare_playout_df(dt):
         'Tenant': 'country',
         'Platform': 'platform',
     }, inplace=True)
-    df[['playout_id', 'content_id', 'language', 'country']].apply(lambda x: x.str.strip())
     df.platform = df.platform.str.split('|')
     df = df.explode('platform')
-    df.platform = df.platform.str.lower().str.strip()
+    df[['playout_id', 'content_id', 'language', 'country', 'platform']] = \
+        df[['playout_id', 'content_id', 'language', 'country', 'platform']].applymap(str.strip)
+    df[['language', 'platform']] = df[['language', 'platform']].applymap(str.lower)
     return df[['content_id', 'playout_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
 
 def process(tournament, dt):
@@ -111,6 +116,7 @@ def process(tournament, dt):
 
 def main():
     tournaments=['wc2021'] #'wc2022', 'ipl2021',
+    # aws s3 sync s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/valid_dates/ .
     for tournament in tournaments:
         cache = tournament+'.json'
         if os.path.exists(cache):
@@ -121,7 +127,7 @@ def main():
             dates = sorted(valid_dates(tournament))
             with open(cache, 'w') as f:
                 json.dump(dates, f)
-        for dt in dates[:1]:
+        for dt in dates:
             process(tournament, dt)
 
 if __name__ == '__main__':
