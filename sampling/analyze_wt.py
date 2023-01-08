@@ -52,8 +52,5 @@ def rate_diff(x):
     return np.mean(c/d)
 
 wt_cc = wt5.join(cc5, how='outer', rsuffix='_cc').fillna(0.0)
-# print(wt_cc.groupby('cd').apply(rmse))
+print(wt_cc.groupby('cd').apply(rmse))
 print(wt_cc.groupby('cd').apply(rate_diff))
-
-## Cohort distribution
-
