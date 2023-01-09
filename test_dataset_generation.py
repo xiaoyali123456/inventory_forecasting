@@ -117,8 +117,20 @@ def filter_users(df: DataFrame):
     return df.filter(F.col("dw_p_id").substr(-1, 1).isin(user_last_char))
 
 
-check_title_valid_udf = F.udf(check_title_valid, IntegerType())
+def avg_value(v1, v2, v3):
+    res = 0
+    count = 0
+    for v in [v1, v2, v3]:
+        if v > 0:
+            res += v
+            count += 1
+    if count == 0:
+        return 0
+    return int(res/count)
 
+
+check_title_valid_udf = F.udf(check_title_valid, IntegerType())
+avg_value_udf = F.udf(avg_value, LongType())
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
 ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"
@@ -417,7 +429,7 @@ elif data_source == "watched_video":
     # watch_video_df.show(2, False)
 
 filter_list = [1, 2, 3, 4]
-for filter in filter_list[:1]:
+for filter in filter_list[3:]:
     print(f"filter={filter}")
     # get_break_list(playout_df, filter)
     final_playout_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}") \
@@ -461,23 +473,20 @@ for filter in filter_list[:1]:
             .agg(F.sum('valid_duration').alias('total_inventory'),
                  F.countDistinct("dw_p_id").alias('total_pid_reach'),
                  F.countDistinct("dw_d_id").alias('total_did_reach'))\
-            .withColumn('total_inventory', F.expr('cast(total_inventory / 10 as int)'))\
+            .withColumn('total_inventory', F.expr('cast(total_inventory / 10 as bigint)'))\
             .cache()
-        save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset_2/{data_source}_{filter}_of_{tournament}")
-
-
-
+        save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
 
 
 data_source = "watched_video"
-filter_list = [1]
 cols = ['date', 'content_id', 'title', 'shortsummary']
+filter_list = [1, 2, 3, 4]
 for col in ['inventory', 'pid_reach', 'did_reach']:
     for filter in filter_list:
         cols.append(f"wt_{col}_{filter}")
 
 match_df.join(reduce(lambda x, y: x.join(y, ['date', 'content_id'], 'left'),
-    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset_2/{data_source}_{filter}_of_{tournament}")
+    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
                      .withColumnRenamed('total_inventory', 'wt_inventory_'+str(filter))
                      .withColumnRenamed('total_pid_reach', 'wt_pid_reach_'+str(filter))
                      .withColumnRenamed('total_did_reach', 'wt_did_reach_'+str(filter))
@@ -487,3 +496,22 @@ match_df.join(reduce(lambda x, y: x.join(y, ['date', 'content_id'], 'left'),
     .select(*cols)\
     .show(200, False)
 
+filter_list = [1, 2, 3]
+res_df = match_df.join(reduce(lambda x, y: x.join(y, ['date', 'content_id'], 'left'),
+    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+                    .withColumnRenamed('total_inventory', 'total_inventory' + str(filter))
+                          .withColumnRenamed('total_pid_reach', 'total_pid_reach'+str(filter))
+                          .withColumnRenamed('total_did_reach', 'total_did_reach'+str(filter)) for filter in filter_list]),
+              ['date', 'content_id'], 'left')\
+    .fillna(-1, ['total_inventory1', 'total_pid_reach1', 'total_did_reach1',
+                 'total_inventory2', 'total_pid_reach2', 'total_did_reach2',
+                 'total_inventory3', 'total_pid_reach3', 'total_did_reach3'])\
+    .withColumn('total_inventory', avg_value_udf('total_inventory1', 'total_inventory2', 'total_inventory3'))\
+    .withColumn('total_pid_reach', avg_value_udf('total_pid_reach1', 'total_pid_reach2', 'total_pid_reach3'))\
+    .withColumn('total_did_reach', avg_value_udf('total_did_reach1', 'total_did_reach2', 'total_did_reach3'))\
+    .drop('total_inventory1', 'total_pid_reach1', 'total_did_reach1',
+          'total_inventory2', 'total_pid_reach2', 'total_did_reach2',
+          'total_inventory3', 'total_pid_reach3', 'total_did_reach3')\
+    .orderBy('date', 'content_id')
+res_df.show(200, False)
+save_data_frame(res_df, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")
