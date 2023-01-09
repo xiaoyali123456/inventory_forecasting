@@ -1,14 +1,17 @@
 import numpy as np
+import pandas as pd
 
 wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg/'
 wt = spark.read.parquet(wt_path).toPandas()
 cc_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/inventory_concurrency/'
 cc = spark.read.parquet(cc_path).toPandas().rename(columns={'ssai_tag':'cohort'})
 
+# metric_keys = ['cd', 'content_id', 'cohort']
+metric_keys = ['cd', 'cohort']
+
 def calc_ratio(df, col):
-    keys = ['cd', 'content_id', 'cohort']
-    df2 = df.groupby(keys).sum().reset_index()
-    df2[col + '_ratio'] = df2[col] / df2.groupby(keys[:2])[col].transform('sum')
+    df2 = df.groupby(metric_keys).sum().reset_index()
+    df2[col + '_ratio'] = df2[col] / df2.groupby(metric_keys[:-1])[col].transform('sum')
     return df2
 
 cc2 = calc_ratio(cc, 'ad_time')
@@ -53,12 +56,16 @@ def rate_diff(x):
     d = b.apply(lambda x: 1 if x <= 0 else x)
     return np.mean(c/d)
 
-def metric(wt, cc):
-    wt_cc = pd.merge(wt, cc, on=['cd', 'content_id', 'cohort'], how='outer', suffixes=['','_cc']).fillna(0.0)
-    print(wt_cc.groupby('cd').apply(corr))
-    print(wt_cc.groupby('cd').apply(rmse))
-    print(wt_cc.groupby('cd').apply(rate_diff))
+def metric(df, df2):
+    # TODO: should 'outer' on 'cohort', but 'inner' on other keys
+    # df3 = pd.merge(df, df2, on=metric_keys, how='outer', suffixes=['','_cc']).fillna(0.0)
+    df3 = pd.merge(df, df2, on=metric_keys, how='inner', suffixes=['','_cc']).fillna(0.0)
+    return df3.groupby(metric_keys[:-1]).apply(lambda x:pd.Series({
+        'corr': corr(x),
+        'rmse': rmse(x),
+        'rate_diff': rate_diff(x)
+    }))
 
 if __name__ == "__main__":
-    metric(wt2, cc2)
-    # parse_ssai(wt2).to_csv('wc2022_city_quarter.csv')
+    # print(metric(wt2, cc2).to_csv())
+    parse_ssai(wt2).to_csv('wc2022_city_quarter.csv')
