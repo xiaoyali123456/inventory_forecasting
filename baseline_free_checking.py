@@ -136,10 +136,10 @@ tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
                   "wc2019": "ICC CWC 2019"}
 # tournament = "wc2019"
 # tournament = "wc2021"
-# tournament = "wc2022"
+tournament = "wc2022"
 
 # tournament = "ipl2021"
-tournament = "ipl2022"
+# tournament = "ipl2022"
 
 segment = "content_language"
 # segment = "none_content_language"
@@ -147,15 +147,16 @@ tournament_list = ["wc2022", "wc2021", "ipl2022", "ipl2021"]
 
 subscription_status_col = "_col3"
 dw_p_id_col = "_col0"
+dw_d_id_col = "_col1"
 content_id_col = "_col2"
 watch_time_col = "_col27"
 
-df = reduce(lambda x, y: x.union(y),
-           [load_data_frame(spark,
-                            live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
-            for previous_date in get_date_list("2019-05-01", 61)]).distinct()
-df.withColumn('size', F.length(F.col('dw_p_id'))).groupBy('size').count().orderBy('count', ascending=False).show(2000)
-print(df.count())
+# df = reduce(lambda x, y: x.union(y),
+#            [load_data_frame(spark,
+#                             live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
+#             for previous_date in get_date_list("2019-05-01", 61)]).distinct()
+# df.withColumn('size', F.length(F.col('dw_p_id'))).groupBy('size').count().orderBy('count', ascending=False).show(2000)
+# print(df.count())
 
 match_df = load_data_frame(spark, match_meta_path)\
     .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)'))\
@@ -177,6 +178,24 @@ print(match_df.count())
 #     valid_dates = [date for date in valid_dates if date[0] >= "2021-09-21" and date[0] != "2021-09-26"][:-1]
 
 print(valid_dates)
+
+
+# reduce(lambda x, y: x.union(y),
+#     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
+#         .withColumnRenamed(subscription_status_col, 'subscription_status')
+#         .withColumnRenamed(dw_p_id_col, 'dw_p_id')
+#         .withColumnRenamed(content_id_col, 'content_id')
+#         .withColumn('subscription_status', F.upper(F.col('subscription_status')))
+#         .where('subscription_status in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
+#         .groupBy('content_id')
+#         .agg(F.countDistinct("dw_p_id").alias('total_pid_reach'),
+#             F.countDistinct("dw_d_id").alias('total_did_reach'))
+#         .withColumn('date', F.lit(date[0])) for date in valid_dates]) \
+#     .join(match_df.select('date', 'content_id'), ['date', 'content_id'])\
+#     .withColumn('rate', F.expr('total_pid_reach/total_did_reach'))\
+#     .orderBy('date', 'content_id')\
+#     .show(200, False)
+
 
 # user_meta_df = load_hive_table(spark, "in_ums.user_umfnd_s3") \
 #     .select('pid', 'hid') \
