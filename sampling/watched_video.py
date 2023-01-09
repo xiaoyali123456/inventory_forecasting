@@ -11,7 +11,7 @@ from pyspark.sql.types import BooleanType, StringType
 
 output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/'
 playout_log_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
-wt_root = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
+wt_root = 's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/'
 
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
