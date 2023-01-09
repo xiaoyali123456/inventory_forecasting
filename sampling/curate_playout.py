@@ -7,7 +7,7 @@ old = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 neo = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout/'
 
 def clone():
-    tournaments = ['wc2021', 'wc2022']
+    tournaments = ['wc2022'] # ['wc2021', 'wc2022']
     for tour in tournaments:
         dates_json = tour + '.json'
         if not os.path.exists(dates_json):

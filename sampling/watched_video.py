@@ -9,7 +9,7 @@ import pandas as pd
 import pyspark.sql.functions as F
 from pyspark.sql.types import BooleanType, StringType
 
-output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/'
+output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/'
 playout_log_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
 wt_root = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
 
@@ -93,7 +93,8 @@ def process(tournament, dt):
     playout_df2 = spark.createDataFrame(playout_df).where('platform != "na"')
     playout_df3 = playout_df2.where('platform == "na"').drop('platform')
     wt_path = f'{wt_root}cd={dt}/'
-    wt = spark.read.parquet(wt_path)
+    wt = spark.read.parquet(wt_path) \
+        .where(F.col("dw_p_id").substr(-1,1).isin(['2', 'a', 'e', '8']))
     # TODO: use received_at if received_at < timestamp
     wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
         F.expr('lower(language) as language'),
