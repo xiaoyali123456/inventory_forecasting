@@ -1,3 +1,4 @@
+## To fix date format in watched_video
 # PYSPARK_DRIVER_PYTHON_OPTS='-m IPython' pyspark --name minliang --conf spark.sql.parquet.datetimeRebaseModeInRead=CORRECTED --conf spark.sql.parquet.int96RebaseModeInRead=CORRECTED
 
 import json
@@ -64,7 +65,7 @@ def prepare_playout_df(dt):
     df = spark.read.csv(f'{playout_log_path}cd={dt}', header=True).toPandas()
     # df['break_start'] = load_playout_time(df['Start Date'], df['Start Time'])
     # df['break_end'] = load_playout_time(df['End Date'], df['End Time'])
-    df['break_start'] = load_playout_time(dt, df['Start Time']) # hack fix for wrong
+    df['break_start'] = load_playout_time(dt, df['Start Time']) # XXX:hack fix for wrong
     df['break_end'] = load_playout_time(dt, df['End Time'])
     df = df[~(df.break_start.isna()|df.break_end.isna())]
     df.rename(columns={
