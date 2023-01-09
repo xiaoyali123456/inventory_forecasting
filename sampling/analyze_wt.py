@@ -11,6 +11,22 @@ cc = spark.read.parquet(cc_path).toPandas()
 cc2 = cc.rename(columns={'ssai_tag':'cohort'}) \
     .groupby(['cd', 'content_id', 'cohort']).sum().reset_index()
 
+## END of LOAD DATA
+def select(ssai):
+    head = 'SSAI::'
+    n = len(head)
+    res = [x for x in ssai[n:].split(':') if x.startswith('M_')]
+    return res[0] if len(res) else ''
+
+def parse_ssai(df):
+    df['tag'] = df.cohort.apply(select)
+    df2=df.groupby(['cd', 'content_id', 'tag']).sum().reset_index()
+    df2['ad_time_ratio'] = df2['ad_time']/df2.groupby(['cd', 'content_id'])['ad_time'].transform('sum')
+    # df2['reach_ratio'] = df2['reach']/df2.groupby(['cd', 'content_id'])['reach'].transform('sum')
+    return df2.pivot(index=['cd', 'content_id'], columns='tag', values='ad_time_ratio').fillna(0)
+
+parse_ssai(cc2).to_csv('wc2022_city_cc.csv')
+
 wt3 = wt2[wt2.cohort.isin(wt_top_ssai)].groupby(['cd', 'cohort']).sum()
 cc3 = cc2[cc2.cohort.isin(wt_top_ssai)].groupby(['cd', 'cohort']).sum()
 topn = wt3.join(cc3, how='outer', rsuffix='_cc')
@@ -32,7 +48,7 @@ cc5['ad_time_ratio'] = cc5.ad_time/cc5.ad_time_sum
 def corr(x):
     a=x['ad_time_ratio']
     b=x['ad_time_ratio_cc']
-    # a=(a-a.mean())/a.std() # Pearson normalization, doesn't make much difference
+    # a=(a-a.mean())/a.std() # Pearson correlation, doesn't make much difference
     # b=(b-b.mean())/a.std()
     return np.dot(a,b)/np.linalg.norm(a)/np.linalg.norm(b)
 
