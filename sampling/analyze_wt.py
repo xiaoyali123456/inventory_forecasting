@@ -1,7 +1,8 @@
 import numpy as np
 
 N=10
-wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/cohort_agg/'
+# wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/cohort_agg/'
+wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dw_d_id/cohort_agg_quarter/'
 wt = spark.read.parquet(wt_path).toPandas()
 wt2 = wt.groupby(['cd', 'content_id', 'cohort']).sum().reset_index()
 wt_top_ssai = wt2.groupby('cohort').sum()['ad_time'].nlargest(N).index
@@ -25,7 +26,7 @@ def parse_ssai(df):
     # df2['reach_ratio'] = df2['reach']/df2.groupby(['cd', 'content_id'])['reach'].transform('sum')
     return df2.pivot(index=['cd', 'content_id'], columns='tag', values='ad_time_ratio').fillna(0)
 
-parse_ssai(cc2).to_csv('wc2022_city_cc.csv')
+parse_ssai(wt2).to_csv('wc2021_city.csv')
 
 wt3 = wt2[wt2.cohort.isin(wt_top_ssai)].groupby(['cd', 'cohort']).sum()
 cc3 = cc2[cc2.cohort.isin(wt_top_ssai)].groupby(['cd', 'cohort']).sum()
