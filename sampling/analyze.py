@@ -38,8 +38,8 @@ def max_ae(x):
 
 def metric(df, df2):
     # TODO: should 'outer' on 'cohort', but 'inner' on other keys
-    df3 = pd.merge(df, df2, on=metric_keys, how='outer', suffixes=['','_cc']).fillna(0.0)
     # df3 = pd.merge(df, df2, on=metric_keys, how='inner', suffixes=['','_cc']).fillna(0.0)
+    df3 = pd.merge(df, df2, on=metric_keys, how='outer', suffixes=['','_cc']).fillna(0.0)
     return df3.groupby(metric_keys[:-1]).apply(lambda x:pd.Series({
         'corr': corr(x),
         'max_ae': max_ae(x),
