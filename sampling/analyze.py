@@ -1,14 +1,12 @@
 import numpy as np
 import pandas as pd
+import pyspark.sql.functions as F
 
 wt_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg/'
 wt_q_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/'
 cc_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/inventory_concurrency/'
-
-def calc_ratio(df, col):
-    df2 = df.groupby(metric_keys).sum().reset_index()
-    df2[col + '_ratio'] = df2[col] / df2.groupby(metric_keys[:-1])[col].transform('sum')
-    return df2
+playout_path='s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
+major_cohort_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/major_cohort/'
 
 def save_topn(wt, cc, n=20):
     wt_top_ssai = wt.groupby('cohort').sum()[col].nlargest(n).index
@@ -36,10 +34,10 @@ def max_ae(x):
     c = np.abs(a-b)
     return max(c)
 
-def metric(df, df2):
+def metric(df, df2, metric_keys):
     # TODO: should 'outer' on 'cohort', but 'inner' on other keys
     # df3 = pd.merge(df, df2, on=metric_keys, how='inner', suffixes=['','_cc']).fillna(0.0)
-    df3 = pd.merge(df, df2, on=metric_keys, how='outer', suffixes=['','_cc']).fillna(0.0)
+    df3 = pd.merge(df, df2, on=metric_keys, how='outer', suffixes=['', '_cc']).fillna(0.0)
     return df3.groupby(metric_keys[:-1]).apply(lambda x:pd.Series({
         'corr': corr(x),
         'max_ae': max_ae(x),
@@ -63,14 +61,41 @@ def cohort_hist(wt, out='test.png'):
     wt.groupby('cohort')[col+'_ratio'].sum().plot(bins=100, kind='hist', logy=True)
     plt.savefig(out)
 
-if __name__ == "__main__":
-    metric_keys = ['cd', 'content_id', 'cohort'] #XXX: this is global
-    col = 'ad_time'
-    wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col)
-    wtq = calc_ratio(spark.read.parquet(wt_q_path).toPandas().query('tournament == "wc2022"'), col)
-    metric(wt, wtq).to_csv(f'wc_{col}_22-22q.csv')
+def calc_ratio(df, col, metric_keys):
+    df2 = df.groupby(metric_keys).sum().reset_index()
+    df2[col + '_ratio'] = df2[col] / df2.groupby(metric_keys[:-1])[col].transform('sum')
+    return df2
 
-    metric_keys = ['cd', 'content_id', 'cohort']
-    cc = calc_ratio(spark.read.parquet(cc_path).toPandas().rename(columns={'ssai_tag':'cohort'}), col)
-    print(metric(wt, cc).to_csv())
-    parse_ssai(wt).to_csv('wc2022_city_quarter.csv')
+if __name__ == "__main__":
+    col = 'ad_time'
+
+    # metric_keys = ['cd', 'content_id', 'cohort']
+    # wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
+    # wtq = calc_ratio(spark.read.parquet(wt_q_path).toPandas().query('tournament == "wc2022"'), col, metric_keys)
+    # metric(wt, wtq, metric_keys).to_csv(f'wc_{col}_22-22q.csv')
+
+    # metric_keys = ['cd', 'content_id', 'cohort']
+    # wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
+    # cc = calc_ratio(spark.read.parquet(cc_path).toPandas().rename(columns={'ssai_tag':'cohort'}), col, metric_keys)
+    # print(metric(wt, cc, metric_keys).to_csv())
+    # parse_ssai(wt).to_csv('wc2022_city_quarter.csv')
+
+    wt = spark.read.parquet(wt_path) # too big for pandas merge
+    playout = spark.read.csv(playout_path, header=True).selectExpr(
+        'lower(trim(`Content ID`)) as content_id',
+        'trim(`Playout ID`) as playout_id',
+        'lower(trim(Language)) as language',
+        'explode(split(Platform, "\\\\|")) as platform'
+    ).withColumn('platform', F.expr('lower(trim(platform))'))
+    wt.join(playout, on=['content_id', 'playout_id']) \
+        .groupby('cd', 'content_id', 'language', 'platform') \
+        .agg(
+            F.expr('sum(ad_time) as ad_time'),
+            F.expr('sum(reach) as reach')
+        ).write.mode('overwrite').parquet(major_cohort_path)
+    major = spark.read.parquet(major_cohort_path).toPandas()
+    metric_keys = ['cd', 'content_id', 'language']
+    m1 = calc_ratio(major, col, metric_keys)
+    print(m1.pivot(index=['cd', 'content_id'], columns='language', values=col+'_ratio')
+        .fillna(0).to_csv())
+    
