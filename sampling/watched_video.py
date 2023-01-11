@@ -108,7 +108,8 @@ def process(tournament, dt):
         F.expr('bigint(least(timestamp, break_end) - greatest(start_timestamp, break_start))'))
     wt4 = wt3.where('ad_time > 0') \
         .withColumn('cohort', parse('user_segments')) \
-        .groupby('content_id', 'playout_id', 'cohort') \
+        .groupby('content_id', 'playout_id',
+            'language', 'platform', 'country', 'cohort') \
         .agg(
             F.expr('sum(ad_time) as ad_time'),
             F.expr('count(distinct dw_d_id) as reach')

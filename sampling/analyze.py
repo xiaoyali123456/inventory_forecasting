@@ -7,6 +7,7 @@ wt_q_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecastin
 cc_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/sampling/inventory_concurrency/'
 playout_path='s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
 major_cohort_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/major_cohort/'
+match_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/match_df/'
 
 def save_topn(wt, cc, n=20):
     wt_top_ssai = wt.groupby('cohort').sum()[col].nlargest(n).index
@@ -68,6 +69,8 @@ def calc_ratio(df, col, metric_keys):
 
 if __name__ == "__main__":
     col = 'ad_time'
+    match_df = spark.read.parquet(match_path).toPandas()[['content_id', 'title']]
+    match_df = match_df[~match_df.title.str.contains('follow on|warm-up')]
 
     # metric_keys = ['cd', 'content_id', 'cohort']
     # wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
@@ -80,22 +83,27 @@ if __name__ == "__main__":
     # print(metric(wt, cc, metric_keys).to_csv())
     # parse_ssai(wt).to_csv('wc2022_city_quarter.csv')
 
-    wt = spark.read.parquet(wt_path) # too big for pandas merge
-    playout = spark.read.csv(playout_path, header=True).selectExpr(
-        'lower(trim(`Content ID`)) as content_id',
-        'trim(`Playout ID`) as playout_id',
-        'lower(trim(Language)) as language',
-        'explode(split(Platform, "\\\\|")) as platform'
-    ).withColumn('platform', F.expr('lower(trim(platform))'))
-    wt.join(playout, on=['content_id', 'playout_id']) \
-        .groupby('cd', 'content_id', 'language', 'platform') \
-        .agg(
-            F.expr('sum(ad_time) as ad_time'),
-            F.expr('sum(reach) as reach')
-        ).write.mode('overwrite').parquet(major_cohort_path)
+    # wt = spark.read.parquet(wt_path) # too big for pandas merge
+    # playout = spark.read.csv(playout_path, header=True).selectExpr(
+    #     'lower(trim(`Content ID`)) as content_id',
+    #     'trim(`Playout ID`) as playout_id',
+    #     'lower(trim(Language)) as language',
+    #     'explode(split(Platform, "\\\\|")) as platform'
+    # ).withColumn('platform', F.expr('lower(trim(platform))'))
+    # wt.join(playout, on=['content_id', 'playout_id']) \
+    #     .groupby('cd', 'content_id', 'language', 'platform') \
+    #     .agg(
+    #         F.expr('sum(ad_time) as ad_time'),
+    #         F.expr('sum(reach) as reach')
+    #     ).write.mode('overwrite').parquet(major_cohort_path)
+
     major = spark.read.parquet(major_cohort_path).toPandas()
     metric_keys = ['cd', 'content_id', 'language']
-    m1 = calc_ratio(major, col, metric_keys)
-    print(m1.pivot(index=['cd', 'content_id'], columns='language', values=col+'_ratio')
+    m1 = calc_ratio(major, col, metric_keys).merge(match_df, on='content_id')
+    print(m1.pivot(index=['cd', 'content_id', 'title'], columns='language', values=col+'_ratio')
         .fillna(0).to_csv())
-    
+    metric_keys = ['cd', 'content_id', 'platform']
+    m2 = calc_ratio(major, col, metric_keys).merge(match_df, on='content_id')
+    print(m2.pivot(index=['cd', 'content_id', 'title'], columns='platform', values=col+'_ratio')
+        .fillna(0).to_csv())
+
