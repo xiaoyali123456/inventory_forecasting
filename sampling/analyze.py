@@ -83,19 +83,45 @@ if __name__ == "__main__":
     # print(metric(wt, cc, metric_keys).to_csv())
     # parse_ssai(wt).to_csv('wc2022_city_quarter.csv')
 
-    # wt = spark.read.parquet(wt_path) # too big for pandas merge
-    # playout = spark.read.csv(playout_path, header=True).selectExpr(
-    #     'lower(trim(`Content ID`)) as content_id',
-    #     'trim(`Playout ID`) as playout_id',
-    #     'lower(trim(Language)) as language',
-    #     'explode(split(Platform, "\\\\|")) as platform'
-    # ).withColumn('platform', F.expr('lower(trim(platform))'))
-    # wt.join(playout, on=['content_id', 'playout_id']) \
-    #     .groupby('cd', 'content_id', 'language', 'platform') \
-    #     .agg(
-    #         F.expr('sum(ad_time) as ad_time'),
-    #         F.expr('sum(reach) as reach')
-    #     ).write.mode('overwrite').parquet(major_cohort_path)
+# wc 2021
+    wt = spark.read.parquet(wt_q_path) \
+        .where('cd < "2022-01-01"')
+    playout = spark.read.csv(playout_path, header=True).selectExpr(
+        'lower(trim(`Content ID`)) as content_id',
+        'trim(`Playout ID`) as playout_id',
+        'lower(trim(Language)) as language',
+        'explode(split(Platform, "\\\\|")) as platform'
+    ).withColumn('platform', F.expr('lower(trim(platform))'))
+    major = wt.join(playout, on=['content_id', 'playout_id']) \
+        .groupby('cd', 'content_id', 'language', 'platform') \
+        .agg(
+            F.expr('sum(ad_time) as ad_time'),
+            F.expr('sum(reach) as reach')
+        ).toPandas()
+
+    metric_keys = ['cd', 'content_id', 'language']
+    m1 = calc_ratio(major, col, metric_keys)
+    print(m1.pivot(index=['cd', 'content_id'], columns='language', values=col+'_ratio')
+        .fillna(0).to_csv())
+    metric_keys = ['cd', 'content_id', 'platform']
+    m2 = calc_ratio(major, col, metric_keys)
+    print(m2.pivot(index=['cd', 'content_id'], columns='platform', values=col+'_ratio')
+        .fillna(0).to_csv())
+
+# wc 2022
+    wt = spark.read.parquet(wt_path) # too big for pandas merge
+    playout = spark.read.csv(playout_path, header=True).selectExpr(
+        'lower(trim(`Content ID`)) as content_id',
+        'trim(`Playout ID`) as playout_id',
+        'lower(trim(Language)) as language',
+        'explode(split(Platform, "\\\\|")) as platform'
+    ).withColumn('platform', F.expr('lower(trim(platform))'))
+    wt.join(playout, on=['content_id', 'playout_id']) \
+        .groupby('cd', 'content_id', 'language', 'platform') \
+        .agg(
+            F.expr('sum(ad_time) as ad_time'),
+            F.expr('sum(reach) as reach')
+        ).write.mode('overwrite').parquet(major_cohort_path)
 
     major = spark.read.parquet(major_cohort_path).toPandas()
     metric_keys = ['cd', 'content_id', 'language']
@@ -106,4 +132,3 @@ if __name__ == "__main__":
     m2 = calc_ratio(major, col, metric_keys).merge(match_df, on='content_id')
     print(m2.pivot(index=['cd', 'content_id', 'title'], columns='platform', values=col+'_ratio')
         .fillna(0).to_csv())
-
