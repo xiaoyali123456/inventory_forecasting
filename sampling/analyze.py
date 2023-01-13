@@ -77,10 +77,13 @@ if __name__ == "__main__":
     # wtq = calc_ratio(spark.read.parquet(wt_q_path).toPandas().query('tournament == "wc2022"'), col, metric_keys)
     # metric(wt, wtq, metric_keys).to_csv(f'wc_{col}_22-22q.csv')
 
-    # metric_keys = ['cd', 'content_id', 'cohort']
-    # wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
-    # cc = calc_ratio(spark.read.parquet(cc_path).toPandas().rename(columns={'ssai_tag':'cohort'}), col, metric_keys)
-    # print(metric(wt, cc, metric_keys).to_csv())
+    metric_keys = ['cd', 'content_id', 'cohort']
+    wt0 = spark.read.parquet(wt_path).toPandas().merge(match_df, on='content_id')
+    cc0 = spark.read.parquet(cc_path).toPandas().rename(columns={'ssai_tag':'cohort'}) \
+        .merge(match_df, on='content_id')
+    wt = calc_ratio(wt0, col, metric_keys)
+    cc = calc_ratio(cc0, col, metric_keys)
+    print(metric(wt, cc, metric_keys).to_csv())
     # parse_ssai(wt).to_csv('wc2022_city_quarter.csv')
 
 # wc 2021
