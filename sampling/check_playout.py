@@ -49,3 +49,7 @@ print(df[~df.start.isna()][x.apply(lambda t: t < datetime.time(5,30))].cd.drop_d
 
 print(x[df[~df.start.isna()].cd == pd.to_datetime('2022-11-06')].apply(lambda x: x.hour).value_counts().sort_index())
 print(x[df[~df.start.isna()].cd == pd.to_datetime('2021-11-14')].apply(lambda x: x.hour).value_counts().sort_index())
+
+# check End date
+y = df[~df.end.isna()].end.map(lambda t: t.time())
+print(df[~df.end.isna()][y.apply(lambda t: t < datetime.time(5, 30))].cd.drop_duplicates())

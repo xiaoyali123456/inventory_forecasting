@@ -72,10 +72,10 @@ if __name__ == "__main__":
     match_df = spark.read.parquet(match_path).toPandas()[['content_id', 'title']]
     match_df = match_df[~match_df.title.str.contains('follow on|warm-up')]
 
-    # metric_keys = ['cd', 'content_id', 'cohort']
-    # wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
-    # wtq = calc_ratio(spark.read.parquet(wt_q_path).toPandas().query('tournament == "wc2022"'), col, metric_keys)
-    # metric(wt, wtq, metric_keys).to_csv(f'wc_{col}_22-22q.csv')
+    metric_keys = ['cd', 'content_id', 'cohort']
+    wt = calc_ratio(spark.read.parquet(wt_path).toPandas(), col, metric_keys)
+    wtq = calc_ratio(spark.read.parquet(wt_q_path).toPandas().query('tournament == "wc2022"'), col, metric_keys)
+    metric(wt, wtq, metric_keys).to_csv(f'wc_{col}_22-22q.csv')
 
     metric_keys = ['cd', 'content_id', 'cohort']
     wt0 = spark.read.parquet(wt_path).toPandas().merge(match_df, on='content_id')
