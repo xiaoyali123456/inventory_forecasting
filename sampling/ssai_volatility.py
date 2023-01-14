@@ -62,9 +62,34 @@ df2=df.groupby('dw_d_id').agg(F.collect_set('ssai').alias('ssai')).withColumn('d
 df3=df2.groupby('diff').count().toPandas()
 df3.sort_values('count',ascending=False).to_csv('ssai_diff.csv',index=False)
 
-df4=df.groupby('dw_d_id').agg(F.max(F.struct('timestamp', 'ssai', 'watch_time')).alias('mx')) \
-    .selectExpr('mx.ssai as ssai', 'mx.watch_time as wt') \
-    .groupby('ssai').agg({'wt': 'sum', '*': 'count'}).toPandas()
-df4.to_csv('ssai_max_ts_distri.csv', index=False)
+# check distribution of maximum ts
+df4=df.groupby('dw_d_id').agg(
+    F.expr('max(struct(timestamp, ssai)).ssai as ssai'),
+    F.sum('watch_time').alias('wt'),
+    F.count('*').alias('cnt')
+).groupby('ssai').sum('wt', 'cnt').toPandas()
 
+def select(ssai):
+    if not ssai:
+        return None
+    head = 'SSAI::'
+    n = len(head)
+    lst = ssai[n:].split(':')
+    res = [x for x in lst if x.startswith('M_')]
+    return res[0] if len(res) else ''
+df4['tag'] = df4.ssai.apply(select)
+df4a = df4.groupby('tag').sum()
+df4a['cnt ratio'] = df4a['sum(cnt)'] / df4a['sum(cnt)'].sum()
+df4a['wt ratio'] = df4a['sum(wt)'] / df4a['sum(wt)'].sum()
+print(df4a.to_csv())
 
+# origin distribution
+df5=df.groupby('ssai').agg(
+    F.sum('watch_time').alias('wt'),
+    F.count('*').alias('cnt')
+).toPandas()
+df5['tag'] = df5.ssai.apply(select)
+df5a = df5.groupby('tag').sum()
+df5a['cnt ratio'] = df5a['cnt'] / df5a['cnt'].sum()
+df5a['wt ratio'] = df5a['wt'] / df5a['wt'].sum()
+print(df5a.to_csv())
