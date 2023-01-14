@@ -56,6 +56,15 @@ def diff(ssai_list):
 
 out2='s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/ssai_volatile/cd=2022-11-13/'
 df=spark.read.parquet(out2)
+
+# check diff
 df2=df.groupby('dw_d_id').agg(F.collect_set('ssai').alias('ssai')).withColumn('diff', diff('ssai'))
 df3=df2.groupby('diff').count().toPandas()
 df3.sort_values('count',ascending=False).to_csv('ssai_diff.csv',index=False)
+
+df4=df.groupby('dw_d_id').agg(F.max(F.struct('timestamp', 'ssai', 'watch_time')).alias('mx')) \
+    .selectExpr('mx.ssai as ssai', 'mx.watch_time as wt') \
+    .groupby('ssai').agg({'wt': 'sum', '*': 'count'}).toPandas()
+df4.to_csv('ssai_max_ts_distri.csv', index=False)
+
+
