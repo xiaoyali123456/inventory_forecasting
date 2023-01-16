@@ -13,6 +13,7 @@ output_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecast
 playout_log_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
 wt_root = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
 
+
 @F.udf(returnType=BooleanType())
 def is_valid_title(title):
     for arg in ['warm-up', 'follow on']:
@@ -108,7 +109,8 @@ def process(tournament, dt):
         F.expr('bigint(least(timestamp, break_end) - greatest(start_timestamp, break_start))'))
     wt4 = wt3.where('ad_time > 0') \
         .withColumn('cohort', parse('user_segments')) \
-        .groupby('content_id', 'playout_id', 'cohort') \
+        .groupby('content_id', 'playout_id',
+            'language', 'platform', 'country', 'cohort') \
         .agg(
             F.expr('sum(ad_time) as ad_time'),
             F.expr('count(distinct dw_d_id) as reach')
