@@ -139,7 +139,8 @@ live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-pr
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 impression_path = "s3://hotstar-data-lake-northvirginia/data/source/campaignTracker/parquet_bifrost/impression_events"
 watch_video_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/"
-# watch_video_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+play_out_log_v2_input_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
 
 # df = spark.read.parquet(watch_video_path+"/cd=2022-11-13")
 #
@@ -163,17 +164,21 @@ tournament = "wc2022"
 # tournament = "wc2021"
 # tournament = "ipl2021"
 tournament_list = ["wc2022", "wc2021", "ipl2022", "ipl2021"]
-if tournament == "wc2022":
-    content_id_col = "Content ID"
-    start_time_col = "Start Time"
-    end_time_col = "End Time"
-    break_duration_col = "Delivered Time"
-    content_language_col = "Language"
-    platform_col = "Platform"
-    tenant_col = "Tenant"
-else:
-    content_id_col = "_c4"
-    start_time_col = "_c2"
+content_id_col = "Content ID"
+start_time_col = "Start Time"
+end_time_col = "End Time"
+break_duration_col = "Delivered Time"
+content_language_col = "Language"
+platform_col = "Platform"
+tenant_col = "Tenant"
+content_id_col2 = "_c4"
+start_time_col2 = "_c2"
+end_time_col2 = "_c13"
+break_duration_col2 = "_c15"
+content_language_col2 = "_c5"
+content_language_col3 = "_c1"
+platform_col2 = "_c8"
+tenant_col2 = "_c6"
 
 
 match_df = load_data_frame(spark, match_meta_path)\
@@ -188,15 +193,25 @@ match_df = load_data_frame(spark, match_meta_path)\
     .distinct()\
     .cache()
 
-valid_dates = match_df.select('date').distinct().collect()
-print(valid_dates)
-print(len(valid_dates))
-print(match_df.count())
+valid_dates = match_df.select('date').orderBy('date').distinct().collect()
 # match_df.show(200, False)
 if tournament == "ipl2021":
     valid_dates = [date for date in valid_dates if date[0] >= "2021-09-21" and date[0] != "2021-09-26"][:-1]
 
 print(valid_dates)
+start_date, end_date = (valid_dates[0][0], valid_dates[-1][0])
+complete_valid_dates = []
+date = start_date
+while True:
+    if date <= end_date:
+        complete_valid_dates.append(date)
+        date = get_date_list(date, 2)[-1]
+    else:
+        complete_valid_dates.append(date)
+        break
+
+print(complete_valid_dates)
+
 
 # conn = psycopg2.connect(database='ad_model',
 #                         user='ads_user',
@@ -269,25 +284,42 @@ print(valid_dates)
 
 
 # for inventory calculation from concurrency and playout data
-# playout_df = reduce(lambda x, y: x.union(y),
-#                     [load_data_frame(spark, f"{play_out_log_input_path}/{date[0]}", 'csv', True)
-#                     .withColumn('date', F.lit(date[0])) for date in valid_dates]) \
-#     .withColumnRenamed(content_id_col, 'content_id') \
-#     .withColumnRenamed(start_time_col, 'start_time') \
-#     .withColumnRenamed(end_time_col, 'end_time') \
-#     .withColumnRenamed(break_duration_col, 'delivered_duration') \
-#     .withColumnRenamed(content_language_col, 'content_language') \
-#     .withColumnRenamed(platform_col, 'platform') \
-#     .withColumnRenamed(tenant_col, 'tenant') \
-#     .withColumn('content_language', F.expr('lower(content_language)'))\
-#     .withColumn('platform', F.expr('lower(platform)'))\
-#     .withColumn('tenant', F.expr('lower(tenant)'))\
-#     .withColumn('content_id', F.trim(F.col('content_id'))) \
-#     .withColumn('start_time', F.expr('if(length(start_time)==8, start_time, from_unixtime(unix_timestamp(start_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
-#     .withColumn('end_time', F.expr('if(length(end_time)==8, end_time, from_unixtime(unix_timestamp(end_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
-#     .withColumn('delivered_duration', F.expr('cast(unix_timestamp(delivered_duration, "HH:mm:ss") as long)')) \
-#     .where('content_id != "Content ID" and content_id is not null and start_time is not null')\
-#     .cache()
+playout_df = reduce(lambda x, y: x.union(y),
+                    [load_data_frame(spark, f"{play_out_log_input_path}/{date[0]}", 'csv', True)
+                    .withColumn('date', F.lit(date[0]))
+                    .withColumnRenamed(content_id_col, 'content_id')
+                    .withColumnRenamed(start_time_col, 'start_time')
+                    .withColumnRenamed(end_time_col, 'end_time')
+                    .withColumnRenamed(break_duration_col, 'delivered_duration')
+                    .withColumnRenamed(platform_col, 'platform')
+                    .withColumnRenamed(tenant_col, 'tenant')
+                    .withColumnRenamed(content_id_col2, 'content_id')
+                    .withColumnRenamed(start_time_col2, 'start_time')
+                    .withColumnRenamed(end_time_col2, 'end_time')
+                    .withColumnRenamed(break_duration_col2, 'delivered_duration')
+                    .withColumnRenamed(platform_col2, 'platform')
+                    .withColumnRenamed(tenant_col2, 'tenant')
+                    .withColumnRenamed(content_language_col, 'content_language')
+                    .withColumnRenamed(content_language_col2, 'content_language')
+                    .select('date', 'content_id', 'start_time', 'end_time', 'delivered_duration',
+                            'platform', 'tenant', 'content_language') for date in valid_dates]) \
+    .withColumn('content_language', F.expr('lower(content_language)'))\
+    .withColumn('platform', F.expr('lower(platform)'))\
+    .withColumn('tenant', F.expr('lower(tenant)'))\
+    .withColumn('content_id', F.trim(F.col('content_id'))) \
+    .withColumn('start_time', F.expr('if(length(start_time)==8, start_time, from_unixtime(unix_timestamp(start_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
+    .withColumn('end_time', F.expr('if(length(end_time)==8, end_time, from_unixtime(unix_timestamp(end_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
+    .withColumn('delivered_duration', F.expr('cast(unix_timestamp(delivered_duration, "HH:mm:ss") as long)')) \
+    .where('content_id != "Content ID" and content_id is not null and start_time is not null')\
+    .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))\
+    .withColumn('next_date', F.date_add(F.col('date'), 1))\
+    .withColumn('start_date', F.expr('if(start_time < "03:00:00", next_date, date)'))\
+    .withColumn('end_date', F.expr('if(end_time < "03:00:00", next_date, date)'))\
+    .withColumn('start_time', F.concat_ws(" ", F.col('start_date'), F.col('start_time')))\
+    .withColumn('end_time', F.concat_ws(" ", F.col('end_date'), F.col('end_time')))\
+    .cache()
+
+# playout_df.where('content_id = "1540014332"').orderBy('start_time').show(100)
 
 # playout_df.where('content_id="1540018966" and content_language="hindi" and platform="android" and tenant="in"')\
 #     .orderBy('start_time')\
@@ -349,7 +381,7 @@ print(valid_dates)
 
 
 def get_break_list(playout_df, filter):
-    cols = ['content_id', 'start_time', 'end_time', 'delivered_duration']
+    cols = ['content_id', 'start_time', 'end_time', 'delivered_duration', 'simple_start_time']
     if filter == 1:
         playout_df = playout_df \
             .withColumn('rank', F.expr('row_number() over (partition by content_id order by start_time)')) \
@@ -357,34 +389,40 @@ def get_break_list(playout_df, filter):
         res_df = playout_df \
             .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'end_time as end_time_next'),
                   ['content_id', 'rank']) \
-            .withColumn('bias', F.expr('cast(unix_timestamp(start_time, "HH:mm:ss") as long) - cast(unix_timestamp(end_time_next, "HH:mm:ss") as long)')) \
+            .withColumn('bias', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long) '
+                                       '- cast(unix_timestamp(end_time_next, "yyyy-MM-dd HH:mm:ss") as long)')) \
             .where('bias >= 0') \
             .orderBy('start_time')
         res_df = playout_df \
             .where('rank = 1') \
             .select(*cols) \
-            .union(res_df.select(*cols)) \
-            .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))
+            .union(res_df.select(*cols))
     elif filter == 2:
         res_df = playout_df\
             .where('content_language="hindi" and platform="android" and tenant="in"')\
-            .select(*cols)\
-            .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))
+            .select(*cols)
     elif filter == 3:
         res_df = playout_df\
             .where('content_language="english" and platform="android" and tenant="in"')\
-            .select(*cols)\
-            .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))
+            .select(*cols)
     else:
         res_df = playout_df \
             .where('content_language="english" and platform="androidtv|firetv" and tenant="in"') \
-            .select(*cols) \
-            .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))
+            .select(*cols)
     save_data_frame(res_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}")
 
 
 # data_source = "concurrency"
-data_source = "watched_video"
+if tournament == "wc2022":
+    data_source = "watched_video"
+    rate = 1
+    wd_path = watch_video_path
+    wd_path_2 = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/watched_video"
+else:
+    data_source = "watched_video_sampled"
+    rate = 4
+    wd_path = watch_video_sampled_path
+
 if data_source == "concurrency":
     concurrency_df = reduce(lambda x, y: x.union(y),
                         [load_data_frame(spark, f"{ssai_concurrency_path}/cd={date[0]}").withColumn('date', F.lit(date[0])) for date in valid_dates]) \
@@ -395,61 +433,37 @@ if data_source == "concurrency":
         .groupBy('date', 'content_id', 'simple_start_time')\
         .agg(F.sum('no_user').alias('no_user'))\
         .cache()
-elif data_source == "watched_video":
+elif data_source == "watched_video" or data_source == "watched_video_sampled":
     watch_video_df = reduce(lambda x, y: x.union(y),
-                        [load_data_frame(spark, f"{watch_video_path}/cd={date[0]}")
-                            .withColumn('date', F.lit(date[0]))
-                            .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id', 'date') for date in valid_dates]) \
-        .join(match_df, ['date', 'content_id'])\
-        .withColumn('end_timestamp', F.substring(F.col('timestamp'), 1, 19))\
-        .withColumn('end_timestamp', F.expr('if(end_timestamp <= received_at, end_timestamp, received_at)'))\
-        .withColumn('watch_time', F.expr('cast(watch_time as int)'))\
-        .withColumn('start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time')))\
-        .withColumn('start_timestamp', F.substring(F.from_utc_timestamp(F.col('start_timestamp'), "IST"), 12, 8))\
-        .withColumn('end_timestamp', F.substring(F.from_utc_timestamp(F.col('end_timestamp'), "IST"), 12, 8))\
-        .withColumn('start_timestamp_int', F.expr('cast(unix_timestamp(start_timestamp, "HH:mm:ss") as long)'))\
-        .withColumn('end_timestamp_int', F.expr('cast(unix_timestamp(end_timestamp, "HH:mm:ss") as long)'))\
+                            [load_data_frame(spark, f"{wd_path_2}/cd={date}")
+                            .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id')
+                             if date <= "2022-10-20" and tournament == "wc2022" else load_data_frame(spark, f"{wd_path}/cd={date}")
+                            .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id')
+                             for date in complete_valid_dates]) \
+        .join(match_df, ['content_id']) \
+        .withColumn('end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
+        .withColumn('end_timestamp', F.expr('if(end_timestamp <= received_at, end_timestamp, received_at)')) \
+        .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
+        .withColumn('start_timestamp', F.from_unixtime(
+            F.unix_timestamp(F.col('end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
+        .withColumn('start_timestamp', F.from_utc_timestamp(F.col('start_timestamp'), "IST")) \
+        .withColumn('end_timestamp', F.from_utc_timestamp(F.col('end_timestamp'), "IST")) \
+        .withColumn('start_timestamp_int',
+                    F.expr('cast(unix_timestamp(start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('end_timestamp_int', F.expr('cast(unix_timestamp(end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .drop('received_at', 'timestamp', 'start_timestamp', 'end_timestamp')\
         .cache()
-    # watch_video_df = reduce(lambda x, y: x.union(y),
-    #                         [filter_users(load_data_frame(spark, f"{watch_video_path}/cd={date[0]}")
-    #                         .withColumn('date', F.lit(date[0]))
-    #                         .select('timestamp', 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id',
-    #                                 'date')) for date in valid_dates]) \
-    #     .join(match_df, ['date', 'content_id']) \
-    #     .withColumn('end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
-    #     .withColumn('end_timestamp', F.expr('if(end_timestamp <= received_at, end_timestamp, received_at)')) \
-    #     .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
-    #     .withColumn('start_timestamp', F.from_unixtime(
-    #     F.unix_timestamp(F.col('end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
-    #     .withColumn('start_timestamp', F.substring(F.from_utc_timestamp(F.col('start_timestamp'), "IST"), 12, 8)) \
-    #     .withColumn('end_timestamp', F.substring(F.from_utc_timestamp(F.col('end_timestamp'), "IST"), 12, 8)) \
-    #     .withColumn('start_timestamp_int', F.expr('cast(unix_timestamp(start_timestamp, "HH:mm:ss") as long)')) \
-    #     .withColumn('end_timestamp_int', F.expr('cast(unix_timestamp(end_timestamp, "HH:mm:ss") as long)')) \
-    #     .cache()
-    # watch_video_df.show(2, False)
 
 filter_list = [1, 2, 3, 4]
-for filter in filter_list[3:]:
+for filter in filter_list[1:3]:
     print(f"filter={filter}")
-    # get_break_list(playout_df, filter)
+    get_break_list(playout_df, filter)
     final_playout_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}") \
-        .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "HH:mm:ss") as long)')) \
-        .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "HH:mm:ss") as long)')) \
+        .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .where('end_time_int > start_time_int')\
         .cache()
-    # final_playout_df.show(2, False)
-    # playout_df.where('content_id = "1540019017"').orderBy('start_time').show(200)
-    # final_playout_df.where('content_id = "1540019017"').orderBy('start_time').show(200)
-    # final_playout_df.orderBy('content_id', 'start_time', 'simple_start_time').show(200)
-    # final_playout_df.groupBy('content_id').count().where('count > 1').show()
-    # final_playout_df\
-    #     .withColumn('delivered_duration_1', F.expr('unix_timestamp(delivered_duration, "hh:mm:ss")'))\
-    #     .withColumn('new_delivered_duration', F.expr('cast(unix_timestamp(delivered_duration, "HH:mm:ss") as long)'))\
-    #     .show(50, False)
-    # for date in valid_dates:
-    #     try:
-    #         df = load_data_frame(spark, f"{ssai_concurrency_path}/cd={date[0]}").withColumn('date', F.lit(date[0]))
-    #     except:
-    #         print(date)
+    print(final_playout_df.count())
     if data_source == "concurrency":
         total_inventory_df = concurrency_df\
             .join(final_playout_df, ['content_id', 'simple_start_time'])\
@@ -462,20 +476,26 @@ for filter in filter_list[3:]:
             .cache()
         save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
         # total_concurrency_df.orderBy('date', 'content_id').show(200)
-    elif data_source == "watched_video":
+    elif data_source == "watched_video" or data_source == "watched_video_sampled":
         total_inventory_df = watch_video_df\
             .join(F.broadcast(final_playout_df), ['content_id'])\
-            .where('(start_timestamp < start_time and end_timestamp > start_time) or (start_timestamp >= start_time and start_timestamp < end_time)')\
-            .withColumn('valid_duration', F.expr('if(start_timestamp < start_time, '
-                                                 'if(end_timestamp < end_time, end_timestamp_int - start_time_int, end_time_int - start_time_int), '
-                                                 'if(end_timestamp < end_time, end_timestamp_int - start_timestamp_int, end_time_int - start_timestamp_int))'))\
+            .where('(start_timestamp_int < start_time_int and end_timestamp_int > start_time_int) or (start_timestamp_int >= start_time_int and start_timestamp_int < end_time_int)')\
+            .withColumn('valid_duration', F.expr('if(start_timestamp_int < start_time_int, '
+                                                 'if(end_timestamp_int < end_time_int, end_timestamp_int - start_time_int, end_time_int - start_time_int), '
+                                                 'if(end_timestamp_int < end_time_int, end_timestamp_int - start_timestamp_int, end_time_int - start_timestamp_int))'))\
+            .withColumn('valid_duration', F.expr('cast(valid_duration as bigint)'))\
             .groupBy('date', 'content_id')\
-            .agg(F.sum('valid_duration').alias('total_inventory'),
+            .agg(F.sum('valid_duration').alias('total_duration'),
                  F.countDistinct("dw_p_id").alias('total_pid_reach'),
                  F.countDistinct("dw_d_id").alias('total_did_reach'))\
-            .withColumn('total_inventory', F.expr('cast(total_inventory / 10 as bigint)'))\
+            .withColumn('total_inventory', F.expr(f'cast((total_duration / 10 * {rate}) as bigint)'))\
             .cache()
         save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+        # total_inventory_df.where('total_inventory < 0').show()
+        total_inventory_df.orderBy('date', 'content_id').show()
+
+
+
 
 
 data_source = "watched_video"

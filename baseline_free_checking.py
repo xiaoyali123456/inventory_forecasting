@@ -134,12 +134,12 @@ tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
                   "wc2021": "ICC Men\'s T20 World Cup 2021",
                   "ipl2021": "VIVO IPL 2021",
                   "wc2019": "ICC CWC 2019"}
-# tournament = "wc2019"
-# tournament = "wc2021"
-tournament = "wc2022"
 
-# tournament = "ipl2021"
+# tournament = "wc2022"
 # tournament = "ipl2022"
+# tournament = "wc2021"
+tournament = "ipl2021"
+# tournament = "wc2019"
 
 segment = "content_language"
 # segment = "none_content_language"
@@ -178,7 +178,21 @@ print(match_df.count())
 #     valid_dates = [date for date in valid_dates if date[0] >= "2021-09-21" and date[0] != "2021-09-26"][:-1]
 
 print(valid_dates)
+start_date, end_date = (valid_dates[0][0], valid_dates[-1][0])
+complete_valid_dates = []
+date = start_date
+while True:
+    if date <= end_date:
+        if "2021-05-04" < date < "2021-09-19":
+            date = get_date_list(date, 2)[-1]
+            continue
+        complete_valid_dates.append(date)
+        date = get_date_list(date, 2)[-1]
+    else:
+        complete_valid_dates.append(date)
+        break
 
+print(complete_valid_dates)
 
 # reduce(lambda x, y: x.union(y),
 #     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
@@ -211,14 +225,14 @@ user_meta_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path +
 #     .cache()
 # save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table")
 
-sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table")\
-    .where('status in ("ACTIVE", "CANCELLED", "EXPIRED", "GRACE")')\
-    .withColumn('sub_start_time', F.expr("from_unixtime(created_on/1000)"))\
-    .withColumn('sub_end_time', F.expr("from_unixtime(expiry_time/1000)"))\
-    .select('sub_start_time', 'sub_end_time', 'hid')\
-    .withColumn('sub_start_time', F.expr('substring(from_utc_timestamp(sub_start_time, "IST"), 1, 10)'))\
-    .withColumn('sub_end_time', F.expr('substring(from_utc_timestamp(sub_end_time, "IST"), 1, 10)'))\
-    .cache()
+# sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table")\
+#     .where('status in ("ACTIVE", "CANCELLED", "EXPIRED", "GRACE")')\
+#     .withColumn('sub_start_time', F.expr("from_unixtime(created_on/1000)"))\
+#     .withColumn('sub_end_time', F.expr("from_unixtime(expiry_time/1000)"))\
+#     .select('sub_start_time', 'sub_end_time', 'hid')\
+#     .withColumn('sub_start_time', F.expr('substring(from_utc_timestamp(sub_start_time, "IST"), 1, 10)'))\
+#     .withColumn('sub_end_time', F.expr('substring(from_utc_timestamp(sub_end_time, "IST"), 1, 10)'))\
+#     .cache()
 # sub_df.show(20, False)
 
 free_num_list = []
@@ -256,10 +270,10 @@ ready_date_dic = {}
 # save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}")
 
 free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}").cache()
-free_num_df.show(50, False)
+# free_num_df.show(50, False)
 
 watch_df = reduce(lambda x, y: x.union(y),
-    [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
+    [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
         .withColumnRenamed(subscription_status_col, 'subscription_status')
         .withColumnRenamed(dw_p_id_col, 'dw_p_id')
         .withColumnRenamed(content_id_col, 'content_id')
@@ -268,7 +282,7 @@ watch_df = reduce(lambda x, y: x.union(y),
         .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
         .groupBy('dw_p_id', 'content_id')
         .agg(F.sum('watch_time').alias('watch_time'))
-        .withColumn('date', F.lit(date[0])) for date in valid_dates]) \
+        .withColumn('date', F.lit(date)) for date in complete_valid_dates]) \
     .join(match_df, ['date', 'content_id'], 'left')\
     .cache()
 # valid_contents = match_df.select('date', 'content_id').distinct().collect()
@@ -288,7 +302,7 @@ watch_df = reduce(lambda x, y: x.union(y),
 
 active_free_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/active_free_table_for_{tournament}")
 match_active_free_df = watch_df\
-    .groupBy('date', 'content_id')\
+    .groupBy('content_id')\
     .agg(F.countDistinct('dw_p_id').alias('match_active_free_num'),
          F.sum('watch_time').alias('total_free_watch_time'))\
     .withColumn('avg_watch_time', F.expr('total_free_watch_time/match_active_free_num'))\
@@ -296,7 +310,7 @@ match_active_free_df = watch_df\
 
 res_df = free_num_df\
     .join(active_free_df, 'date')\
-    .join(match_active_free_df, ['date', 'content_id'])\
+    .join(match_active_free_df, ['content_id'])\
     .withColumn('active_free_rate', F.expr('active_free_num/free_num'))\
     .withColumn('match_active_free_rate', F.expr('match_active_free_num/active_free_num'))\
     .join(match_df, ['date', 'content_id'])\
@@ -305,7 +319,7 @@ res_df = free_num_df\
 
 save_data_frame(res_df, live_ads_inventory_forecasting_root_path + f"/free_checking_result_of_{tournament}")
 # res_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_checking_result_of_{tournament}")
-# res_df.orderBy('content_id').show(200, False)
+res_df.orderBy('date', 'content_id').show(200, False)
 print(f"{tournament} done!")
 
 

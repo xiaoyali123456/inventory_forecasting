@@ -139,6 +139,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_sf_active_subscribers_rate
         sub_watch_rate = avg_sf_subscribers_watching_match_rate
         sub_watch_time = avg_sf_watch_time_per_subscriber_per_match
+        match_type = 1
     elif rank == 45:
         free_rate = avg_final_active_frees_rate
         free_watch_rate = avg_final_frees_watching_match_rate
@@ -146,6 +147,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_final_active_subscribers_rate
         sub_watch_rate = avg_final_subscribers_watching_match_rate
         sub_watch_time = avg_final_watch_time_per_subscriber_per_match
+        match_type = 2
     elif active_frees_rate > 0:
         free_rate = active_frees_rate
         free_watch_rate = frees_watching_match_rate
@@ -153,6 +155,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = active_subscribers_rate
         sub_watch_rate = subscribers_watching_match_rate
         sub_watch_time = watch_time_per_subscriber_per_match
+        match_type = 3
     elif title.find("india") > -1:
         free_rate = avg_india_active_frees_rate
         free_watch_rate = avg_india_frees_watching_match_rate
@@ -160,6 +163,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_india_active_subscribers_rate
         sub_watch_rate = avg_india_subscribers_watching_match_rate
         sub_watch_time = avg_india_watch_time_per_subscriber_per_match
+        match_type = 4
     elif rank <= 12:
         free_rate = avg_stage_1_active_frees_rate
         free_watch_rate = avg_stage_1_frees_watching_match_rate
@@ -167,6 +171,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_stage_1_active_subscribers_rate
         sub_watch_rate = avg_stage_1_subscribers_watching_match_rate
         sub_watch_time = avg_stage_1_watch_time_per_subscriber_per_match
+        match_type = 5
     else:
         free_rate = avg_stage_2_active_frees_rate
         free_watch_rate = avg_stage_2_frees_watching_match_rate
@@ -174,6 +179,7 @@ def estimate_inventory(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_stage_2_active_subscribers_rate
         sub_watch_rate = avg_stage_2_subscribers_watching_match_rate
         sub_watch_time = avg_stage_2_watch_time_per_subscriber_per_match
+        match_type = 6
     if rank >= 43 and title.find("india") > -1:
         free_rate = min(1.0, free_rate + 0.1)
         free_watch_rate = min(1.0, free_watch_rate + 0.1)
@@ -243,13 +249,13 @@ def estimate_reach(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_stage_2_active_subscribers_rate
         sub_watch_rate = avg_stage_2_subscribers_watching_match_rate
         sub_watch_time = avg_stage_2_watch_time_per_subscriber_per_match
-    if rank >= 43 and title.find("india") > -1:
-        free_rate = min(1.0, free_rate + 0.1)
-        free_watch_rate = min(1.0, free_watch_rate + 0.1)
-        sub_rate = min(1.0, sub_rate + 0.1)
-        sub_watch_rate = min(1.0, sub_watch_rate + 0.1)
-        free_watch_time = free_watch_time * 1.5
-        sub_watch_time = sub_watch_time * 1.5
+    # if rank >= 43 and title.find("india") > -1:
+    #     free_rate = min(1.0, free_rate + 0.1)
+    #     free_watch_rate = min(1.0, free_watch_rate + 0.1)
+    #     sub_rate = min(1.0, sub_rate + 0.1)
+    #     sub_watch_rate = min(1.0, sub_watch_rate + 0.1)
+    #     free_watch_time = free_watch_time * 1.5
+    #     sub_watch_time = sub_watch_time * 1.5
     # free_watch_time = min(free_watch_time, 5.0)
     res = (float(total_free_num) * free_rate * free_watch_rate / sub_pid_did_rate) + (float(total_sub_num) * sub_rate * sub_watch_rate / free_pid_did_rate)
     return float(res)
@@ -276,6 +282,7 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_sf_active_subscribers_rate
         sub_watch_rate = avg_sf_subscribers_watching_match_rate
         sub_watch_time = avg_sf_watch_time_per_subscriber_per_match
+        match_type = 1
     elif rank == 45:
         free_rate = avg_final_active_frees_rate
         free_watch_rate = avg_final_frees_watching_match_rate
@@ -283,6 +290,7 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_final_active_subscribers_rate
         sub_watch_rate = avg_final_subscribers_watching_match_rate
         sub_watch_time = avg_final_watch_time_per_subscriber_per_match
+        match_type = 2
     elif active_frees_rate > 0:
         free_rate = active_frees_rate
         free_watch_rate = frees_watching_match_rate
@@ -290,6 +298,7 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = active_subscribers_rate
         sub_watch_rate = subscribers_watching_match_rate
         sub_watch_time = watch_time_per_subscriber_per_match
+        match_type = 3
     elif title.find("india") > -1:
         free_rate = avg_india_active_frees_rate
         free_watch_rate = avg_india_frees_watching_match_rate
@@ -297,6 +306,7 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_india_active_subscribers_rate
         sub_watch_rate = avg_india_subscribers_watching_match_rate
         sub_watch_time = avg_india_watch_time_per_subscriber_per_match
+        match_type = 4
     elif rank <= 12:
         free_rate = avg_stage_1_active_frees_rate
         free_watch_rate = avg_stage_1_frees_watching_match_rate
@@ -304,6 +314,7 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_stage_1_active_subscribers_rate
         sub_watch_rate = avg_stage_1_subscribers_watching_match_rate
         sub_watch_time = avg_stage_1_watch_time_per_subscriber_per_match
+        match_type = 5
     else:
         free_rate = avg_stage_2_active_frees_rate
         free_watch_rate = avg_stage_2_frees_watching_match_rate
@@ -311,17 +322,19 @@ def estimate_inventory_test(rank, title, total_free_num, total_sub_num,
         sub_rate = avg_stage_2_active_subscribers_rate
         sub_watch_rate = avg_stage_2_subscribers_watching_match_rate
         sub_watch_time = avg_stage_2_watch_time_per_subscriber_per_match
-    if rank >= 43 and title.find("india") > -1:
-        free_rate = min(1.0, free_rate + 0.1)
-        free_watch_rate = min(1.0, free_watch_rate + 0.1)
-        sub_rate = min(1.0, sub_rate + 0.1)
-        sub_watch_rate = min(1.0, sub_watch_rate + 0.1)
-        free_watch_time = free_watch_time * 1.5
-        sub_watch_time = sub_watch_time * 1.5
-    # free_watch_time = min(free_watch_time, 5.0)
-    avg_concurrency = ((float(total_free_num) * free_rate * free_watch_rate * free_watch_time)
-                       + (float(total_sub_num) * sub_rate * sub_watch_rate * sub_watch_time)) / total_match_duration_in_minutes
-    return float(avg_concurrency * (number_of_ad_breaks * average_length_of_a_break_in_seconds / 10.0))
+        match_type = 6
+    # if rank >= 43 and title.find("india") > -1:
+    #     free_rate = min(1.0, free_rate + 0.1)
+    #     free_watch_rate = min(1.0, free_watch_rate + 0.1)
+    #     sub_rate = min(1.0, sub_rate + 0.1)
+    #     sub_watch_rate = min(1.0, sub_watch_rate + 0.1)
+    #     free_watch_time = free_watch_time * 1.5
+    #     sub_watch_time = sub_watch_time * 1.5
+    # # free_watch_time = min(free_watch_time, 5.0)
+    # avg_concurrency = ((float(total_free_num) * free_rate * free_watch_rate * free_watch_time)
+    #                    + (float(
+    #             total_sub_num) * sub_rate * sub_watch_rate * sub_watch_time)) / total_match_duration_in_minutes
+    return float(match_type)
 
 
 def load_wt_features(tournament):
@@ -396,6 +409,8 @@ tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
                   "ipl2021": "VIVO IPL 2021",
                   "wc2019": "ICC CWC 2019"}
 
+total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 240.0, 50.0, 70.0
+
 # calculation for wc 2022
 # total_free_number: first-match = first match of wc 2021, rest matches are increasing by rate in match level of wc 2021
 # total_sub_number: first-match = last match of ipl 2022 + normal-increasing-rate-in-date-level * days-between-ipl-2022-and-wc-2022, rest matches are increasing by rate in match level of wc 2021
@@ -424,7 +439,6 @@ first_match_sub_num = last_match_data(ipl2022_feature_df, 'total_subscribers_num
                       * days_bewteen_st_and_et(last_match_data(ipl2022_feature_df, 'date'), first_match_data(wc2022_label_df, 'date'))
 sub_num_increasing_rate = (last_match_data(wc2021_feature_df, 'total_subscribers_number') - first_match_data(wc2021_feature_df, 'total_subscribers_number')) / (wc2021_feature_df.count() - 1)
 
-total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 240.0, 50.0, 70.0
 # % active_frees, % frees_watching_match, watch_time_per_free_per_match,
 # % active_subscribers, % subscribers_watching_match, watch_time_per_subscriber_per_match
 india_match_df = wc2021_feature_df\
@@ -491,6 +505,54 @@ dynamic_parameters = ['% active_frees', '% frees_watching_match', "watch_time_pe
                       '% active_subscribers', '% subscribers_watching_match', "watch_time_per_subscriber_per_match"]
 
 
+sub_pid_did_rate = 0.94
+free_pid_did_rate = 1.02
+
+# res_df = wc2022_label_df\
+#     .withColumn('total_free_num', F.expr(f"{first_match_free_num} + (rank - 1) * {free_num_increasing_rate}"))\
+#     .withColumn('total_sub_num', F.expr(f"{first_match_sub_num} + (rank - 1) * {sub_num_increasing_rate}"))\
+#     .crossJoin(F.broadcast(india_match_df.drop('shortsummary')))\
+#     .crossJoin(F.broadcast(stage_1_match_df.drop('shortsummary')))\
+#     .crossJoin(F.broadcast(stage_2_match_df.drop('shortsummary')))\
+#     .crossJoin(F.broadcast(sf_match_df.drop('shortsummary')))\
+#     .crossJoin(F.broadcast(final_match_df.drop('shortsummary')))\
+#     .join(wc2021_feature_df.where('rank <= 42').select('simple_title', *dynamic_parameters), 'simple_title', 'left')\
+#     .fillna(-1, dynamic_parameters)\
+#     .withColumn('estimated_inventory', estimate_inventory_udf('rank', 'title', 'total_free_num', 'total_sub_num',
+#                                                               '% active_frees', '% frees_watching_match', "watch_time_per_free_per_match",
+#                                                               '% active_subscribers', '% subscribers_watching_match', "watch_time_per_subscriber_per_match",
+#                                                               'avg_india_active_frees_rate', 'avg_india_frees_watching_match_rate', 'avg_india_watch_time_per_free_per_match',
+#                                                               'avg_india_active_subscribers_rate', 'avg_india_subscribers_watching_match_rate', 'avg_india_watch_time_per_subscriber_per_match',
+#                                                               'avg_stage_1_active_frees_rate', 'avg_stage_1_frees_watching_match_rate', 'avg_stage_1_watch_time_per_free_per_match',
+#                                                               'avg_stage_1_active_subscribers_rate', 'avg_stage_1_subscribers_watching_match_rate', 'avg_stage_1_watch_time_per_subscriber_per_match',
+#                                                               'avg_stage_2_active_frees_rate', 'avg_stage_2_frees_watching_match_rate', 'avg_stage_2_watch_time_per_free_per_match',
+#                                                               'avg_stage_2_active_subscribers_rate', 'avg_stage_2_subscribers_watching_match_rate', 'avg_stage_2_watch_time_per_subscriber_per_match',
+#                                                               'avg_sf_active_frees_rate', 'avg_sf_frees_watching_match_rate', 'avg_sf_watch_time_per_free_per_match',
+#                                                               'avg_sf_active_subscribers_rate', 'avg_sf_subscribers_watching_match_rate', 'avg_sf_watch_time_per_subscriber_per_match',
+#                                                               'avg_final_active_frees_rate', 'avg_final_frees_watching_match_rate', 'avg_final_watch_time_per_free_per_match',
+#                                                               'avg_final_active_subscribers_rate', 'avg_final_subscribers_watching_match_rate', 'avg_final_watch_time_per_subscriber_per_match',
+#                                                               F.lit(total_match_duration_in_minutes), F.lit(number_of_ad_breaks), F.lit(average_length_of_a_break_in_seconds)))\
+#     .withColumn('estimated_reach', estimate_reach_udf('rank', 'title', 'total_free_num', 'total_sub_num',
+#                                                               '% active_frees', '% frees_watching_match', "watch_time_per_free_per_match",
+#                                                               '% active_subscribers', '% subscribers_watching_match', "watch_time_per_subscriber_per_match",
+#                                                               'avg_india_active_frees_rate', 'avg_india_frees_watching_match_rate', 'avg_india_watch_time_per_free_per_match',
+#                                                               'avg_india_active_subscribers_rate', 'avg_india_subscribers_watching_match_rate', 'avg_india_watch_time_per_subscriber_per_match',
+#                                                               'avg_stage_1_active_frees_rate', 'avg_stage_1_frees_watching_match_rate', 'avg_stage_1_watch_time_per_free_per_match',
+#                                                               'avg_stage_1_active_subscribers_rate', 'avg_stage_1_subscribers_watching_match_rate', 'avg_stage_1_watch_time_per_subscriber_per_match',
+#                                                               'avg_stage_2_active_frees_rate', 'avg_stage_2_frees_watching_match_rate', 'avg_stage_2_watch_time_per_free_per_match',
+#                                                               'avg_stage_2_active_subscribers_rate', 'avg_stage_2_subscribers_watching_match_rate', 'avg_stage_2_watch_time_per_subscriber_per_match',
+#                                                               'avg_sf_active_frees_rate', 'avg_sf_frees_watching_match_rate', 'avg_sf_watch_time_per_free_per_match',
+#                                                               'avg_sf_active_subscribers_rate', 'avg_sf_subscribers_watching_match_rate', 'avg_sf_watch_time_per_subscriber_per_match',
+#                                                               'avg_final_active_frees_rate', 'avg_final_frees_watching_match_rate', 'avg_final_watch_time_per_free_per_match',
+#                                                               'avg_final_active_subscribers_rate', 'avg_final_subscribers_watching_match_rate', 'avg_final_watch_time_per_subscriber_per_match',
+#                                                               F.lit(sub_pid_did_rate), F.lit(free_pid_did_rate)))\
+#     .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)'))\
+#     .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)'))\
+#     .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
+#     .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach'))\
+#     .where('total_inventory > 0')\
+#     .cache()
+#
 # wc2022_label_df\
 #     .withColumn('total_free_num', F.expr(f"{first_match_free_num} + (rank - 1) * {free_num_increasing_rate}"))\
 #     .withColumn('total_sub_num', F.expr(f"{first_match_sub_num} + (rank - 1) * {sub_num_increasing_rate}"))\
@@ -515,65 +577,77 @@ dynamic_parameters = ['% active_frees', '% frees_watching_match', "watch_time_pe
 #                                                               'avg_final_active_frees_rate', 'avg_final_frees_watching_match_rate', 'avg_final_watch_time_per_free_per_match',
 #                                                               'avg_final_active_subscribers_rate', 'avg_final_subscribers_watching_match_rate', 'avg_final_watch_time_per_subscriber_per_match',
 #                                                               F.lit(total_match_duration_in_minutes), F.lit(number_of_ad_breaks), F.lit(average_length_of_a_break_in_seconds)))\
-#     .where('rank = 16')\
 #     .orderBy('date', 'content_id')\
-#     .select('estimated_inventory', 'total_inventory')\
-#     .withColumn('estimated_inventory_int', F.expr('cast(estimated_inventory as bigint)'))\
 #     .show(200, False)
 
-sub_pid_did_rate = 0.94
-free_pid_did_rate = 1.02
+# res_df.orderBy('date', 'content_id').show(200, False)
+# res_df\
+#     .groupBy('shortsummary')\
+#     .agg(F.sum('total_inventory').alias('total_inventory'),
+#          F.sum('estimated_inventory').alias('estimated_inventory'))\
+#     .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
+#     .show(200, False)
 
-res_df = wc2022_label_df\
-    .withColumn('total_free_num', F.expr(f"{first_match_free_num} + (rank - 1) * {free_num_increasing_rate}"))\
-    .withColumn('total_sub_num', F.expr(f"{first_match_sub_num} + (rank - 1) * {sub_num_increasing_rate}"))\
-    .crossJoin(F.broadcast(india_match_df.drop('shortsummary')))\
-    .crossJoin(F.broadcast(stage_1_match_df.drop('shortsummary')))\
-    .crossJoin(F.broadcast(stage_2_match_df.drop('shortsummary')))\
-    .crossJoin(F.broadcast(sf_match_df.drop('shortsummary')))\
-    .crossJoin(F.broadcast(final_match_df.drop('shortsummary')))\
-    .join(wc2021_feature_df.select('simple_title', *dynamic_parameters), 'simple_title', 'left')\
-    .fillna(-1, dynamic_parameters)\
-    .withColumn('estimated_inventory', estimate_inventory_udf('rank', 'title', 'total_free_num', 'total_sub_num',
-                                                              '% active_frees', '% frees_watching_match', "watch_time_per_free_per_match",
-                                                              '% active_subscribers', '% subscribers_watching_match', "watch_time_per_subscriber_per_match",
-                                                              'avg_india_active_frees_rate', 'avg_india_frees_watching_match_rate', 'avg_india_watch_time_per_free_per_match',
-                                                              'avg_india_active_subscribers_rate', 'avg_india_subscribers_watching_match_rate', 'avg_india_watch_time_per_subscriber_per_match',
-                                                              'avg_stage_1_active_frees_rate', 'avg_stage_1_frees_watching_match_rate', 'avg_stage_1_watch_time_per_free_per_match',
-                                                              'avg_stage_1_active_subscribers_rate', 'avg_stage_1_subscribers_watching_match_rate', 'avg_stage_1_watch_time_per_subscriber_per_match',
-                                                              'avg_stage_2_active_frees_rate', 'avg_stage_2_frees_watching_match_rate', 'avg_stage_2_watch_time_per_free_per_match',
-                                                              'avg_stage_2_active_subscribers_rate', 'avg_stage_2_subscribers_watching_match_rate', 'avg_stage_2_watch_time_per_subscriber_per_match',
-                                                              'avg_sf_active_frees_rate', 'avg_sf_frees_watching_match_rate', 'avg_sf_watch_time_per_free_per_match',
-                                                              'avg_sf_active_subscribers_rate', 'avg_sf_subscribers_watching_match_rate', 'avg_sf_watch_time_per_subscriber_per_match',
-                                                              'avg_final_active_frees_rate', 'avg_final_frees_watching_match_rate', 'avg_final_watch_time_per_free_per_match',
-                                                              'avg_final_active_subscribers_rate', 'avg_final_subscribers_watching_match_rate', 'avg_final_watch_time_per_subscriber_per_match',
-                                                              F.lit(total_match_duration_in_minutes), F.lit(number_of_ad_breaks), F.lit(average_length_of_a_break_in_seconds)))\
-    .withColumn('estimated_reach', estimate_reach_udf('rank', 'title', 'total_free_num', 'total_sub_num',
-                                                              '% active_frees', '% frees_watching_match', "watch_time_per_free_per_match",
-                                                              '% active_subscribers', '% subscribers_watching_match', "watch_time_per_subscriber_per_match",
-                                                              'avg_india_active_frees_rate', 'avg_india_frees_watching_match_rate', 'avg_india_watch_time_per_free_per_match',
-                                                              'avg_india_active_subscribers_rate', 'avg_india_subscribers_watching_match_rate', 'avg_india_watch_time_per_subscriber_per_match',
-                                                              'avg_stage_1_active_frees_rate', 'avg_stage_1_frees_watching_match_rate', 'avg_stage_1_watch_time_per_free_per_match',
-                                                              'avg_stage_1_active_subscribers_rate', 'avg_stage_1_subscribers_watching_match_rate', 'avg_stage_1_watch_time_per_subscriber_per_match',
-                                                              'avg_stage_2_active_frees_rate', 'avg_stage_2_frees_watching_match_rate', 'avg_stage_2_watch_time_per_free_per_match',
-                                                              'avg_stage_2_active_subscribers_rate', 'avg_stage_2_subscribers_watching_match_rate', 'avg_stage_2_watch_time_per_subscriber_per_match',
-                                                              'avg_sf_active_frees_rate', 'avg_sf_frees_watching_match_rate', 'avg_sf_watch_time_per_free_per_match',
-                                                              'avg_sf_active_subscribers_rate', 'avg_sf_subscribers_watching_match_rate', 'avg_sf_watch_time_per_subscriber_per_match',
-                                                              'avg_final_active_frees_rate', 'avg_final_frees_watching_match_rate', 'avg_final_watch_time_per_free_per_match',
-                                                              'avg_final_active_subscribers_rate', 'avg_final_subscribers_watching_match_rate', 'avg_final_watch_time_per_subscriber_per_match',
-                                                              F.lit(sub_pid_did_rate), F.lit(free_pid_did_rate)))\
-    .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)'))\
-    .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)'))\
-    .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
-    .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach'))\
-    .where('total_inventory > 0')\
+filter = 1
+
+# tournament = "wc2022"
+tournament = "ipl2022"
+if tournament == "wc2022":
+    data_source = "watched_video"
+else:
+    data_source = "watched_video_sampled"
+    if tournament == "ipl2021" or tournament == "ipl2022":
+        total_match_duration_in_minutes = 300.0
+
+final_playout_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}") \
+        .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .where('end_time_int > start_time_int')\
+        .withColumn('break_duration', F.expr('end_time_int - start_time_int'))\
+        .groupBy('content_id')\
+        .agg(F.sum('break_duration').alias('total_break_duration'))\
+        .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}"), ['content_id'])\
+        .withColumn('avg_break_concurrency', F.expr('total_inventory * 10 / total_break_duration'))\
+        .cache()
+
+res_df = load_wt_features(tournament)\
+    .withColumn('rank', F.expr('row_number() over (partition by shortsummary order by date, content_id)'))\
+    .withColumn('simple_title', simple_title_udf('title'))\
+    .withColumnRenamed('% active_frees', 'free_rate')\
+    .withColumnRenamed('% frees_watching_match', 'free_watch_rate')\
+    .withColumnRenamed('% active_subscribers', 'sub_rate')\
+    .withColumnRenamed('% subscribers_watching_match', 'sub_watch_rate')\
+    .withColumn('avg_concurrency', F.expr(f'((cast(total_frees_number as float) * free_rate * free_watch_rate * watch_time_per_free_per_match) '
+                                          f'+ (cast(total_subscribers_number as float) * sub_rate * sub_watch_rate * watch_time_per_subscriber_per_match)) / {total_match_duration_in_minutes}'))\
+    .withColumn('estimated_inventory', F.expr(f'avg_concurrency * ({number_of_ad_breaks} * {average_length_of_a_break_in_seconds} / 10.0)'))\
+    .select('date', 'content_id', 'avg_concurrency', 'estimated_inventory')\
+    .join(final_playout_df, ['date', 'content_id'])\
     .cache()
 
-
 res_df.orderBy('date', 'content_id').show(200, False)
-res_df\
+
+
+
+res_df2 = load_wt_features(tournament)\
+    .withColumn('rank', F.expr('row_number() over (partition by shortsummary order by date, content_id)'))\
+    .withColumn('simple_title', simple_title_udf('title'))\
+    .withColumnRenamed('% active_frees', 'free_rate')\
+    .withColumnRenamed('% frees_watching_match', 'free_watch_rate')\
+    .withColumnRenamed('% active_subscribers', 'sub_rate')\
+    .withColumnRenamed('% subscribers_watching_match', 'sub_watch_rate')\
+    .withColumn('avg_concurrency', F.expr(f'((cast(total_frees_number as float) * free_rate * free_watch_rate * watch_time_per_free_per_match) '
+                                          f'+ (cast(total_subscribers_number as float) * sub_rate * sub_watch_rate * watch_time_per_subscriber_per_match)) / {total_match_duration_in_minutes}'))\
+    .withColumn('estimated_inventory', F.expr(f'avg_concurrency * ({number_of_ad_breaks} * {average_length_of_a_break_in_seconds} / 10.0)'))\
+    .select('date', 'content_id', 'estimated_inventory')\
+    .join(wc2022_label_df, ['date', 'content_id'])\
+    .cache()
+
+res_df2.orderBy('date', 'content_id').show(200, False)
+
+res_df2\
     .groupBy('shortsummary')\
     .agg(F.sum('total_inventory').alias('total_inventory'),
          F.sum('estimated_inventory').alias('estimated_inventory'))\
     .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
     .show(200, False)
+

@@ -159,7 +159,7 @@ def main(tournament):
         .show(300, False)
 
 
-main("wc2019")
+# main("wc2019")
 main("wc2021")
 main("wc2022")
 main("ipl2021")
