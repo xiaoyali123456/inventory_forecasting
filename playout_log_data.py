@@ -201,6 +201,9 @@ match_df = load_data_frame(spark, match_meta_path)\
     .withColumn('rank', F.expr('row_number() over (partition by date order by content_id)'))\
     .cache()
 
+# load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")\
+# .withColumn('file_name', F.expr('lower(file_name)'))\
+#     .where('file_name != "live" and match_info = "20190619_ICC_CWC_NZvsSA_Hindi_IOS_AsRun"').orderBy('date_ist').show(2000, False)
 
 df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")\
     .withColumn('file_name', F.expr('lower(file_name)'))\
@@ -223,7 +226,7 @@ df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live
     .withColumn('platform', F.expr('if(match_info_size = 6, null, platform)')) \
     .withColumn('platform_final', F.expr('if(platform = "ios", "ios", "")')) \
     .withColumn('tenant_final', F.expr('if(platform in ("us", "india", "canada"), platform, "")')) \
-    .withColumn('date_ist_final', F.substring(F.col('date_ist'), 1, 10)) \
+    .withColumn('date_ist_final', F.substring(F.col('date'), 1, 10)) \
     .withColumn('date_ist_final', F.expr('if(date_ist_final < "2019-05-30" or date_ist_final > "2019-07-15", date_tmp, date_ist_final)')) \
     .where('file_name != "live" and time_ist_length >= 8 and time_ist_length <= 15') \
     .withColumn('time_ist_final', F.regexp_replace(F.col('time_ist'), " ", ""))\
@@ -235,7 +238,7 @@ df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live
 
 
 df3 = df\
-    .where('date_ist_final = date_tmp')\
+    .where('time_ist_final > "15:00:00" and date_ist_final = date_tmp')\
     .groupBy('teams_str', 'date_tmp')\
     .agg(F.min('time_ist_final').alias('time_ist_final'))\
     .withColumn('rank', F.expr('row_number() over (partition by date_tmp order by time_ist_final)'))\
@@ -249,15 +252,21 @@ res_df = df\
     .selectExpr('date_tmp as start_date', 'language_final as language',
                 'platform_final as platform', 'tenant_final as tenant',
                 'date_ist_final as break_ist_date', 'time_ist_final as break_ist_start_time',
-                'duration_final as duration', 'teams_str')\
+                'duration_final as duration', 'teams_str', 'match_info')\
     .join(df3.selectExpr('date as start_date', 'teams_str', 'content_id', 'title', 'shortsummary'),
           ['start_date', 'teams_str'])\
-    .drop('teams_str')\
+    .withColumn('next_date', F.date_add(F.col('start_date'), 1))\
+    .withColumn('break_ist_date', F.expr('if(break_ist_start_time<"02:00:00" and (content_id="1440000715" or content_id="1440000784"), '
+                                         'next_date, break_ist_date)'))\
+    .drop('teams_str', 'next_date')\
     .cache()
 print(res_df.count())
 save_data_frame(res_df,
                 "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/")
 
+
+load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/")\
+    .where('content_id="1440000784"').orderBy('break_ist_date', 'break_ist_start_time').show(200, False)
 
 # +---+---+-------------------+---------------+---------------------------------------------------+------------------------+-------------------+--------+--------+-------------------------------------------+
 # |_c0|id1|date               |time           |file_name                                          |id2                     |date_ist           |time_ist|duration|match_info                                 |
