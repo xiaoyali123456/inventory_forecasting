@@ -3,7 +3,6 @@ import datetime
 
 header='Sr. No.,Start Date,Start Time,Playout ID,Content ID,Language,Tenant,Stream Type,Platform,Creative ID,Break ID,Creative Path,End Date,End Time,Actual Time,Delivered Time,cd'.split(',')
 neo = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/'
-
 df=spark.read.csv(neo, header=True).toPandas()
 assert list(df.columns) == header
 
@@ -16,8 +15,10 @@ def to_date_safe(dt):
 df['start'] = (df.cd.map(str) + ' ' + df['Start Time']).map(to_date_safe)
 df['end'] = (df.cd.map(str) + ' ' + df['End Time']).map(to_date_safe)
 
-print(df[df.start.isna()]['Start Time'])
-print(df[df.end.isna()]['End Time']) # TODO: to fix: 10/17/2022
+print(df[df.start.isna()]#[['Start Date', 'Start Time', 'cd', 'Content ID']])
+print(df[df.end.isna()]#[['End Date', 'End Time', 'cd', 'Content ID']])
+
+## check malform
 
 x = df[~df.start.isna()].start.map(lambda t: t.time())
 print(df[~df.start.isna()][x.apply(lambda t: t < datetime.time(5,30))].cd.drop_duplicates())
@@ -47,8 +48,8 @@ print(df[~df.start.isna()][x.apply(lambda t: t < datetime.time(5,30))].cd.drop_d
 #         23     81
 #         0       2
 
-print(x[df[~df.start.isna()].cd == pd.to_datetime('2022-11-06')].apply(lambda x: x.hour).value_counts().sort_index())
-print(x[df[~df.start.isna()].cd == pd.to_datetime('2021-11-14')].apply(lambda x: x.hour).value_counts().sort_index())
+# print(x[df[~df.start.isna()].cd == pd.to_datetime('2022-11-06')].apply(lambda x: x.hour).value_counts().sort_index())
+# print(x[df[~df.start.isna()].cd == pd.to_datetime('2021-11-14')].apply(lambda x: x.hour).value_counts().sort_index())
 
 # check End date
 y = df[~df.end.isna()].end.map(lambda t: t.time())
