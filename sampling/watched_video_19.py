@@ -40,7 +40,7 @@ def prepare_playout_df(dt):
     df[['content_id', 'language', 'country', 'platform']] = \
         df[['content_id', 'language', 'country', 'platform']].applymap(str.strip)
     df[['language', 'platform']] = df[['language', 'platform']].applymap(str.lower)
-    return df[['content_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
+    return df[['content_id', 'language', 'country', 'break_start', 'break_end']]
 
 def process(tournament, dt):
     print('process', dt)
@@ -52,7 +52,8 @@ def process(tournament, dt):
     playout_df = prepare_playout_df(dt)
     playout_df2 = spark.createDataFrame(playout_df)
     wt = spark.read.parquet(f'{wt_root}cd={dt}/')
-    wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'country', 'user_segments',
+    wt1 = wt[['dw_d_id', 'content_id', 'timestamp', 'platform', 'user_segments',
+        F.expr('lower(country) as country'),
         F.expr('lower(language) as language'),
         F.expr('timestamp - make_interval(0,0,0,0,0,0,watch_time) as start_timestamp')
     ]]
@@ -72,7 +73,7 @@ def process(tournament, dt):
 def main():
     playout = spark.read.parquet(playout_log_path).toPandas()
     t = ist_to_utc(playout.break_ist_date, playout.break_ist_start_time)
-    dates = set(t)
+    dates = set([str(x.date()) for x in t])
     tournaments=['wc2019']
     for tournament in tournaments:
         for dt in dates:
