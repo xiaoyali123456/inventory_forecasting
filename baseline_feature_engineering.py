@@ -146,7 +146,7 @@ def get_match_stage(tournament, date, rank):
             return "knock-off"
         else:
             return "group"
-    elif tournament == "wc2021" or tournament == "wc2021":
+    elif tournament == "wc2021" or tournament == "wc2022":
         if rank <= 12:
             return "qualifier"
         elif rank <= 42:
@@ -285,6 +285,7 @@ for i in range(len(india_holidays)):
 
 one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'gender_type', 'hostar_influence', 'match_stage']
 multi_hot_cols = ['teams', 'teams_tier']
+additional_cols = ["languages", "platforms"]
 
 
 def get_language_and_platform(tournament):
@@ -458,6 +459,7 @@ def get_language_and_platform_all():
 
 
 def add_more_features():
+    col_num_dic = {}
     df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_match_start_time_and_if_holiday")\
         .withColumn('venue', get_venue_udf('tournament', 'date'))\
         .withColumn('match_type', get_match_type_udf('tournament'))\
@@ -497,6 +499,7 @@ def add_more_features():
             .cache()
         col_num = col_df.count()
         print(col_num)
+        col_num_dic[col] = col_num
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
@@ -523,6 +526,7 @@ def add_more_features():
             .cache()
         col_num = col_df.count()
         print(col_num)
+        col_num_dic[col] = col_num
         df = df\
             .join(col_df, col)\
             .withColumn(f"{col}_hots_num", F.lit(col_num))
@@ -540,7 +544,6 @@ def add_more_features():
         .withColumn('platforms', plaform_process_udf("platforms"))\
         .withColumn('languages', languages_process_udf("languages"))\
         .cache()
-    additional_cols = ["languages", "platforms"]
     for col in additional_cols:
         print(col)
         df2 = language_and_platform_df\
@@ -555,7 +558,8 @@ def add_more_features():
             .drop('tag')\
             .cache()
         col_num = col_df.count()
-        col_df.groupBy(f'{col}_item').count().orderBy(f"{col}_item").show(40, False)
+        col_num_dic[col] = col_num
+        col_df.groupBy(f'{col}_item').count().orderBy(f"{col}_item").show(20, False)
         print(col_num)
         df = df\
             .join(df2
@@ -577,6 +581,7 @@ def add_more_features():
     df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
     cols = [col+"_hot_vector" for col in additional_cols]
     df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
+    print(col_num_dic)
     # [content_id: string, match_stage: string, hostar_influence: int, gender_type: string, tournament_name: string, match_type: string, if_contain_india_team: int,
     # venue: string, if_holiday: int, match_time: int, if_weekend: int, tournament: string, rank: int, date: string, title: string, shortsummary: string,
     # total_frees_number: bigint, active_free_num: bigint, match_active_free_num: bigint, total_free_watch_time: double, total_subscribers_number: bigint,
@@ -590,4 +595,16 @@ def add_more_features():
     # if_holiday_hot_vector: array<int>, venue_hot_vector: array<int>, if_contain_india_team_hot_vector: array<int>, match_type_hot_vector: array<int>, tournament_name_hot_vector: array<int>,
     # gender_type_hot_vector: array<int>, hostar_influence_hot_vector: array<int>, match_stage_hot_vector: array<int>, languages_hots: array<int>, languages_hots_num: int, platforms_hots: array<int>,
     # platforms_hots_num: int, languages_hot_vector: array<int>, platforms_hot_vector: array<int>]
+
+
+add_more_features()
+
+cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
+df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format")\
+    .drop(*cols)
+df.orderBy('date', 'content_id').show(300, False)
+
+
+# save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format_csv", "csv", True, '###')
+
 
