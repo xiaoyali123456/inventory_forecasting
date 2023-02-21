@@ -1,6 +1,7 @@
 from functools import reduce
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 import pyspark.sql.functions as F
 
 def load_playout():
@@ -37,8 +38,8 @@ def parse(ssai, prefix='M_'):
                 return x
     return ''
 
-def moving_avg(df, lam=0.8):
-    df['tag'] = df.cohort.apply(parse) # customize this line
+def moving_avg(df, lam=0.8, prefix='M_'):
+    df['tag'] = df.cohort.apply(lambda x: parse(x, prefix)) # customize this line
     time_col = 'cd' # 'start_time'
     df2=df.groupby([time_col, 'tag'])['ad_time'].sum().reset_index()
     df2['ad_time_ratio'] = df2.ad_time/df2.groupby([time_col])['ad_time'].transform('sum')
@@ -82,10 +83,33 @@ def moving_avg(df, lam=0.8):
           'sum_err', df8.sum()/df6.sum())
     return df3
 
+def moving_avg2(df, lam=0.8, prefix='M_'):
+    time_col = 'cd' # 'start_time'
+    df2=df.groupby([time_col, 'cohort'])['ad_time'].sum().reset_index()
+    df3=df2.pivot(time_col, 'cohort', 'ad_time').fillna(0)
+    mu = 1 - lam
+    # x is the sum
+    fun = np.frompyfunc(lambda x,y: lam * x + mu * y, 2, 1)
+    cohorts = set(df2.cohort)
+    for x in tqdm(cohorts):
+        df3[x+'_pr'] = fun.accumulate(df3[x], dtype=object)
+    last_n = 30
+    dc = {}
+    for x in cohorts:
+        t = parse(x)
+        if t not in dc:
+            dc[t] = []
+        dc[t].append(x)
+    for x in dc:
+        pd.DataFrame([df3[dc[x]].sum(axis=1),
+        df3[[s+'_pr' for s in dc[x]]].sum(axis=1)])
+    return df3
+
 if __name__ == '__main__':
     pl = load_playout()
     iv = load_inventory()
     df = iv.join(pl, on=['content_id', 'playout_id']).toPandas()
-    df3 = moving_avg(df)
+    df.to_parquet("ema.parquet")
+    df3 = moving_avg(df, prefix='M_')
     df3.to_csv('df2.csv')
 
