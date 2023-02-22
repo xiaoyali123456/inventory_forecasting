@@ -15,6 +15,7 @@ def load_playout():
         'trim(playout_id) as playout_id',
         'trim(platform) as platform',
         'trim(content_language) as language',
+        'creative_path',
         'start_time',
     )
     return df.groupby('content_id', 'playout_id').agg(
@@ -41,46 +42,20 @@ def parse(ssai, prefix='M_'):
 def moving_avg(df, lam=0.8, prefix='M_'):
     df['tag'] = df.cohort.apply(lambda x: parse(x, prefix)) # customize this line
     time_col = 'cd' # 'start_time'
-    df2=df.groupby([time_col, 'tag'])['ad_time'].sum().reset_index()
+    df2 = df.groupby([time_col, 'tag'])['ad_time'].sum().reset_index()
     df2['ad_time_ratio'] = df2.ad_time/df2.groupby([time_col])['ad_time'].transform('sum')
-    df3=df2.pivot(time_col, 'tag', 'ad_time_ratio')
+    tags = list(set(df2.tag))
+    tags_pr = [x+'_pr' for x in tags]
+    df3 = df2.pivot(time_col, 'tag', 'ad_time_ratio')[tags]
     mu = 1 - lam
-    tags = set(df2.tag)
+    fun = np.frompyfunc(lambda x,y: lam * x + mu * y, 2, 1)
     for x in tags:
-        lst = [0]
-        for y in df3[x][:-1]:
-            z, w = 0, 0
-            if lst[-1] == lst[-1]:
-                z += lam * lst[-1]
-                w += lam
-            if y == y:
-                z += mu * y
-                w += mu
-            if w == 0:
-                z = 0
-            else:
-                z /= w
-            lst.append(z)
-        df3[x+'_pr'] = lst
-        df3[x+'_err'] = df3[x+'_pr']-df3[x]
-        df3[x+'_rerr'] = df3[x+'_err']/df3[x]
-    cols = []
-    for x in tags:
-        cols += [x, x+'_pr']
-    for x in tags:
-        cols.append(x+'_err')
-    for x in tags:
-        cols.append(x+'_rerr')
-    df3 = df3[cols]
-    last_n = 30
-    df4 = df3[[x + '_err' for x in tags]].fillna(0)[last_n:]
-    df5 = df2.pivot(time_col, 'tag', 'ad_time')[tags].fillna(0) # inventory
-    df6 = df5.to_numpy()[last_n:]
-    df7 = df6 * df4.abs().to_numpy() # abs error
-    df8 = df6 * df4.to_numpy()
-    print('inventory', df6.sum(),
-          'abs_err', df7.sum()/df6.sum(),
-          'sum_err', df8.sum()/df6.sum())
+        df3[x+'_pr'] = fun.accumulate(df3[x], dtype=object)
+    df4 = df3[tags_pr].fillna(0).to_numpy()[:-1] - df3[tags].fillna(0).to_numpy()[1:]
+    df5 = df2.pivot(time_col, 'tag', 'ad_time')[tags].fillna(0).to_numpy()[1:]
+    df6 = df5 * np.abs(df4) # abs error
+    n_last = 29
+    print(df5[n_last:].sum(), df6[n_last:].sum()/df5[n_last:].sum())
     return df3
 
 def moving_avg2(df, lam=0.8, prefix='M_'):
@@ -93,23 +68,17 @@ def moving_avg2(df, lam=0.8, prefix='M_'):
     cohorts = set(df2.cohort)
     for x in tqdm(cohorts):
         df3[x+'_pr'] = fun.accumulate(df3[x], dtype=object)
-    last_n = 30
-    dc = {}
-    for x in cohorts:
-        t = parse(x)
-        if t not in dc:
-            dc[t] = []
-        dc[t].append(x)
-    for x in dc:
-        pd.DataFrame([df3[dc[x]].sum(axis=1),
-        df3[[s+'_pr' for s in dc[x]]].sum(axis=1)])
-    return df3
+    df3.columns = pd.MultiIndex.from_tuples([('gt', parse(c), c) for c in cohorts] + 
+                                            [('pr', parse(c), c + '_pr') for c in cohorts])
+    gt = df3['gt'].sum(level=0, axis=1)
+    pr = df3['pr'].sum(level=0, axis=1)
+    err = pr-gt
+    return err
 
 if __name__ == '__main__':
     pl = load_playout()
     iv = load_inventory()
     df = iv.join(pl, on=['content_id', 'playout_id']).toPandas()
-    df.to_parquet("ema.parquet")
-    df3 = moving_avg(df, prefix='M_')
+    df3 = moving_avg2(df)
     df3.to_csv('df2.csv')
 
