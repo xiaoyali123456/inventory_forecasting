@@ -43,7 +43,7 @@ def moving_avg(df, lam=0.8, prefix='M_'):
     df['tag'] = df.cohort.apply(lambda x: parse(x, prefix)) # customize this line
     time_col = 'cd' # 'start_time'
     df2 = df.groupby([time_col, 'tag'])['ad_time'].sum().reset_index()
-    df2['ad_time_ratio'] = df2.ad_time/df2.groupby([time_col])['ad_time'].transform('sum')
+    df2['ad_time_ratio'] = df2.ad_time/df2.groupby(time_col)['ad_time'].transform('sum')
     tags = list(set(df2.tag))
     tags_pr = [x+'_pr' for x in tags]
     df3 = df2.pivot(time_col, 'tag', 'ad_time_ratio')[tags]
@@ -61,18 +61,22 @@ def moving_avg(df, lam=0.8, prefix='M_'):
 def moving_avg2(df, lam=0.8, prefix='M_'):
     time_col = 'cd' # 'start_time'
     df2=df.groupby([time_col, 'cohort'])['ad_time'].sum().reset_index()
-    df3=df2.pivot(time_col, 'cohort', 'ad_time').fillna(0)
+    df2['ad_time_ratio'] = df2.ad_time/df2.groupby(time_col)['ad_time'].transform('sum')
+    cohorts = list(set(df2.cohort))
+    df3=df2.pivot(time_col, 'cohort', 'ad_time_ratio').fillna(0)[cohorts]
     mu = 1 - lam
     # x is the sum
     fun = np.frompyfunc(lambda x,y: lam * x + mu * y, 2, 1)
-    cohorts = set(df2.cohort)
     for x in tqdm(cohorts):
         df3[x+'_pr'] = fun.accumulate(df3[x], dtype=object)
+    df3 = df3[cohorts + [x+'_pr' for x in cohorts]]
     df3.columns = pd.MultiIndex.from_tuples([('gt', parse(c), c) for c in cohorts] + 
                                             [('pr', parse(c), c + '_pr') for c in cohorts])
     gt = df3['gt'].sum(level=0, axis=1)
     pr = df3['pr'].sum(level=0, axis=1)
-    err = pr-gt
+    gt.div(gt.sum(1), axis=0)
+    err = np.abs(pr[:-1].to_numpy()-gt[1:].to_numpy()).sum()
+    print(err, err/gt.sum().sum())
     return err
 
 if __name__ == '__main__':
