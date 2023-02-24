@@ -58,12 +58,13 @@ def moving_avg(df, lam=0.8, prefix='M_'):
     print(df5[n_last:].sum(), df6[n_last:].sum()/df5[n_last:].sum())
     return df3
 
-def moving_avg2(df, lam=0.8, prefix='M_'):
+def moving_avg2(df, lam=0.9, prefix='M_'):
     time_col = 'cd' # 'start_time'
-    df2=df.groupby([time_col, 'cohort'])['ad_time'].sum().reset_index()
-    df2['ad_time_ratio'] = df2.ad_time/df2.groupby(time_col)['ad_time'].transform('sum')
-    cohorts = list(set(df2.cohort))
-    df3=df2.pivot(time_col, 'cohort', 'ad_time_ratio').fillna(0)[cohorts]
+    df['cohort_s'] = df.cohort.fillna('') # XXX: critical for groupby None
+    df2=df.groupby([time_col, 'cohort_s'])['ad_time'].sum().reset_index()
+    df2['ad_time_ratio'] = df2.ad_time/df2.groupby(time_col).transform('sum')
+    cohorts = list(set(df2.cohort_s))
+    df3=df2.pivot(time_col, 'cohort_s', 'ad_time_ratio').fillna(0)[cohorts]
     mu = 1 - lam
     # x is the sum
     fun = np.frompyfunc(lambda x,y: lam * x + mu * y, 2, 1)
@@ -74,10 +75,15 @@ def moving_avg2(df, lam=0.8, prefix='M_'):
                                             [('pr', parse(c), c + '_pr') for c in cohorts])
     gt = df3['gt'].sum(level=0, axis=1)
     pr = df3['pr'].sum(level=0, axis=1)
-    gt.div(gt.sum(1), axis=0)
-    err = np.abs(pr[:-1].to_numpy()-gt[1:].to_numpy()).sum()
-    print(err, err/gt.sum().sum())
-    return err
+    df4 = pr.to_numpy()[:-1] - gt.to_numpy()[1:]
+    df2['tag'] = df2.cohort_s.apply(lambda x: parse(x, prefix))
+    df5 = df2.groupby([time_col, 'tag'])['ad_time'].sum().reset_index().pivot(time_col, 'tag', 'ad_time').fillna(0).to_numpy()[1:]
+    df6 = df5 * np.abs(df4)
+    n_last = 29
+    print('inventory', df5[n_last:].sum(),
+          'err', df6[n_last:].sum()/df5[n_last:].sum(),
+          's_err', (df5 * df4)[n_last:].sum())
+    return pd.concat([gt, pr], axis=1)
 
 if __name__ == '__main__':
     pl = load_playout()
@@ -85,4 +91,3 @@ if __name__ == '__main__':
     df = iv.join(pl, on=['content_id', 'playout_id']).toPandas()
     df3 = moving_avg2(df)
     df3.to_csv('df2.csv')
-
