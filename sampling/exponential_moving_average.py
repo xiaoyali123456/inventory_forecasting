@@ -39,7 +39,7 @@ def parse(ssai, prefix='M_'):
                 return x
     return ''
 
-def moving_avg(df, lam=0.8, prefix='M_'):
+def moving_avg_fake(df, lam=0.8, prefix='M_'):
     df['tag'] = df.cohort.apply(lambda x: parse(x, prefix)) # customize this line
     time_col = 'cd' # 'start_time'
     df2 = df.groupby([time_col, 'tag'])['ad_time'].sum().reset_index()
@@ -58,7 +58,7 @@ def moving_avg(df, lam=0.8, prefix='M_'):
     print(df5[n_last:].sum(), df6[n_last:].sum()/df5[n_last:].sum())
     return df3
 
-def moving_avg2(df, lambda_=0.8, prefix='M_', time_col = 'cd'):
+def moving_avg(df, lambda_=0.8, prefix='M_', time_col = 'cd'):
     df.cohort.fillna('', inplace=True) # XXX: critical for groupby None
     df2 = df.groupby([time_col, 'cohort'])['ad_time'].sum().reset_index()
     df2['ad_time_ratio'] = df2.ad_time / df2.groupby(time_col).ad_time.transform('sum')
@@ -72,7 +72,7 @@ def moving_avg2(df, lambda_=0.8, prefix='M_', time_col = 'cd'):
 
     df2['tag'] = df2.cohort.apply(parse_)
     err = pr - gt
-    invy = df2.pivot_table('ad_time', 'cd', 'tag', aggfunc=sum).fillna(0)
+    invy = df2.pivot_table('ad_time', time_col, 'tag', aggfunc=sum).fillna(0)
     invy_err = invy * err
     tail = lambda x: x[30:].to_numpy().sum()
     print('inventory', tail(invy),
@@ -84,5 +84,6 @@ if __name__ == '__main__':
     pl = load_playout()
     iv = load_inventory()
     df = iv.join(pl, on=['content_id', 'playout_id']).toPandas()
-    df2 = moving_avg2(df)
+    df2 = moving_avg(df)
     df2.to_csv('df2.csv')
+    df2 = moving_avg(df, time_col='start_time') # show not stable
