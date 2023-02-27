@@ -45,10 +45,12 @@ def metric(df, df2, metric_keys):
         'sum_ae': sum_ae(x),
     }))
 
-def select(ssai):
+def select(ssai, prefix='M_'):
+    if not isinstance(ssai, str):
+        return ''
     head = 'SSAI::'
     n = len(head)
-    res = [x for x in ssai[n:].split(':') if x.startswith('M_')]
+    res = [x for x in ssai[n:].split(':') if x.startswith(prefix)]
     return res[0] if len(res) else ''
 
 def parse_ssai(df):
@@ -135,3 +137,13 @@ if __name__ == "__main__":
     m2 = calc_ratio(major, col, metric_keys).merge(match_df, on='content_id')
     print(m2.pivot(index=['cd', 'content_id', 'title'], columns='platform', values=col+'_ratio')
         .fillna(0).to_csv())
+
+# analyze other tag:
+    def parse_ssai(df):
+        col = 'ad_time'
+        df['tag'] = df.cohort.apply(lambda x: select(x, 'A_'))
+        df2=df.groupby(['cd', 'content_id', 'tag']).sum()
+        return df2.reset_index().pivot(index=['cd', 'content_id'], columns='tag', values=col+'_ratio').fillna(0)
+    # df = pd.read_parquet('wt.parquet') # pd.read_csv('wt.csv')
+    df2=parse_ssai(df)
+    
