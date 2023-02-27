@@ -125,161 +125,124 @@ play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log
 watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
 viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
 
-# spark.stop()
-# spark = hive_spark('statistics')
-# match_df = load_hive_table(spark, "in_cms.match_update_s3")
-# save_data_frame(match_df, match_meta_path)
-tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
-                  "ac2022": "DP World Asia Cup 2022",
-                  "ipl2022": "TATA IPL 2022",
-                  "wc2021": "ICC Men\'s T20 World Cup 2021",
-                  "ipl2021": "VIVO IPL 2021",
-                  "wc2019": "ICC CWC 2019"}
+tournament_dic = {"wc2022": ['"ICC Men\'s T20 World Cup 2022"'],
+                  "ac2022": ['"DP World Asia Cup 2022"'],
+                  "ipl2022": ['"TATA IPL 2022"'],
+                  "wc2021": ['"ICC Men\'s T20 World Cup 2021"'],
+                  "ipl2021": ['"VIVO IPL 2021"'],
+                  "wc2019": ['"ICC CWC 2019"'],
+                  "west_indies_tour_of_india2019": ['"West Indies Tour India 2019"', '"West Indies Tour of India 2019"'],
+                  "australia_tour_of_india2020": ['"Australia Tour of India 2020"', '"Australia tour of India 2020"'],
+                  "india_tour_of_new_zealand2020": ['"India Tour of New Zealand 2020"', '"India tour of New Zealand 2020"'],
+                  "england_tour_of_india2021": ['"England Tour of India 2021"']}
+
+tournament_dic_2 = {}
+for tournament in tournament_dic:
+    if tournament == "england_tour_of_india2021":
+        tournament_dic_2[tournament] = "1540005184|1540005193|1540005196|1540005199|1540005211|1540005214"
+        tournament_dic_2[tournament] = ",".join("\""+contentid+"\"" for contentid in tournament_dic_2[tournament].split("|"))
+        print(tournament_dic_2[tournament])
+    else:
+        tournament_dic_2[tournament] = ""
 
 # tournament = "wc2022"
-tournament = "ac2022"
+# tournament = "ac2022"
 # tournament = "ipl2022"
 # tournament = "wc2021"
 # tournament = "ipl2021"
 # tournament = "wc2019"
-
+# tournament = "west_indies_tour_of_india2019"
+# tournament = "australia_tour_of_india2020"
+# tournament = "india_tour_of_new_zealand2020" # not solved
+tournament = "england_tour_of_india2021"
 segment = "content_language"
 # segment = "none_content_language"
 tournament_list = ["wc2022", "wc2021", "ipl2022", "ipl2021"]
 
 subscription_status_col = "_col3"
 dw_p_id_col = "_col0"
-dw_d_id_col = "_col1"
 content_id_col = "_col2"
 watch_time_col = "_col27"
 
-# df = reduce(lambda x, y: x.union(y),
-#            [load_data_frame(spark,
-#                             live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
-#             for previous_date in get_date_list("2019-05-01", 61)]).distinct()
-# df.withColumn('size', F.length(F.col('dw_p_id'))).groupBy('size').count().orderBy('count', ascending=False).show(2000)
-# print(df.count())
 
-match_df = load_data_frame(spark, match_meta_path)\
-    .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)'))\
-    .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"')\
-    .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)'))\
-    .withColumn('title', F.expr('lower(title)'))\
-    .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
-                                                         F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar')))\
-    .where('title_valid_tag = 1')\
-    .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary')\
-    .orderBy('date')\
-    .distinct()\
-    .cache()
+if check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"match_data/{tournament}"):
+    match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
+else:
+    match_df = load_data_frame(spark, match_meta_path)\
+        .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)'))\
+        .where(f'shortsummary in ({",".join(tournament_dic[tournament])}) and contenttype="SPORT_LIVE"')\
+        .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)'))\
+        .withColumn('title', F.expr('lower(title)'))\
+        .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
+                                                             F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar')))\
+        .where('title_valid_tag = 1')\
+        .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary')\
+        .orderBy('date')\
+        .distinct()\
+        .cache()
+    save_data_frame(match_df, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}")
 
-valid_dates = match_df.select('date').distinct().collect()
-print(len(valid_dates))
 print(match_df.count())
+match_df.show(200, False)
+valid_dates = match_df.select('date').distinct().collect()
+print(valid_dates)
+print(len(valid_dates))
 # match_df.show(200, False)
 # if tournament == "ipl2021":
 #     valid_dates = [date for date in valid_dates if date[0] >= "2021-09-21" and date[0] != "2021-09-26"][:-1]
 
 print(valid_dates)
-start_date, end_date = (valid_dates[0][0], valid_dates[-1][0])
-complete_valid_dates = []
-date = start_date
-while True:
-    if date <= end_date:
-        if "2021-05-04" < date < "2021-09-19":
-            date = get_date_list(date, 2)[-1]
-            continue
-        complete_valid_dates.append(date)
-        date = get_date_list(date, 2)[-1]
-    else:
-        complete_valid_dates.append(date)
-        break
+complete_valid_dates = [date[0] for date in valid_dates]
+for date in valid_dates:
+    next_date = get_date_list(date[0], 2)[-1]
+    if next_date not in complete_valid_dates:
+        complete_valid_dates.append(next_date)
 
 print(complete_valid_dates)
 
-# reduce(lambda x, y: x.union(y),
-#     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
-#         .withColumnRenamed(subscription_status_col, 'subscription_status')
-#         .withColumnRenamed(dw_p_id_col, 'dw_p_id')
-#         .withColumnRenamed(content_id_col, 'content_id')
-#         .withColumn('subscription_status', F.upper(F.col('subscription_status')))
-#         .where('subscription_status in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
-#         .groupBy('content_id')
-#         .agg(F.countDistinct("dw_p_id").alias('total_pid_reach'),
-#             F.countDistinct("dw_d_id").alias('total_did_reach'))
-#         .withColumn('date', F.lit(date[0])) for date in valid_dates]) \
-#     .join(match_df.select('date', 'content_id'), ['date', 'content_id'])\
-#     .withColumn('rate', F.expr('total_pid_reach/total_did_reach'))\
-#     .orderBy('date', 'content_id')\
-#     .show(200, False)
+
+ready_date_dic = {}
+for date in valid_dates:
+    print(date[0])
+    for previous_date in get_date_list(date[0], -90):
+        if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}"):
+        # if previous_date not in ready_date_dic:
+            print(f"- {previous_date}")
+            viewers_df = load_data_frame(spark, f'{viewAggregatedInputPath}/cd={previous_date}', fmt="orc")\
+                .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
+                .select('dw_p_id')\
+                .distinct()
+            save_data_frame(viewers_df, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}")
+            ready_date_dic[previous_date] = 1
 
 
-# user_meta_df = load_hive_table(spark, "in_ums.user_umfnd_s3") \
-#     .select('pid', 'hid') \
-#     .withColumn('pid', F.expr('sha2(pid, 256)'))\
-#     .withColumnRenamed('pid', 'dw_p_id')\
-#     .distinct()\
-#     .cache()
-# user_meta_df.groupBy('hid').count().where('count>1').show(20, False)
-# save_data_frame(user_meta_df, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping")
-# user_meta_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping")
-# sub_df = load_hive_table(spark, "in_hspay_subscriptions.subscriptions_s3")\
-#     .select('expiry_time', 'created_on', 'hid', 'is_deleted', 'status')\
-#     .cache()
-# save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table")
+for date in valid_dates:
+    print(date[0])
+    df = reduce(lambda x, y: x.union(y),
+           [load_data_frame(spark,
+                            live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
+            for previous_date in get_date_list(date[0], -90)]).distinct()
+    save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")
 
-# sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table")\
-#     .where('status in ("ACTIVE", "CANCELLED", "EXPIRED", "GRACE")')\
-#     .withColumn('sub_start_time', F.expr("from_unixtime(created_on/1000)"))\
-#     .withColumn('sub_end_time', F.expr("from_unixtime(expiry_time/1000)"))\
-#     .select('sub_start_time', 'sub_end_time', 'hid')\
-#     .withColumn('sub_start_time', F.expr('substring(from_utc_timestamp(sub_start_time, "IST"), 1, 10)'))\
-#     .withColumn('sub_end_time', F.expr('substring(from_utc_timestamp(sub_end_time, "IST"), 1, 10)'))\
-#     .cache()
-# sub_df.show(20, False)
 
-# ready_date_dic = {}
-# for date in valid_dates:
-#     print(date[0])
-#     for previous_date in get_date_list(date[0], -90):
-#         # if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}"):
-#         if previous_date not in ready_date_dic:
-#             print(f"- {previous_date}")
-#             viewers_df = load_data_frame(spark, f'{viewAggregatedInputPath}/cd={previous_date}', fmt="orc")\
-#                 .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
-#                 .select('dw_p_id')\
-#                 .distinct()
-#             save_data_frame(viewers_df, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}")
-#             ready_date_dic[previous_date] = 1
-#
-#
-# for date in valid_dates:
-#     print(date[0])
-#     df = reduce(lambda x, y: x.union(y),
-#            [load_data_frame(spark,
-#                             live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
-#             for previous_date in get_date_list(date[0], -90)]).distinct()
-#     save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")
-#
-#
-# print("all viewer data ready.")
-#
+print("all viewer data ready.")
 
-# free_num_list = []
-# for date in valid_dates:
-#     print(date[0])
-#     sub_on_target_date_df = calculate_sub_num_on_target_date(sub_df, user_meta_df, date[0])
-#     free_num = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")\
-#         .join(sub_on_target_date_df, 'dw_p_id', 'left_anti')\
-#         .count()
-#     free_num_list.append((date[0], free_num))
-#
-# free_num_df = spark.createDataFrame(free_num_list, ["date", "free_num"]).orderBy('date')
-# save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}")
+user_meta_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping").cache()
+sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table_valid").cache()
+free_num_list = []
+for date in valid_dates:
+    print(date[0])
+    sub_on_target_date_df = calculate_sub_num_on_target_date(sub_df, user_meta_df, date[0])
+    free_num = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")\
+        .join(sub_on_target_date_df, 'dw_p_id', 'left_anti')\
+        .count()
+    free_num_list.append((date[0], free_num))
 
+free_num_df = spark.createDataFrame(free_num_list, ["date", "free_num"]).orderBy('date')
+save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}")
 
 free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}").cache()
-# free_num_df.show(50, False)
+free_num_df.show(20, False)
 
 watch_df = reduce(lambda x, y: x.union(y),
     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
@@ -295,20 +258,20 @@ watch_df = reduce(lambda x, y: x.union(y),
     .join(match_df, ['date', 'content_id'], 'left')\
     .cache()
 
-# valid_contents = match_df.select('date', 'content_id').distinct().collect()
-# active_free_list = []
-# for item in valid_contents:
-#     num = watch_df\
-#         .where(f'date="{item[0]}" and (content_id = "{item[1]}" or title is null)') \
-#         .groupBy('date')\
-#         .agg(F.countDistinct('dw_p_id').alias('active_free_num'))\
-#         .select('active_free_num').collect()[0][0]
-#     active_free_list.append((item[0], item[1], num))
-#     print(active_free_list[-1])
-#     print(len(active_free_list))
-#
-# active_free_df = spark.createDataFrame(active_free_list, ['date', 'content_id', 'active_free_num']).cache()
-# save_data_frame(active_free_df, live_ads_inventory_forecasting_root_path + f"/active_free_table_for_{tournament}")
+valid_contents = match_df.select('date', 'content_id').distinct().collect()
+active_free_list = []
+for item in valid_contents:
+    num = watch_df\
+        .where(f'date="{item[0]}" and (content_id = "{item[1]}" or title is null)') \
+        .groupBy('date')\
+        .agg(F.countDistinct('dw_p_id').alias('active_free_num'))\
+        .select('active_free_num').collect()[0][0]
+    active_free_list.append((item[0], item[1], num))
+    print(active_free_list[-1])
+    print(len(active_free_list))
+
+active_free_df = spark.createDataFrame(active_free_list, ['date', 'content_id', 'active_free_num']).cache()
+save_data_frame(active_free_df, live_ads_inventory_forecasting_root_path + f"/active_free_table_for_{tournament}")
 
 active_free_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/active_free_table_for_{tournament}")
 match_active_free_df = watch_df\

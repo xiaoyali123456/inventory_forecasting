@@ -193,7 +193,8 @@ match_df = load_data_frame(spark, match_meta_path)\
     .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"')\
     .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)'))\
     .withColumn('title', F.expr('lower(title)'))\
-    .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on')))\
+    .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
+                                                         F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar')))\
     .where('title_valid_tag = 1')\
     .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary')\
     .orderBy('date')\
@@ -252,7 +253,7 @@ res_df = df\
     .selectExpr('date_tmp as start_date', 'language_final as language',
                 'platform_final as platform', 'tenant_final as tenant',
                 'date_ist_final as break_ist_date', 'time_ist_final as break_ist_start_time',
-                'duration_final as duration', 'teams_str', 'match_info')\
+                'duration_final as duration', 'teams_str', 'match_info', "file_name")\
     .join(df3.selectExpr('date as start_date', 'teams_str', 'content_id', 'title', 'shortsummary'),
           ['start_date', 'teams_str'])\
     .withColumn('next_date', F.date_add(F.col('start_date'), 1))\
@@ -266,7 +267,13 @@ save_data_frame(res_df,
 
 
 load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/")\
-    .where('content_id="1440000784"').orderBy('break_ist_date', 'break_ist_start_time').show(200, False)
+    .where('content_id="1440000982"').orderBy('break_ist_date', 'break_ist_start_time').show(200, False)
+
+load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")\
+    .withColumn('file_name', F.expr('lower(file_name)'))\
+    .withColumn('aston_idx', F.locate("aston", F.col('file_name')))\
+    .where('aston_idx > 0').show()
+
 
 # +---+---+-------------------+---------------+---------------------------------------------------+------------------------+-------------------+--------+--------+-------------------------------------------+
 # |_c0|id1|date               |time           |file_name                                          |id2                     |date_ist           |time_ist|duration|match_info                                 |

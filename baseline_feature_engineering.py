@@ -253,12 +253,12 @@ viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/agg
 # spark = hive_spark('statistics')
 # match_df = load_hive_table(spark, "in_cms.match_update_s3")
 # save_data_frame(match_df, match_meta_path)
-tournament_dic = {"wc2022": ["ICC Men\'s T20 World Cup 2022", "World Cup 2022", "T20", "Australia", "men"],
-                  "ac2022": ["DP World Asia Cup 2022", "Asia Cup 2022", "T20", "United Arab Emirates", "men"],
-                  "ipl2022": ["TATA IPL 2022", "IPL 2022", "T20", "India", "men"],
-                  "wc2021": ["ICC Men\'s T20 World Cup 2021", "World Cup 2021", "T20", "United Arab Emirates", "men"],
-                  "ipl2021": ["VIVO IPL 2021", "IPL 2021", "T20", "India, United Arab Emirates", "men"],
-                  "wc2019": ["ICC CWC 2019", "World Cup 2019", "ODI", "England", "men"]}
+tournament_dic = {"wc2022": ["ICC Men\'s T20 World Cup 2022", "World Cup 2022", "T20", "Australia", "men", "svod"],
+                  "ac2022": ["DP World Asia Cup 2022", "Asia Cup 2022", "T20", "United Arab Emirates", "men", "svod"],
+                  "ipl2022": ["TATA IPL 2022", "IPL 2022", "T20", "India", "men", "svod"],
+                  "wc2021": ["ICC Men\'s T20 World Cup 2021", "World Cup 2021", "T20", "United Arab Emirates", "men", "svod"],
+                  "ipl2021": ["VIVO IPL 2021", "IPL 2021", "T20", "India, United Arab Emirates", "men", "svod"],
+                  "wc2019": ["ICC CWC 2019", "World Cup 2019", "ODI", "England", "men", "avod"]}
 
 india_holidays = ["2019-1-26", "2019-3-4", "2019-3-21", "2019-4-17", "2019-4-19", "2019-5-18", "2019-6-5",
                   "2019-8-12", "2019-8-15", "2019-8-24", "2019-9-10", "2019-10-2", "2019-10-8", "2019-10-27",
