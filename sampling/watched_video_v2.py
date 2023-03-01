@@ -143,5 +143,11 @@ def main():
         for dt in dates:
             process(tour, dt, pl)
 
+def sanity_check():
+    df=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2021/cd=2021-10-27/').toPandas()
+    df2=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2021/cd=2021-10-27/').toPandas()
+    print(df2.ad_time.sum()/df.ad_time.sum()) # 97.3%
+    print(df2.reach.sum()/df.reach.sum()) # 94.4%
+
 if __name__ == '__main__':
     main()
