@@ -25,7 +25,7 @@ def load_playout():
 
 def load_inventory():
     path = [
-        # XXX: inventory contain "Follow-on" match, but playout_v3 don't.
+        # XXX: inventory contain "Follow-on" match, but playout_v3 doesn't.
         's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2022',
         's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2021',
     ]

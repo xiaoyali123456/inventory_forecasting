@@ -134,14 +134,18 @@ def process(tournament, dt, playout):
         print(res.count())
 
 def main():
-    tournaments=['wc2021', 'wc2022']
+    tournaments=['wc2022', 'wc2021']
     for tour in tournaments:
         pl = preprocess_playout(spark.read.parquet(playout_path + tour))
         # pl2 = preprocess_playout2(spark.read.parquet(playout_path + tour)).toPandas()
         # assert pl.equals(pl2)
-        dates = pl.break_start.map(lambda x: str(x.date())).unique()
+        pl['cd'] = pl.break_start.map(lambda x: str(x.date()))
+        dates = set(pl.cd)
         for dt in dates:
-            process(tour, dt, pl)
+            try:
+                process(tour, dt, pl[pl.cd == dt])
+            except:
+                print(dt, 'exception!')
 
 def sanity_check():
     df=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2021/cd=2021-10-27/').toPandas()
