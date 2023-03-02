@@ -52,22 +52,6 @@ def parse(segments):
     return '|'.join(sorted(filtered))
 
 def preprocess_playout(df):
-    df = df.withColumn('break_start', F.to_utc_timestamp('start_time', 'IST')) \
-        .withColumn('break_end', F.to_utc_timestamp('end_time', 'IST')) \
-        .where('break_start is not null and break_end is not null') \
-        .toPandas()
-    df.rename(columns={
-        'content_language': 'language',
-        'tenant': 'country',
-    }, inplace=True)
-    df.platform = df.platform.str.split('|')
-    df = df.explode('platform')
-    df[['playout_id', 'content_id', 'language', 'country', 'platform']] = \
-        df[['playout_id', 'content_id', 'language', 'country', 'platform']].applymap(lambda s: str.strip(str.lower(s)))
-    return df[['content_id', 'playout_id', 'language', 'country', 'platform', 'break_start', 'break_end']]
-
-# an alternative method
-def preprocess_playout2(df):
     return df.selectExpr(
         'content_id',
         'trim(lower(playout_id)) as playout_id',
@@ -133,25 +117,24 @@ def process(tournament, dt, playout):
         res.show()
         print(res.count())
 
+def sanity_check():
+    df=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2021/cd=2021-10-27/').toPandas()
+    df2=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2021/cd=2021-10-27/').toPandas()
+    print(df2.ad_time.sum()/df.ad_time.sum()) # 97.3%
+    print(df2.reach.sum()/df.reach.sum()) # 94.4%
+
 def main():
     tournaments=['wc2022', 'wc2021']
     for tour in tournaments:
-        pl = preprocess_playout(spark.read.parquet(playout_path + tour))
-        # pl2 = preprocess_playout2(spark.read.parquet(playout_path + tour)).toPandas()
-        # assert pl.equals(pl2)
+        pl = preprocess_playout(spark.read.parquet(playout_path + tour)).toPandas()
         pl['cd'] = pl.break_start.map(lambda x: str(x.date()))
-        dates = set(pl.cd)
+        dates = sorted(set(pl.cd))
         for dt in dates:
             try:
                 process(tour, dt, pl[pl.cd == dt])
             except:
                 print(dt, 'exception!')
 
-def sanity_check():
-    df=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2021/cd=2021-10-27/').toPandas()
-    df2=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2021/cd=2021-10-27/').toPandas()
-    print(df2.ad_time.sum()/df.ad_time.sum()) # 97.3%
-    print(df2.reach.sum()/df.reach.sum()) # 94.4%
 
 if __name__ == '__main__':
     main()
