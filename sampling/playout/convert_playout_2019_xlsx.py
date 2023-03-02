@@ -29,6 +29,7 @@ mf = mm.where('startdate >= 1634428800 and startdate <= 1634515200').select('sta
 
 # Section 2
 from os import path
+from glob import glob
 import os
 import pandas as pd
 import datetime
@@ -95,14 +96,36 @@ func(
 )
 #!rm './all/cd=2020-09-24/24092020_KXIP vs RCB_English_IOS_AsRun.csv' # XXX: Bad data!!
 
-# IPL 2021
+# New Zealand 2020
+func(
+    lst=glob('*/*/*.xlsx'),
+    skip=1, # Actually, mixed skip in Sept
+    lang_pos=3,
+)
+#XXX: remove invalid duration in cd=2020-01-29/29012020_New Zealand vs India_3rd T20_Hindi_INDIA_AsRun.csv
 
+# WI 2019 T20
+func(
+    lst=glob('[36]*/*.xlsx'),
+    skip=1, # Actually, mixed skip in Sept
+    lang_pos=4,
+)
+func(
+    lst=glob('2*/*.xlsx'),
+    skip=1, # Actually, mixed skip in Sept
+    lang_pos=5,
+)
+
+# IPL 2021
+# TODO
+
+# -- Section 3
 #! aws s3 sync . s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_original/
 # check data
 df=spark.read.csv('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_original/', header=True)
 pdf=df.toPandas()
-pdf['dur']=pdf.duration.apply(int)
+pdf[pdf.duration.isna()]
+pdf['dur']=pdf.duration.apply(float)
 print('check duration range\n', pdf.dur.describe())
-pdf.groupby('date')
-print('check cross day match\n', pdf[pdf.date.str.strip() != pdf.cd.map(str)])
-
+print('daily max duration distribution\n', pdf.groupby('date')['dur'].max().describe())
+print('check cross day match\n', pdf[pdf.date.map(lambda s: str(s).strip().split()[0]) != pdf.cd.map(str)])
