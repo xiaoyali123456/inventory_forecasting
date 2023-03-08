@@ -112,12 +112,12 @@ def augment(df, time_cols):
         .selectExpr('date as cd', 'content_id')
     return df.join(filter, ['cd', 'content_id']).groupby(
         *time_cols,
-        'language', 'platform', 'city', 'state',
+        'country', 'language', 'platform', 'city', 'state',
         nccs('cohort').alias('nccs'), 
         device('cohort').alias('device'),
         gender('cohort').alias('gender'),
         age('cohort').alias('age'),
-    ).agg(F.sum('ad_time').alias('ad_time')).toPandas()
+    ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).toPandas()
 
 
 def moving_avg(df, time_cols, lambda_=0.8):
@@ -126,10 +126,14 @@ def moving_avg(df, time_cols, lambda_=0.8):
         df = piv
         lambda_=0.8
         time_cols=['cd', 'content_id']
-    cohort_cols = ['language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
+        piv.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/piv.parquet')
+
+    cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     # df2 = df.fillna('').groupby(time_cols+cohort_cols).sum().reset_index() # XXX: critical for groupby None
     df2 = df.fillna('')
     df2['ad_time_ratio'] = df2.ad_time / df2.groupby(time_cols).ad_time.transform('sum')
+    if debug:
+        df2.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/df2.parquet')
     df3 = df2.pivot(time_cols, cohort_cols, 'ad_time_ratio').fillna(0)
     fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
     df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in tqdm(df3.columns)], axis=1).shift(1)
