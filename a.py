@@ -151,7 +151,7 @@ for tournament in tournament_dic:
     else:
         tournament_dic_2[tournament] = ""
 
-# tournament = "wc2022"
+tournament = "wc2022"
 # tournament = "ac2022"
 # tournament = "ipl2022"
 # tournament = "wc2021"
@@ -166,7 +166,7 @@ for tournament in tournament_dic:
 # tournament = "west_indies_tour_of_india2022"
 # tournament = "sri_lanka_tour_of_india2023"
 # tournament = "new_zealand_tour_of_india2023"
-tournament = "ipl2019"
+# tournament = "ipl2019"
 
 
 subscription_status_col = "_col3"
@@ -195,76 +195,6 @@ for date in valid_dates:
 print(complete_valid_dates)
 
 
-ready_date_dic = {}
-for date in valid_dates:
-    print(date[0])
-    for previous_date in get_date_list(date[0], -90):
-        if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}"):
-        # if previous_date not in ready_date_dic:
-            print(f"- {previous_date}")
-            viewers_df = load_data_frame(spark, f'{viewAggregatedInputPath}/cd={previous_date}', fmt="orc")\
-                .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
-                .select('dw_p_id')\
-                .distinct()
-            save_data_frame(viewers_df, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}")
-            ready_date_dic[previous_date] = 1
-
-print("daily viewer data ready.")
-
-
-for date in valid_dates:
-    print(date[0])
-    df = reduce(lambda x, y: x.union(y),
-           [load_data_frame(spark,
-                            live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={previous_date}").cache()
-            for previous_date in get_date_list(date[0], -90)]).distinct()
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")
-
-
-print("all viewer data ready.")
-
-user_meta_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping").cache()
-sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table_valid").cache()
-free_num_list = []
-for date in valid_dates:
-    print(date[0])
-    # if date[0] < "2020-10-30":
-    #     continue
-    sub_on_target_date_df = calculate_sub_num_on_target_date(sub_df, user_meta_df, date[0]).cache()
-    free_num = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/all_viewers_aggr_with_90_days/cd={date[0]}")\
-        .join(sub_on_target_date_df, 'dw_p_id', 'left_anti')\
-        .count()
-    free_num_list.append((date[0], free_num))
-    print(free_num_list)
-
-free_num_df = spark.createDataFrame(free_num_list, ["date", "free_num"]).orderBy('date')
-save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}")
-
-
-# save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}_partly_2")
-#
-# free_num_list = [('2020-10-04', 322214736), ('2020-10-05', 324376762), ('2020-10-06', 326413743),
-#                  ('2020-10-07', 328343777), ('2020-10-08', 329781502), ('2020-10-09', 331107089),
-#                  ('2020-10-10', 333543318), ('2020-10-11', 335508110), ('2020-10-12', 336829358),
-#                  ('2020-10-13', 338488168), ('2020-10-14', 339627770), ('2020-10-15', 340742715),
-#                  ('2020-10-16', 341665463), ('2020-10-17', 343554412), ('2020-10-18', 345828733),
-#                  ('2020-10-19', 347493944), ('2020-10-20', 348641982), ('2020-10-21', 349716690),
-#                  ('2020-10-22', 348792955), ('2020-10-23', 346939946), ('2020-10-24', 346525932),
-#                  ('2020-10-25', 347060742), ('2020-10-26', 347296749), ('2020-10-27', 347665631),
-#                  ('2020-10-28', 348276971), ('2020-10-29', 348889549), ('2020-10-30', 349291400),
-#                  ('2020-10-31', 350003470), ('2020-11-01', 350901046), ('2020-11-02', 351455995),
-#                  ('2020-11-03', 352096617), ('2020-11-05', 353380891), ('2020-11-06', 354303042),
-#                  ('2020-11-08', 355505397), ('2020-11-10', 358998467)]
-# free_num_df = spark.createDataFrame(free_num_list, ["date", "free_num"])\
-#     .union(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}_partly"))\
-#     .orderBy('date')
-# save_data_frame(free_num_df, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}")
-#
-
-
-free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_num_table_for_{tournament}").cache()
-free_num_df.show(200, False)
-print(free_num_df.count())
 
 watch_df = reduce(lambda x, y: x.union(y),
     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
@@ -272,13 +202,48 @@ watch_df = reduce(lambda x, y: x.union(y),
         .withColumnRenamed(dw_p_id_col, 'dw_p_id')
         .withColumnRenamed(content_id_col, 'content_id')
         .withColumnRenamed(watch_time_col, 'watch_time')
+        .withColumnRenamed('_col70', 'login_method')
         .withColumn('subscription_status', F.upper(F.col('subscription_status')))
         .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
-        .groupBy('dw_p_id', 'content_id')
+        .groupBy('dw_p_id', 'login_method', 'content_id')
         .agg(F.sum('watch_time').alias('watch_time'))
         .withColumn('date', F.lit(date)) for date in complete_valid_dates]) \
     .join(match_df, ['date', 'content_id'], 'left')\
     .cache()
+
+watch_df.groupBy('login_method').agg(F.countDistinct('dw_p_id'), F.avg('watch_time'), F.countDistinct('content_id')).show(20, False)
+watch_df.where('title is not null').groupBy('login_method').agg(F.countDistinct('dw_p_id'), F.avg('watch_time'), F.countDistinct('content_id')).show(20, False)
+# >>> watch_df.groupBy('login_method').agg(F.countDistinct('dw_p_id'), F.avg('watch_time'), F.countDistinct('content_id')).show(20, False)
+# +------------+-----------------------+------------------+--------------------------+1) / 256]]]]]
+# |login_method|count(DISTINCT dw_p_id)|avg(watch_time)   |count(DISTINCT content_id)|
+# +------------+-----------------------+------------------+--------------------------+
+# |null        |67510255               |9.156536150398052 |314117                    |
+# |Acn         |1                      |10.919999884234535|3                         |
+# |Guest       |13497043               |11.498208784853041|252300                    |
+# |            |3                      |12.812222290039061|3                         |
+# |Auto Login  |4848                   |9.536090373799997 |9126                      |
+# |Dhruv       |1                      |11.949666848447587|3                         |
+# |Email       |29746                  |7.045565188952114 |25836                     |
+# |Unknown     |6264                   |8.385984762284204 |2496                      |
+# |Phone Number|51019810               |10.520628191932763|318110                    |
+# |Facebook    |31893                  |9.916837344293098 |38656                     |
+# |Device      |196                    |4.689275431474422 |171                       |
+# +------------+-----------------------+------------------+--------------------------+
+#
+# >>> watch_df.where('title is not null').groupBy('login_method').agg(F.countDistinct('dw_p_id'), F.avg('watch_time'), F.countDistinct('content_id')).show(20, False)
+# [Stage 726:====>  (7007 + -803) / 11520][Stage 1392:=====>  (7832 + 27) / 11520]23/03/07 06:56:50 WARN AsyncEventQueue: Dropped 7961 events from appStatus since Tue Mar 07 06:52:47 UTC 2023.
+# +------------+-----------------------+------------------+--------------------------+ 314) / 7168]]
+# |login_method|count(DISTINCT dw_p_id)|avg(watch_time)   |count(DISTINCT content_id)|
+# +------------+-----------------------+------------------+--------------------------+
+# |null        |27640412               |4.193250743516496 |45                        |
+# |Acn         |1                      |5.021833292643229 |1                         |
+# |Guest       |73298                  |17.947477575158995|45                        |
+# |Auto Login  |2196                   |4.426534550118884 |45                        |
+# |Email       |4354                   |8.356603917944712 |45                        |
+# |Unknown     |4428                   |5.2670585155576095|45                        |
+# |Phone Number|23919327               |5.1377772673473086|45                        |
+# |Facebook    |17022                  |4.328221003083624 |45                        |
+# +------------+-----------------------+------------------+--------------------------+
 
 valid_contents = match_df.select('date', 'content_id').distinct().orderBy('date').collect()
 active_free_list = []

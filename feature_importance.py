@@ -114,9 +114,9 @@ def load_labels(tournament):
     return df
 
 
-def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask_col="", mask_condition="", mask_rate=1):
+def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask_cols=[], mask_condition="", mask_rate=1):
     tournaments_str = ",".join([f'"{tournament}"' for tournament in tournaments])
-    print(tournaments_str)
+    # print(tournaments_str)
     new_feature_df = feature_df \
         .where(f'date != "2022-08-24" and tournament in ({tournaments_str})') \
         .cache()
@@ -129,12 +129,15 @@ def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask
     #     .toPandas()
     if repeat_num_col != "":
         new_feature_df = new_feature_df\
-            .withColumn(repeat_num_col, n_to_array(repeat_num_col))
-    if mask_col != "":
+            .withColumn(repeat_num_col, n_to_array(repeat_num_col))\
+            .withColumn(repeat_num_col, F.explode(F.col(repeat_num_col)))
+    if mask_cols:
         new_feature_df = new_feature_df \
-            .withColumn('rank_tmp', F.expr('row_number() over (partition by content_id order by date)'))\
-            .withColumn("empty_"+mask_col, mask_array(mask_col))\
-            .withColumn(mask_col, F.expr(f'if({mask_condition} and rank_tmp <= {mask_rate}, empty_{mask_col}, {mask_col})'))
+            .withColumn('rank_tmp', F.expr('row_number() over (partition by content_id order by date)'))
+        for mask_col in mask_cols:
+            new_feature_df = new_feature_df\
+                .withColumn("empty_"+mask_col, mask_array(mask_col))\
+                .withColumn(mask_col, F.expr(f'if({mask_condition} and rank_tmp <= {mask_rate}, empty_{mask_col}, {mask_col})'))
     if sorting:
         df = new_feature_df\
             .orderBy('date', 'content_id') \
@@ -188,9 +191,16 @@ def load_dataset_with_inventory(tournaments, feature_df, sorting=False):
     return new_feature_df.toPandas()
 
 
+def enumerate_tiers(tiers_list):
+    if 0 in tiers_list:
+        return [tiers_list[0] + tiers_list[1]]
+    else:
+        return [tiers_list[0] + tiers_list[1] + 1]
+
+
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
 mask_array = F.udf(lambda l: [0 for i in l], ArrayType(IntegerType()))
-
+enumerate_tiers_udf = F.udf(enumerate_tiers, ArrayType(IntegerType()))
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
 ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"
@@ -199,30 +209,181 @@ live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-pr
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
 viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
+live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 
 # spark.stop()
 # spark = hive_spark('statistics')
 # match_df = load_hive_table(spark, "in_cms.match_update_s3")
 # save_data_frame(match_df, match_meta_path)
-tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
-                  "ac2022": "DP World Asia Cup 2022",
-                  "ipl2022": "TATA IPL 2022",
-                  "wc2021": "ICC Men\'s T20 World Cup 2021",
-                  "ipl2021": "VIVO IPL 2021",
-                  "wc2019": "ICC CWC 2019"}
+tournament_dic = {
+    'sri_lanka_tour_of_india2023': {
+        'tournament_name': 'Sri Lanka Tour of India 2023',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'new_zealand_tour_of_india2023': {
+        'tournament_name': 'New Zealand Tour of India 2023',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'wc2022': {
+        'tournament_name': 'World Cup 2022',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'Australia',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ac2022': {
+        'tournament_name': 'Asia Cup 2022',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'south_africa_tour_of_india2022': {
+        'tournament_name': 'South Africa Tour of India 2022',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'west_indies_tour_of_india2022': {
+        'tournament_name': 'West Indies Tour of India 2022',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ipl2022': {
+        'tournament_name': 'IPL 2022',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'england_tour_of_india2021': {
+        'tournament_name': 'England Tour of India 2021',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'wc2021': {
+        'tournament_name': 'World Cup 2021',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ipl2021': {
+        'tournament_name': 'IPL 2021',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India, United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'australia_tour_of_india2020': {
+        'tournament_name': 'Australia Tour of India 2020',
+        'tournament_type': 'Tour',
+        'match_type': 'ODI',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'india_tour_of_new_zealand2020': {
+        'tournament_name': 'India Tour of New Zealand 2020',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'New Zealand',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'ipl2020': {
+        'tournament_name': 'IPL 2020',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'west_indies_tour_of_india2019': {
+        'tournament_name': 'West Indies Tour India 2019',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'},
+    'wc2019': {
+        'tournament_name': 'World Cup 2019',
+        'tournament_type': 'International',
+        'match_type': 'ODI',
+        'venue': 'England',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'ipl2019': {
+        'tournament_name': 'IPL 2019',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    }
+}
 
+configuration = {
+    'tournament_list': "all",
+    # 'tournament_list': "svod",
+    # 'tournament_list': "t20",
+    'task': "rate_prediction",
+    # 'mask_tag': "mask_knock_off",
+    'mask_tag': "",
+    'sample_weight': False,
+    # 'sample_weight': True,
+    'test_tournaments': ["ac2022", "wc2022"],
+    # 'test_tournaments': ["wc2019"],
+    'end_tag': 0
+}
 tournament_list = [tournament for tournament in tournament_dic]
-# tournament_list.remove('wc2019')
+tournament_list.remove('ipl2019')
+if configuration['tournament_list'] == "svod":
+    tournament_list = tournament_list[:-5]+["ipl2020"]
+elif configuration['tournament_list'] == "t20":
+    tournament_list = tournament_list[:-5]+["ipl2020"]
+
 # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 240.0, 50.0, 70.0
 total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 210.0, 85.0, 30.0
 drop_off_rate = 0.8
 dynamic_parameters = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
                       'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
 dynamic_parameter_num = len(dynamic_parameters)
-one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'gender_type']
-multi_hot_cols = ['teams', 'teams_tier']
+one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
+                'match_type', 'tournament_name', 'hostar_influence',
+                'match_stage', 'vod_type', 'gender_type']
+multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
-feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols[:-1]+additional_cols]
+feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols+additional_cols]
+mask_cols = [col+"_hot_vector" for col in multi_hot_cols]
+
+# one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'gender_type']
+# multi_hot_cols = ['teams', 'teams_tier']
+# additional_cols = ["languages", "platforms"]
+# feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols[:-1]+additional_cols]
+
 # feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols[:-1]]
 # feature_cols = [col+"_hot_vector" for col in ['teams', 'match_time', 'match_stage', 'if_holiday',
 #                                               'if_weekend', 'hostar_influence', 'if_contain_india_team']]
@@ -233,14 +394,17 @@ feature_num = len(feature_cols)
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
 
-label_cols = ['active_frees_rate', 'frees_watching_match_rate',
-              'active_subscribers_rate', 'subscribers_watching_match_rate',
-              "watch_time_per_free_per_match", "watch_time_per_subscriber_per_match"]
-large_vals = [0.1, 0.2, 0.5, 0.5]
-repeat_union = 0.1
+label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
+              'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
+estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
+                        'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
+large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
+repeat_union = 0.05
 knock_off_repeat_num = 4
-mask_condition = 'match_stage="knock-off"'
-feature_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format")\
+repeat_num_col = "knock_off_repeat_num"
+mask_condition = 'match_stage in ("final", "semi-final")'
+path_suffix = "/all_features_hots_format_with_new_sub_free_num"
+feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
     .withColumn(f"{label_cols[0]}_repeat_num", F.expr(f'1 + cast(({label_cols[0]} - {large_vals[0]})/{repeat_union} as int)'))\
     .withColumn(f"{label_cols[0]}_repeat_num", F.expr(f'if({label_cols[0]}_repeat_num > 0, {label_cols[0]}_repeat_num, 1)'))\
     .withColumn(f"{label_cols[1]}_repeat_num", F.expr(f'1 + cast(({label_cols[1]} - {large_vals[1]})/{repeat_union} as int)'))\
@@ -249,7 +413,16 @@ feature_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f
     .withColumn(f"{label_cols[2]}_repeat_num", F.expr(f'if({label_cols[2]}_repeat_num > 0, {label_cols[2]}_repeat_num, 1)'))\
     .withColumn(f"{label_cols[3]}_repeat_num", F.expr(f'1 + cast(({label_cols[3]} - {large_vals[3]})/{repeat_union} as int)'))\
     .withColumn(f"{label_cols[3]}_repeat_num", F.expr(f'if({label_cols[3]}_repeat_num > 0, {label_cols[3]}_repeat_num, 1)'))\
-    .withColumn(f"knock_off_repeat_num", F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)'))\
+    .withColumn(f"{label_cols[4]}_repeat_num", F.expr(f'1 + cast(({label_cols[4]} - {large_vals[4]})/{repeat_union} as int)'))\
+    .withColumn(f"{label_cols[4]}_repeat_num", F.expr(f'if({label_cols[4]}_repeat_num > 0, {label_cols[4]}_repeat_num, 1)'))\
+    .withColumn(f"{label_cols[5]}_repeat_num", F.expr(f'1 + cast(({label_cols[5]} - {large_vals[5]})/{repeat_union*5} as int)'))\
+    .withColumn(f"{label_cols[5]}_repeat_num", F.expr(f'if({label_cols[5]}_repeat_num > 0, {label_cols[5]}_repeat_num, 1)'))\
+    .withColumn(repeat_num_col, F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)'))\
+    .withColumn("hostar_influence_hots_num", F.lit(1))\
+    .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots'))\
+    .withColumn("teams_tier_hots_num", F.lit(1))\
+    .withColumn("rand", F.rand())\
+    .withColumn("match_rank", F.expr(''))\
     .cache()
 # label = "total_inventory"
 feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
@@ -257,10 +430,9 @@ res_dic = {}
 best_parameter_dic = {}
 s_time = time.time()
 
-task = "rate_prediction"
-# task = "inventory_prediction"
-if task == "inventory_prediction":
-    tournament_list.remove("ipl2021")
+# tournament_list = ['wc2022', 'ac2022', 'ipl2022', 'wc2021', 'ipl2021']
+if configuration['task'] == "inventory_prediction":
+    # tournament_list.remove("ipl2 021")
     # tournament_list.remove("ipl2022")
     label = "total_inventory"
     for test_tournament in tournament_list:
@@ -294,38 +466,17 @@ if task == "inventory_prediction":
         # spark.createDataFrame(pd.concat([y_test, pd.DataFrame(y_pred)], axis=1), ['total_inventory', 'estimated_inventory'])\
         #     .withColumn('rate', F.expr(f'estimated_inventory/total_inventory-1'))\
         #     .show(10)
-elif task == "rate_prediction":
+elif configuration['task'] == "rate_prediction":
     # all 5 tournaments
-    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '43', '0.2', '9', 'estimated_free_rate'],
-    #                     'frees_watching_match_rate': ['reg:squarederror', '94', '0.2', '1', 'estimated_free_watch_rate'],
-    #                     'active_subscribers_rate': ['reg:squarederror', '76', '0.2', '1', 'estimated_sub_rate'],
-    #                     'subscribers_watching_match_rate': ['reg:squarederror', '22', '0.2', '3', 'estimated_sub_watch_rate'],
-    #                     'watch_time_per_free_per_match': ['reg:squarederror', '58', '0.2', '1', 'estimated_free_watch_time'],
-    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '85', '0.1', '3', 'estimated_sub_watch_time']}
-    # all 3 tournaments excluding ipl
-    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '55', '0.2', '7', 'estimated_free_rate'],
-    #                     'frees_watching_match_rate': ['reg:squarederror', '34', '0.2', '3', 'estimated_free_watch_rate'],
-    #                     'active_subscribers_rate': ['reg:squarederror', '97', '0.2', '1', 'estimated_sub_rate'],
-    #                     'subscribers_watching_match_rate': ['reg:squarederror', '22', '0.2', '3', 'estimated_sub_watch_rate'],
-    #                     'watch_time_per_free_per_match': ['reg:squarederror', '58', '0.2', '1', 'estimated_free_watch_time'],
-    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '85', '0.1', '3', 'estimated_sub_watch_time']}
-    # all 4 tournaments excluding ipl
-    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '43', '0.2', '9', 'estimated_free_rate'],
-    #                     'frees_watching_match_rate': ['reg:squarederror', '34', '0.2', '3', 'estimated_free_watch_rate'],
-    #                     'active_subscribers_rate': ['reg:squarederror', '76', '0.2', '1', 'estimated_sub_rate'],
-    #                     'subscribers_watching_match_rate': ['reg:squarederror', '22', '0.2', '3', 'estimated_sub_watch_rate'],
-    #                     'watch_time_per_free_per_match': ['reg:squarederror', '13', '0.2', '3', 'estimated_free_watch_time'],
-    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '67', '0.1', '3', 'estimated_sub_watch_time']}
     best_setting_dic = {'active_frees_rate': ['reg:squarederror', '88', '0.2', '7', 'estimated_free_rate'],
                         'frees_watching_match_rate': ['reg:squarederror', '37', '0.2', '3', 'estimated_free_watch_rate'],
+                        'watch_time_per_free_per_match': ['reg:squarederror', '13', '0.2', '3', 'estimated_free_watch_time'],
                         'active_subscribers_rate': ['reg:squarederror', '97', '0.2', '1', 'estimated_sub_rate'],
                         'subscribers_watching_match_rate': ['reg:squarederror', '94', '0.1', '3', 'estimated_sub_watch_rate'],
-                        'watch_time_per_free_per_match': ['reg:squarederror', '13', '0.2', '3', 'estimated_free_watch_time'],
                         'watch_time_per_subscriber_per_match': ['reg:squarederror', '37', '0.2', '3', 'estimated_sub_watch_time']}
-    # mask_tag = "_mask_knock_off"
-    mask_tag = ""
     for test_tournament in tournament_list:
-        if test_tournament.find("ipl2021") > -1:
+        res_dic[test_tournament] = {}
+        if test_tournament not in configuration['test_tournaments']:
             continue
         print(test_tournament)
         tournament_list_tmp = tournament_list.copy()
@@ -333,18 +484,14 @@ elif task == "rate_prediction":
         object_method = "reg:squarederror"
         # object_method = "reg:logistic"
         # object_method = "reg:pseudohubererror"
-        if mask_tag == "":
+        if configuration['mask_tag'] == "":
             train_df = load_dataset(tournament_list_tmp, feature_df)
             test_df = load_dataset([test_tournament], feature_df, sorting=True)
         else:
-            train_df = load_dataset(tournament_list_tmp, feature_df, repeat_num_col="knock_off_repeat_num",
-                                    mask_col="teams_hot_vector", mask_condition=mask_condition, mask_rate=2)
+            train_df = load_dataset(tournament_list_tmp, feature_df, repeat_num_col=repeat_num_col,
+                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=2)
             test_df = load_dataset([test_tournament], feature_df, sorting=True,
-                                   mask_col="teams_hot_vector", mask_condition=mask_condition, mask_rate=1)
-        # ## for data enrichment
-        # train_df = train_df.reindex(train_df.index.repeat(train_df[f"knock_off_repeat_num"]))
-        print(train_df)
-        # ## for data enrichment
+                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1)
         multi_col_df = []
         for i in range(len(feature_cols)):
             index = [feature_cols[i]+str(j) for j in range(feature_num_col_list[0][i])]
@@ -356,57 +503,60 @@ elif task == "rate_prediction":
             multi_col_df.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
         X_test = pd.concat(multi_col_df, axis=1)
         for label in label_cols:
-            print("")
+            # print("")
             print(label)
             # ## for data enrichment
-            # train_df = load_dataset(tournament_list, feature_df)
-            # # print(train_df)
-            # train_df = train_df.reindex(train_df.index.repeat(train_df[f"{label}_repeat_num"]))
-            # # print(train_df)
-            # multi_col_df = []
-            # for i in range(len(feature_cols)):
-            #     index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
-            #     multi_col_df.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
-            # X_train = pd.concat(multi_col_df, axis=1)
+            # if configuration['data_enrichment']:
+            #     train_df = load_dataset(tournament_list_tmp, feature_df)
+            #     train_df = train_df.reindex(train_df.index.repeat(train_df[f"{label}_repeat_num"]))
+            #     multi_col_df = []
+            #     for i in range(len(feature_cols)):
+            #         index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
+            #         multi_col_df.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
+            #     X_train = pd.concat(multi_col_df, axis=1)
             # ## for data enrichment
             ## for prediction start
-            object_method, n_estimators, learning_rate, max_depth, col_name = best_setting_dic[label]
-            n_estimators = int(n_estimators)
-            learning_rate = float(learning_rate)
-            max_depth = int(max_depth)
-            y_train = train_df[label]
-            xgb = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate,
-                               max_depth=max_depth, objective=object_method)
-            xgb.fit(X_train, y_train)
-            y_pred = xgb.predict(X_test)
-            y_test = test_df[label]
-            prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
-                .withColumn(col_name, F.expr(f'cast({col_name} as float)'))
-            prediction_df\
-                .withColumn('tag', F.lit(1))\
-                .groupBy('tag')\
-                .agg(F.min(col_name), F.max(col_name))\
-                .show()
-            # prediction_df.where(f"{col_name} is null").show(20)
-            # prediction_df.show(20)
-            save_data_frame(prediction_df, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label}")
-            error = metrics.mean_absolute_error(y_test, y_pred)
-            y_mean = y_test.mean()
-            print(error / y_mean)
+            # object_method, n_estimators, learning_rate, max_depth, col_name = best_setting_dic[label]
+            # n_estimators = int(n_estimators)
+            # learning_rate = float(learning_rate)
+            # max_depth = int(max_depth)
+            # y_train = train_df[label]
+            # xgb = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate,
+            #                    max_depth=max_depth, objective=object_method)
+            # xgb.fit(X_train, y_train)
+            # y_pred = xgb.predict(X_test)
+            # y_test = test_df[label]
+            # prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
+            #     .withColumn(col_name, F.expr(f'cast({col_name} as float)'))
+            # prediction_df\
+            #     .withColumn('tag', F.lit(1))\
+            #     .groupBy('tag')\
+            #     .agg(F.min(col_name), F.max(col_name))\
+            #     .show()
+            # # prediction_df.where(f"{col_name} is null").show(20)
+            # # prediction_df.show(20)
+            # save_data_frame(prediction_df, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label}")
+            # error = metrics.mean_absolute_error(y_test, y_pred)
+            # y_mean = y_test.mean()
+            # print(error / y_mean)
+            # res_dic[test_tournament][label] = error / y_mean
             # ## for prediction end
             if label not in res_dic:
                 res_dic[label] = {}
             # for n_estimators in range(10, 100, 1000):
-            for n_estimators in range(1, 100, 3):
+            for n_estimators in range(1, 100, 4):
                 # print(n_estimators)
                 for learning_rate in [0.01, 0.05, 0.1, 0.2]:
                     # for learning_rate in [0.1]:
-                    for max_depth in range(1, 10, 2):
+                    for max_depth in range(1, 15, 2):
                         # print(f"config: n_estimators={n_estimators}, max_depth={max_depth}")
                         y_train = train_df[label]
                         xgb = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate,
-                                           max_depth=max_depth, objective=object_method)
-                        xgb.fit(X_train, y_train)
+                                           max_depth=max_depth, objective=object_method, colsample_bynode=1.0)
+                        if configuration['sample_weight']:
+                            xgb.fit(X_train, y_train, sample_weight=train_df[f"{label}_repeat_num"])
+                        else:
+                            xgb.fit(X_train, y_train)
                         # y_pred = xgb.predict(X_train)
                         # y_mean = y_train.mean()
                         # error = metrics.mean_absolute_error(y_train, y_pred)
@@ -422,16 +572,157 @@ elif task == "rate_prediction":
                             res_dic[label][key].append(error / y_mean)
     best_setting_dic = {}
     for label in label_cols:
-        print(label)
+        # print(label)
         error_list = []
         for key in res_dic[label]:
             error_list.append((key, sum(res_dic[label][key])/len(res_dic[label][key])))
         best_parameter_dic[label] = sorted(error_list, key=lambda x: x[1])[:2]
-        print(best_parameter_dic[label])
+        # print(best_parameter_dic[label])
         print(res_dic[label][best_parameter_dic[label][0][0]])
         best_setting_dic[label] = best_parameter_dic[label][0][0].split("-")
     print(best_setting_dic)
     print(time.time() - s_time)
+
+
+train_error_list = []
+train_error_list2 = {}
+test_error_list = []
+test_error_list2 = {}
+if configuration['task'] == "rate_prediction":
+    # 5 tournaments and old features
+    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '88', '0.2', '7'],
+    #                     'frees_watching_match_rate': ['reg:squarederror', '37', '0.2', '3'],
+    #                     'watch_time_per_free_per_match': ['reg:squarederror', '13', '0.2', '3'],
+    #                     'active_subscribers_rate': ['reg:squarederror', '97', '0.2', '1'],
+    #                     'subscribers_watching_match_rate': ['reg:squarederror', '94', '0.1', '3'],
+    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '37', '0.2', '3']}
+    # 5 tournaments and new features
+    # best_setting_dic = {
+    #     'active_frees_rate': ['reg:squarederror', '97', '0.2', '1'],
+    #     'frees_watching_match_rate': ['reg:squarederror', '97', '0.2', '1'],
+    #     'watch_time_per_free_per_match': ['reg:squarederror', '97', '0.1', '1'],
+    #     'active_subscribers_rate': ['reg:squarederror', '17', '0.2', '1'],
+    #     'subscribers_watching_match_rate': ['reg:squarederror', '29', '0.2', '3'],
+    #     'watch_time_per_subscriber_per_match': ['reg:squarederror', '93', '0.1', '7']
+    # }
+    # all tournaments and new features
+    best_setting_dic = {
+        'active_frees_rate': ['reg:squarederror', '57', '0.2', '3'],
+        'frees_watching_match_rate': ['reg:squarederror', '89', '0.2', '5'],
+        'watch_time_per_free_per_match': ['reg:squarederror', '81', '0.05', '9'],
+        'active_subscribers_rate': ['reg:squarederror', '81', '0.2', '7'],
+        'subscribers_watching_match_rate': ['reg:squarederror', '93', '0.2', '3'],
+        'watch_time_per_subscriber_per_match': ['reg:squarederror', '77', '0.1', '3']}
+    # svod tournaments and new features
+    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '97', '0.1', '3'],
+    #                     'frees_watching_match_rate': ['reg:squarederror', '85', '0.2', '3'],
+    #                     'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.1', '3'],
+    #                     'active_subscribers_rate': ['reg:squarederror', '69', '0.2', '13'],
+    #                     'subscribers_watching_match_rate': ['reg:squarederror', '61', '0.2', '3'],
+    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '81', '0.1', '3']}
+    # all tournaments and new features and weight samples
+    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '41', '0.2', '3'],
+    #                     'frees_watching_match_rate': ['reg:squarederror', '49', '0.2', '5'],
+    #                     'watch_time_per_free_per_match': ['reg:squarederror', '49', '0.1', '9'],
+    #                     'active_subscribers_rate': ['reg:squarederror', '45', '0.2', '9'],
+    #                     'subscribers_watching_match_rate': ['reg:squarederror', '97', '0.05', '5'],
+    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '89', '0.1', '13']
+    #                     }
+    # all tournaments and new features and mask knock off
+    # best_setting_dic = {'active_frees_rate': ['reg:squarederror', '97', '0.1', '3'],
+    #                     'frees_watching_match_rate': ['reg:squarederror', '69', '0.2', '3'],
+    #                     'watch_time_per_free_per_match': ['reg:squarederror', '49', '0.1', '5'],
+    #                     'active_subscribers_rate': ['reg:squarederror', '37', '0.2', '13'],
+    #                     'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.2', '5'],
+    #                     'watch_time_per_subscriber_per_match': ['reg:squarederror', '81', '0.2', '3']
+    #                     }
+    idx = 0
+    for label in best_setting_dic:
+        best_setting_dic[label].append(estimated_label_cols[idx])
+        idx += 1
+    print(best_setting_dic)
+    for test_tournament in tournament_list:
+        res_dic[test_tournament] = {}
+        if test_tournament not in configuration['test_tournaments']:
+            continue
+        print(test_tournament)
+        tournament_list_tmp = tournament_list.copy()
+        tournament_list_tmp.remove(test_tournament)
+        test_tournament_list = [test_tournament]
+        object_method = "reg:squarederror"
+        # object_method = "reg:logistic"
+        # object_method = "reg:pseudohubererror"
+        if configuration['mask_tag'] == "":
+            train_df = load_dataset(tournament_list_tmp, feature_df)
+            test_df = load_dataset(test_tournament_list, feature_df, sorting=True)
+        else:
+            train_df = load_dataset(tournament_list_tmp, feature_df, repeat_num_col="knock_off_repeat_num",
+                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=2)
+            test_df = load_dataset(test_tournament_list, feature_df, sorting=True,
+                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1)
+        # ## for data enrichment
+        # train_df = train_df.reindex(train_df.index.repeat(train_df[f"knock_off_repeat_num"]))
+        print('train_df')
+        # ## for data enrichment
+        multi_col_df = []
+        for i in range(len(feature_cols)):
+            index = [feature_cols[i]+str(j) for j in range(feature_num_col_list[0][i])]
+            multi_col_df.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
+        X_train = pd.concat(multi_col_df, axis=1)
+        multi_col_df = []
+        for i in range(len(feature_cols)):
+            index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
+            multi_col_df.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
+        X_test = pd.concat(multi_col_df, axis=1)
+        train_error_list2[test_tournament] = []
+        test_error_list2[test_tournament] = []
+        for label in label_cols:
+            # print("")
+            print(label)
+            # for prediction start
+            object_method, n_estimators, learning_rate, max_depth, col_name = best_setting_dic[label]
+            n_estimators = int(n_estimators)
+            learning_rate = float(learning_rate)
+            max_depth = int(max_depth)
+            y_train = train_df[label]
+            xgb = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate,
+                               max_depth=max_depth, objective=object_method)
+            if configuration['sample_weight']:
+                xgb.fit(X_train, y_train, sample_weight=train_df[f"{label}_repeat_num"])
+            else:
+                xgb.fit(X_train, y_train)
+            y_pred = xgb.predict(X_train)
+            prediction_df = spark.createDataFrame(pd.concat([train_df[['date', 'content_id']], y_train, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_' + label, col_name]) \
+                .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
+                .withColumn('test_tournament', F.lit(test_tournament))\
+                .withColumn('label', F.lit(label_cols.index(label)))
+            train_error_list.append(prediction_df)
+            error = metrics.mean_absolute_error(y_train, y_pred)
+            y_mean = y_train.mean()
+            train_error_list2[test_tournament].append(error / y_mean)
+            y_pred = xgb.predict(X_test)
+            y_test = test_df[label]
+            prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
+                .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
+                .withColumn('test_tournament', F.lit(test_tournament))\
+                .withColumn('label', F.lit(label_cols.index(label)))
+            test_error_list.append(prediction_df)
+            # save_data_frame(prediction_df, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label}")
+            error = metrics.mean_absolute_error(y_test, y_pred)
+            y_mean = y_test.mean()
+            test_error_list2[test_tournament].append(error / y_mean)
+            # res_dic[test_tournament][label] = error / y_mean
+            # ## for prediction end
+
+train_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[:6]]).orderBy('date', 'content_id').cache()
+test_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[:6]]).orderBy('date', 'content_id').cache()
+
+print(train_error_list2)
+print(test_error_list2)
+
+train_error_df.orderBy('date', 'content_id').show(2000)
+test_error_df.orderBy('date', 'content_id').show(2000)
+
 
 
 
@@ -440,8 +731,6 @@ key = "reg:squarederror-67-0.1-3"
 for label in label_cols:
     print(label)
     print((key, sum(res_dic[label][key])/len(res_dic[label][key])))
-
-
 
 
 best_parameter_dic = {'active_frees_rate': ['reg:squarederror', '43', '0.2', '9'],
@@ -535,32 +824,3 @@ for idx in range(len(label_cols)):
 
 for i in range(4):
     print(feature_weights_list[i])
-
-
-# [('teams_hot_vector', 0.21663214), ('languages_hot_vector', 0.12392009), ('tournament_name_hot_vector', 0.0068638683), ('if_weekend_hot_vector', 0.0), ('match_time_hot_vector', 0.0), ('if_holiday_hot_vector', 0.0), ('venue_hot_vector', 0.0), ('if_contain_india_team_hot_vector', 0.0), ('match_type_hot_vector', 0.0), ('hostar_influence_hot_vector', 0.0), ('match_stage_hot_vector', 0.0), ('platforms_hot_vector', 0.0)]
-# [('teams_hot_vector', 0.1768074), ('if_contain_india_team_hot_vector', 0.0044579306), ('platforms_hot_vector', 0.0018656878), ('venue_hot_vector', 0.0013974725), ('if_weekend_hot_vector', 0.0011602209), ('match_type_hot_vector', 0.0010621756), ('match_stage_hot_vector', 0.0009030289), ('tournament_name_hot_vector', 0.00015270569), ('match_time_hot_vector', 0.0), ('if_holiday_hot_vector', 0.0), ('hostar_influence_hot_vector', 0.0), ('languages_hot_vector', 0.0)]
-# [('teams_hot_vector', 0.07960796), ('languages_hot_vector', 0.015930658), ('platforms_hot_vector', 0.009622666), ('tournament_name_hot_vector', 0.0071320743), ('match_stage_hot_vector', 0.0057516606), ('match_type_hot_vector', 0.003761015), ('venue_hot_vector', 0.0037149698), ('if_contain_india_team_hot_vector', 0.0030376627), ('if_weekend_hot_vector', 0.002833748), ('match_time_hot_vector', 0.0), ('if_holiday_hot_vector', 0.0), ('hostar_influence_hot_vector', 0.0)]
-# [('tournament_name_hot_vector', 0.010289712), ('languages_hot_vector', 0.0077993786), ('teams_hot_vector', 0.0071995393), ('platforms_hot_vector', 0.0056719654), ('venue_hot_vector', 0.0053579574), ('if_contain_india_team_hot_vector', 0.004736047), ('match_type_hot_vector', 0.002780697), ('if_weekend_hot_vector', 0.0012477075), ('match_stage_hot_vector', 0.00058643153), ('match_time_hot_vector', 0.0), ('if_holiday_hot_vector', 0.0), ('hostar_influence_hot_vector', 0.0)]
-
-
-# xgb.feature_importances_
-# 'active_frees_rate', 'frees_watching_match_rate',
-# 'active_subscribers_rate', 'subscribers_watching_match_rate'
-# [(80, 0.06, 7, 0.13254116978187386), (50, 0.1, 7, 0.13285655673952135), (80, 0.06, 6, 0.13296070707921204), (90, 0.06, 7, 0.13296865964147442), (80, 0.06, 5, 0.13364295045999205), (50, 0.1, 6, 0.1337916417428375), (80, 0.06, 4, 0.1342266012312262), (80, 0.06, 3, 0.1345112342442605), (70, 0.06, 3, 0.13464011921293015), (70, 0.06, 2, 0.13511308816178755)]
-# [(90, 0.1, 2, 0.4634771414843388), (80, 0.1, 2, 0.4650745520497132), (70, 0.1, 2, 0.4740912203340653), (70, 0.2, 2, 0.477397446403478), (50, 0.2, 2, 0.4777133977109536), (60, 0.2, 2, 0.4781620815897597), (80, 0.2, 2, 0.4787224562947687), (90, 0.2, 2, 0.4804558183105606), (40, 0.2, 2, 0.48430628993726826), (60, 0.1, 2, 0.486101865908486)]
-# [(90, 0.1, 2, 0.11998065350033846), (50, 0.2, 2, 0.12021094498673594), (80, 0.1, 2, 0.12023702205992355), (60, 0.2, 2, 0.12028915830934309), (70, 0.1, 2, 0.1204190456978632), (40, 0.2, 2, 0.12091239524301903), (60, 0.1, 2, 0.12138624097726365), (30, 0.2, 2, 0.12151276216525106), (70, 0.2, 2, 0.12167094119909118), (50, 0.1, 2, 0.12212174183529528)]
-# [(90, 0.2, 2, 0.32995555289615675), (80, 0.2, 2, 0.3306924518793546), (70, 0.2, 2, 0.3319449345354321), (60, 0.2, 2, 0.3352959984406875), (40, 0.2, 2, 0.3402108953858969), (50, 0.2, 2, 0.3402156009816948), (90, 0.1, 2, 0.3428520068821816), (30, 0.2, 2, 0.3437507657452456), (60, 0.1, 2, 0.34445259317250554), (90, 0.06, 2, 0.3454314784031953)]
-# draw prediction value and real value figure
-
-# active_frees_rate
-# [9.064154031396179e-05, 2.9342328555731143e-05, 4.894681316214462e-06, 0.0, 0.0, 0.0, 0.0, 0.0, 1.939054296798068e-05, 0.0012043900736447071, 0.0004950961860188475, 1.474942419070046e-05]
-# [0.048771217289997115, 0.0157881372804255, 0.0026336662551354937, 0.0, 0.0, 0.0, 0.0, 0.0, 0.010433410345705944, 0.6480424955288829, 0.2663948955869045, 0.00793617771294856]
-# frees_watching_match_rate
-# [4.070444202069687e-05, 0.00047322943361127745, 4.704813317178702e-05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0015542572373242504, 0.0037606042189583105, -0.0006286759135246504, 0.0]
-# [0.007757412284001172, 0.09018759720574084, 0.008966386666609202, 0.0, 0.0, 0.0, 0.0, 0.0, 0.29620880638005725, 0.7166922309997653, 0.0, 0.0]
-# active_subscribers_rate
-# [-1.4924926331439867e-05, 0.00027859583267295963, -8.399333186660113e-05, 0.0, 0.0, 0.0, 0.0, 0.0, -3.1557382517843555e-05, 0.002648699546333691, 0.0014770733303635444, 0.0]
-# [0.0, 0.06518549439531932, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6197393111586827, 0.34560371694760716, 0.0]
-# subscribers_watching_match_rate
-# [-0.0002975682358391622, 0.004454138145416113, 6.7002686423012214e-06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0025836485493788176, 0.01030998633161322, -1.4343462853057959e-05, 0.0]
-# [0.0, 0.26135379474690607, 0.0003931491521634271, 0.0, 0.0, 0.0, 0.0, 0.0, 0.15159977769603067, 0.6049552042585151, 0.0, 0.0]

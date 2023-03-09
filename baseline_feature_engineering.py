@@ -114,12 +114,17 @@ def calculate_sub_num_on_target_date(sub_df, user_meta_df, target_date):
     return sub_df.select('dw_p_id').distinct()
 
 
-def get_match_start_time(content_id, rank, match_start_time):
+def get_match_start_time(content_id, rank, match_start_time, tournament):
     if match_start_time:
         return match_start_time
     else:
         if content_id == "1540019005":
             return "13:30:00"
+        elif tournament == "england_tour_of_india2021":
+            if content_id <= "1540005181" or content_id >= "1540005202":
+                return "08:00:00"
+            else:
+                return "13:00:00"
         else:
             if rank == 1:
                 return "19:00:00"
@@ -128,22 +133,119 @@ def get_match_start_time(content_id, rank, match_start_time):
 
 
 def simple_title(title):
+    unvalid_mapping = {
+        "sl": "sri lanka",
+        "eng": "england",
+        "ire": "ireland",
+        "dc.": "dc"
+    }
+    title = title.lower()
     if title.find(": ") > -1:
         title = title.split(": ")[-1]
     if title.find(", ") > -1:
         title = title.split(", ")[0]
     teams = sorted(title.split(" vs "))
+    for i in range(len(teams)):
+        if teams[i] in unvalid_mapping:
+            teams[i] = unvalid_mapping[teams[i]]
     return teams[0] + " vs " + teams[1]
 
 
-def get_teams_tier(simple_title):
-    return "tier1 vs tier1"
+def get_continents(teams, tournament_type):
+    teams = teams.split(" vs ")
+    continent_dic = {'australia': 'OC',
+                        'england': 'EU',
+                        'india': 'AS',
+                        'new zealand': 'OC',
+                        'pakistan': 'AS',
+                        'south africa': 'AF',
+                        'sri lanka': 'AS',
+                        'afghanistan': 'AS',
+                        'bangladesh': 'AS',
+                        'west indies': 'NA',
+                        'zimbabwe': 'AF',
+                        'hong kong': 'AS',
+                        'ireland': 'EU',
+                        'namibia': 'AF',
+                        'netherlands': 'EU',
+                        'oman': 'AS',
+                        'papua new guinea': 'OC',
+                        'scotland': 'EU',
+                        'uae': 'AS'}
+    if tournament_type == "national":
+        return "AS vs AS"
+    elif teams[0] in continent_dic and teams[1] in continent_dic:
+        return f"{continent_dic[teams[0]]} vs {continent_dic[teams[1]]}"
+    else:
+        return ""
+
+
+def get_teams_tier(teams):
+    teams = teams.split(" vs ")
+    tiers_dic = {'australia': 'tier1',
+                 'england': 'tier1',
+                 'india': 'tier1',
+                 'new zealand': 'tier1',
+                 'pakistan': 'tier1',
+                 'south africa': 'tier1',
+                 'sri lanka': 'tier1',
+                 'afghanistan': 'tier2',
+                 'bangladesh': 'tier2',
+                 'west indies': 'tier2',
+                 'zimbabwe': 'tier2',
+                 'hong kong': 'tier3',
+                 'ireland': 'tier3',
+                 'namibia': 'tier3',
+                 'netherlands': 'tier3',
+                 'oman': 'tier3',
+                 'papua new guinea': 'tier3',
+                 'scotland': 'tier3',
+                 'uae': 'tier3',
+                 "csk": "tier1",
+                 "mi": "tier1",
+                 "rcb": "tier1",
+                 "dc": "tier2",
+                 "gt": "tier2",
+                 "kkr": "tier2",
+                 "kxip": "tier2",
+                 "lsg": "tier2",
+                 "pbks": "tier2",
+                 "rr": "tier2",
+                 "srh": "tier2"
+                 }
+    if teams[0] in tiers_dic and teams[1] in tiers_dic:
+        return f"{tiers_dic[teams[0]]} vs {tiers_dic[teams[1]]}"
+    else:
+        return ""
 
 
 def get_match_stage(tournament, date, rank):
-    if tournament == "wc2019":
-        if date >= "2019-07-09":
-            return "knock-off"
+    if tournament == "ipl2019":
+        if date >= "2019-05-12":
+            return "final"
+        elif date >= "2019-05-07":
+            return "semi-final"
+        else:
+            return "group"
+    elif tournament == "wc2019":
+        if date >= "2019-07-14":
+            return "final"
+        elif date >= "2019-07-09":
+            return "semi-final"
+        else:
+            return "group"
+    elif tournament == "ipl2020":
+        if date >= "2020-11-10":
+            return "final"
+        elif date >= "2020-11-05":
+            return "semi-final"
+        else:
+            return "group"
+    elif tournament == "ipl2021":
+        if date >= "2021-10-15":
+            return "final"
+        elif date >= "2021-10-10":
+            return "semi-final"
         else:
             return "group"
     elif tournament == "wc2021" or tournament == "wc2022":
@@ -151,16 +253,15 @@ def get_match_stage(tournament, date, rank):
             return "qualifier"
         elif rank <= 42:
             return "group"
+        elif rank <= 44:
+            return "semi-final"
         else:
-            return "knock-off"
-    elif tournament == "ipl2021":
-        if date >= "2021-10-10":
-            return "knock-off"
-        else:
-            return "group"
+            return "final"
     elif tournament == "ipl2022":
-        if date >= "2022-05-24":
-            return "knock-off"
+        if date >= "2022-05-29":
+            return "final"
+        elif date >= "2022-05-24":
+            return "semi-final"
         else:
             return "group"
     elif tournament == "ac2022":
@@ -169,15 +270,15 @@ def get_match_stage(tournament, date, rank):
         elif date <= "2022-09-09":
             return "group"
         else:
-            return "knock-off"
+            return "final"
     else:
-        return ""
+        return "group"
 
 
 def generate_hot_vector(hots, hots_num):
     res = [0 for i in range(hots_num)]
     for hot in hots:
-        res[hot] = 1
+        res[hot] += 1
     return res
 
 
@@ -186,6 +287,8 @@ def plaform_process(platforms):
     for platform in platforms:
         if platform.endswith("ndroid"):
             res.append("android")
+        elif platform == "mb":
+            res.append("mobile")
         else:
             res.append(platform)
     return list(set(res))
@@ -202,38 +305,87 @@ def languages_process(languages):
                 res.append("bengali")
             elif language.startswith("dug"):
                 res.append("dugout")
-            elif language.startswith("eng"):
+            elif language.startswith("eng") or language.startswith("الإنجليزية"):
                 res.append("english")
             elif language.startswith("guj"):
                 res.append("gujarati")
-            elif language.startswith("hin"):
+            elif language.startswith("hin") or language.startswith("הינדי") or language.startswith("हिन्दी"):
                 res.append("hindi")
             elif language.startswith("kan"):
                 res.append("kannada")
-            elif language.startswith("mal"):
+            elif language.startswith("mal") or language.startswith("മലയാളം"):
                 res.append("malayalam")
             elif language.startswith("mar"):
                 res.append("marathi")
-            elif language.startswith("tam"):
+            elif language.startswith("tam") or language.startswith("தமிழ்"):
                 res.append("tamil")
-            elif language.startswith("tel"):
+            elif language.startswith("tel") or language.startswith("తెలుగు"):
                 res.append("telugu")
+            elif language.startswith("unknown") or language == "":
+                res.append("unknown")
             else:
                 res.append(language)
     return list(set(res))
+
+
+def get_match_type(tournament, date):
+    match_type_list = ["t20", "odi", "test"]
+    if tournament_dic[tournament]['match_type'] != "":
+        return tournament_dic[tournament]['match_type'].lower()
+    else:
+        if tournament == "sri_lanka_tour_of_india2023":
+            if date <= "2023-01-07":
+                return match_type_list[0]
+            else:
+                return match_type_list[1]
+        elif tournament == "new_zealand_tour_of_india2023":
+            if date <= "2023-01-24":
+                return match_type_list[1]
+            else:
+                return match_type_list[0]
+        elif tournament == "south_africa_tour_of_india2022":
+            if date <= "2022-10-04":
+                return match_type_list[0]
+            else:
+                return match_type_list[1]
+        elif tournament == "west_indies_tour_of_india2022":
+            if date <= "2022-02-11":
+                return match_type_list[1]
+            else:
+                return match_type_list[0]
+        elif tournament == "england_tour_of_india2021":
+            if date <= "2021-03-09":
+                return match_type_list[2]
+            elif date <= "2021-03-20":
+                return match_type_list[0]
+            else:
+                return match_type_list[1]
+        elif tournament == "india_tour_of_new_zealand2020":
+            if date <= "2020-02-02":
+                return match_type_list[0]
+            elif date <= "2020-02-11":
+                return match_type_list[1]
+            else:
+                return match_type_list[2]
+        elif tournament == "west_indies_tour_of_india2019":
+            if date <= "2019-12-11":
+                return match_type_list[0]
+            else:
+                return match_type_list[1]
 
 
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
 get_match_start_time_udf = F.udf(get_match_start_time, StringType())
 strip_udf = F.udf(lambda x: x.strip(), StringType())
 if_holiday_udf = F.udf(lambda x: 1 if x in india_holidays else 0, IntegerType())
-get_venue_udf = F.udf(lambda x, y: (tournament_dic[x][3].lower().split(", ")[0] if y < "2021-06-01" else tournament_dic[x][3].lower().split(", ")[1]) if x == "ipl2021" else tournament_dic[x][3].lower(), StringType())
-get_match_type_udf = F.udf(lambda x: tournament_dic[x][2].lower(), StringType())
-get_tournament_name_udf = F.udf(lambda x: " ".join(tournament_dic[x][1].lower().split(" ")[:-1]), StringType())
-get_gender_type_udf = F.udf(lambda x: tournament_dic[x][4].lower(), StringType())
-get_year_udf = F.udf(lambda x: int(tournament_dic[x][1].lower().split(" ")[-1]), IntegerType())
+get_venue_udf = F.udf(lambda x, y: (tournament_dic[x]["venue"].lower().split(", ")[0] if y < "2021-06-01" else tournament_dic[x]["venue"].lower().split(", ")[1]) if x == "ipl2021" else tournament_dic[x]["venue"].lower(), StringType())
+get_match_type_udf = F.udf(get_match_type, StringType())
+get_tournament_name_udf = F.udf(lambda x: " ".join(tournament_dic[x]['tournament_name'].lower().split(" ")[:-1]), StringType())
+get_gender_type_udf = F.udf(lambda x: tournament_dic[x]['gender_type'].lower(), StringType())
+get_year_udf = F.udf(lambda x: int(tournament_dic[x]['tournament_name'].lower().split(" ")[-1]), IntegerType())
 simple_title_udf = F.udf(simple_title, StringType())
 get_teams_tier_udf = F.udf(get_teams_tier, StringType())
+get_continents_udf = F.udf(get_continents, StringType())
 get_match_stage_udf = F.udf(get_match_stage, StringType())
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 plaform_process_udf = F.udf(plaform_process, ArrayType(StringType()))
@@ -243,6 +395,7 @@ concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_
 ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"
 match_meta_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/match_meta"
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
+live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/"
 play_out_log_v2_input_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/cd='
 play_out_log_wc2019_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/'
@@ -253,12 +406,137 @@ viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/agg
 # spark = hive_spark('statistics')
 # match_df = load_hive_table(spark, "in_cms.match_update_s3")
 # save_data_frame(match_df, match_meta_path)
-tournament_dic = {"wc2022": ["ICC Men\'s T20 World Cup 2022", "World Cup 2022", "T20", "Australia", "men", "svod"],
-                  "ac2022": ["DP World Asia Cup 2022", "Asia Cup 2022", "T20", "United Arab Emirates", "men", "svod"],
-                  "ipl2022": ["TATA IPL 2022", "IPL 2022", "T20", "India", "men", "svod"],
-                  "wc2021": ["ICC Men\'s T20 World Cup 2021", "World Cup 2021", "T20", "United Arab Emirates", "men", "svod"],
-                  "ipl2021": ["VIVO IPL 2021", "IPL 2021", "T20", "India, United Arab Emirates", "men", "svod"],
-                  "wc2019": ["ICC CWC 2019", "World Cup 2019", "ODI", "England", "men", "avod"]}
+
+tournament_dic = {
+    'sri_lanka_tour_of_india2023': {
+        'tournament_name': 'Sri Lanka Tour of India 2023',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'new_zealand_tour_of_india2023': {
+        'tournament_name': 'New Zealand Tour of India 2023',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'wc2022': {
+        'tournament_name': 'World Cup 2022',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'Australia',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ac2022': {
+        'tournament_name': 'Asia Cup 2022',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'south_africa_tour_of_india2022': {
+        'tournament_name': 'South Africa Tour of India 2022',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'west_indies_tour_of_india2022': {
+        'tournament_name': 'West Indies Tour of India 2022',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ipl2022': {
+        'tournament_name': 'IPL 2022',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'england_tour_of_india2021': {
+        'tournament_name': 'England Tour of India 2021',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'wc2021': {
+        'tournament_name': 'World Cup 2021',
+        'tournament_type': 'International',
+        'match_type': 'T20',
+        'venue': 'United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'ipl2021': {
+        'tournament_name': 'IPL 2021',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India, United Arab Emirates',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'australia_tour_of_india2020': {
+        'tournament_name': 'Australia Tour of India 2020',
+        'tournament_type': 'Tour',
+        'match_type': 'ODI',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'india_tour_of_new_zealand2020': {
+        'tournament_name': 'India Tour of New Zealand 2020',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'New Zealand',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'ipl2020': {
+        'tournament_name': 'IPL 2020',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'svod'
+    },
+    'west_indies_tour_of_india2019': {
+        'tournament_name': 'West Indies Tour India 2019',
+        'tournament_type': 'Tour',
+        'match_type': '',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'},
+    'wc2019': {
+        'tournament_name': 'World Cup 2019',
+        'tournament_type': 'International',
+        'match_type': 'ODI',
+        'venue': 'England',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'ipl2019': {
+        'tournament_name': 'IPL 2019',
+        'tournament_type': 'National',
+        'match_type': 'T20',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    }
+}
+
 
 india_holidays = ["2019-1-26", "2019-3-4", "2019-3-21", "2019-4-17", "2019-4-19", "2019-5-18", "2019-6-5",
                   "2019-8-12", "2019-8-15", "2019-8-24", "2019-9-10", "2019-10-2", "2019-10-8", "2019-10-27",
@@ -283,99 +561,22 @@ for i in range(len(india_holidays)):
         items[2] = "0" + items[2]
     india_holidays[i] = "-".join(items)
 
-one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'gender_type', 'hostar_influence', 'match_stage']
-multi_hot_cols = ['teams', 'teams_tier']
+# match_type: t20, odi, test
+# tournament_name: IPL, World Cup
+# tournament_type: tour, national, international
+# ipl if_contain_india_team is true
+# continent name
+# ask a tier list from nirmal
+# hotstar influence used as number
+# calculate all sub number and free number
+one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
+                'match_type', 'tournament_name', 'hostar_influence',
+                'match_stage', 'vod_type', 'gender_type']
+multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
 
 
-def get_language_and_platform(tournament):
-    match_df = load_data_frame(spark, match_meta_path) \
-        .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)')) \
-        .where(f'shortsummary="{tournament_dic[tournament][0]}" and contenttype="SPORT_LIVE"') \
-        .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)')) \
-        .withColumn('title', F.expr('lower(title)')) \
-        .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
-                                                             F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar'))) \
-        .where('title_valid_tag = 1') \
-        .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary') \
-        .orderBy('date') \
-        .distinct() \
-        .cache()
-    valid_dates = match_df.select('date', 'content_id').distinct().collect()
-    content_id_col = "_col2"
-    language_col = "_col16"
-    platform_col = "_col23"
-    watch_df = reduce(lambda x, y: x.union(y),
-                      [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
-                      .withColumnRenamed(content_id_col, 'content_id')
-                      .withColumnRenamed(language_col, 'language')
-                      .withColumnRenamed(platform_col, 'platform')
-                      .where(f'content_id = "{date[1]}"')
-                      .select('content_id', 'language', 'platform')
-                      .withColumn('language', F.expr('lower(language)'))
-                      .withColumn('platform', F.expr('lower(platform)'))
-                      .distinct() for date in valid_dates]) \
-        .groupBy('content_id') \
-        .agg(F.collect_list('language').alias('languages'), F.collect_list('platform').alias('platforms'))\
-        .withColumn('languages', F.array_distinct(F.col('languages')))\
-        .withColumn('platforms', F.array_distinct(F.col('platforms')))\
-        .cache()
-    save_data_frame(watch_df, live_ads_inventory_forecasting_root_path + f"/language_and_platform_of_{tournament}")
-
-
-def get_playout_df(tournament):
-    if tournament == "wc2019":
-        return load_data_frame(spark, play_out_log_wc2019_path)\
-            .selectExpr('content_id', 'break_ist_date as start_date', 'break_ist_start_time as start_time') \
-            .withColumn('start_time', F.concat_ws(" ", F.col('start_date'), F.col('start_time'))) \
-            .select('content_id', 'start_time') \
-            .withColumn('tournament', F.lit(tournament))
-    match_df = load_data_frame(spark, match_meta_path) \
-        .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)')) \
-        .where(f'shortsummary="{tournament_dic[tournament][0]}" and contenttype="SPORT_LIVE"') \
-        .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)')) \
-        .withColumn('title', F.expr('lower(title)')) \
-        .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
-                                                             F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar'))) \
-        .where('title_valid_tag = 1') \
-        .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary') \
-        .orderBy('date') \
-        .distinct() \
-        .cache()
-    valid_dates = match_df.select('date').distinct().collect()
-    if tournament == "ipl2021":
-        valid_dates = [date for date in valid_dates if date[0] >= "2021-09-21" and date[0] != "2021-09-26"][:-1]
-    content_id_col = "Content ID"
-    start_time_col = "Start Time"
-    content_id_col2 = "_c4"
-    start_time_col2 = "_c2"
-    if tournament == "wc2021":
-        play_out_log_input_path_final = play_out_log_v2_input_path
-    else:
-        play_out_log_input_path_final = play_out_log_input_path
-    return reduce(lambda x, y: x.union(y),
-                        [load_data_frame(spark, f"{play_out_log_input_path_final}{date[0]}", 'csv', True)
-                            .withColumn('date', F.lit(date[0]))
-                            .withColumnRenamed(content_id_col, 'content_id')
-                            .withColumnRenamed(start_time_col, 'start_time')
-                            .withColumnRenamed(content_id_col2, 'content_id')
-                            .withColumnRenamed(start_time_col2, 'start_time')
-                            .select('content_id', 'start_time', 'date') for date in valid_dates]) \
-        .withColumn('content_id', F.trim(F.col('content_id'))) \
-        .withColumn('tournament', F.lit(tournament))\
-        .where('start_time is not null')\
-        .withColumn('start_time', strip_udf('start_time')) \
-        .withColumn('start_time', F.expr('if(length(start_time)==7 and tournament="ac2022", concat_ws("", "0", start_time), start_time)')) \
-        .withColumn('start_time', F.expr('if(content_id="1540017117", concat_ws(" ", start_time, "pm"), start_time)'))\
-        .withColumn('start_time', F.expr('if(length(start_time)==11 and substring(start_time, 1, 8) >= "13:00:00" and tournament = "ac2022", substring(start_time, 1, 8), start_time)'))\
-        .withColumn('start_time', F.expr('if(length(start_time)==8, start_time, from_unixtime(unix_timestamp(start_time, "hh:mm:ss aa"), "HH:mm:ss"))'))\
-        .withColumn('next_date', F.date_add(F.col('date'), 1)) \
-        .withColumn('start_date', F.expr('if(start_time < "03:00:00", next_date, date)')) \
-        .withColumn('start_time', F.concat_ws(" ", F.col('start_date'), F.col('start_time')))\
-        .select('content_id', 'start_time', 'tournament')
-
-
-def main(tournament):
+def merge_sub_and_free_features(tournament):
     df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_checking_result_of_{tournament}")\
             .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_checking_result_of_{tournament}")
                   .withColumnRenamed('avg_watch_time', 'avg_sub_watch_time').withColumnRenamed('total_watch_time', 'total_sub_watch_time'),
@@ -400,89 +601,113 @@ def main(tournament):
                     'active_subscribers_rate', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match',
                     'if_contain_india_team', 'if_weekend')\
         .orderBy('date', 'content_id')\
-        .withColumn('tournament', F.lit(tournament))
+        .withColumn('tournament', F.lit(tournament))\
+        .where('date != "2022-08-24"')
 
 
-def merge_base_features():
-    df = main("wc2019")\
-        .union(main("wc2021"))\
-        .union(main("wc2022"))\
-        .union(main("ipl2021"))\
-        .union(main("ipl2022"))\
-        .union(main("ac2022"))
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features")
-
-
-def get_match_time():
+def get_match_time(feature_df):
+    # ipl2019_df = spark.createDataFrame([('ipl2019', '1440000316', '2019-05-08 17:30:00'), ('ipl2019', '1440000317', '2019-05-10 17:30:00')], ['tournament', 'content_id', 'start_time'])
+    # save_data_frame(ipl2019_df, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/ipl2019")
     df = reduce(lambda x, y: x.union(y),
-                        [get_playout_df(tournament[0]) for tournament in tournament_dic])\
+                [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/{tournament}")
+                .withColumn('tournament', F.lit(tournament)).select('tournament', 'content_id', 'start_time') for tournament in tournament_dic])\
         .cache()
     playout_df = df\
         .groupBy('tournament', 'content_id')\
         .agg(F.min('start_time').alias('match_start_time'))\
-        .withColumn('match_start_time', F.from_unixtime(
-                F.unix_timestamp(F.col('match_start_time'), 'yyyy-MM-dd HH:mm:ss') + F.lit(3620)))\
+        .withColumn('match_start_time', F.from_unixtime(F.unix_timestamp(F.col('match_start_time'), 'yyyy-MM-dd HH:mm:ss') + F.lit(3620)))\
         .withColumn('match_start_time', F.substring(F.col('match_start_time'), 12, 8))\
         .cache()
-    feature_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features")\
-        .cache()
-    feature_df.groupBy('tournament').count().show()
+    feature_df.groupBy('tournament').count().orderBy('tournament').show()
     res_df = feature_df\
-        .join(playout_df, ['tournament', 'content_id'], 'left')\
+        .join(playout_df, ['tournament', 'content_id'], 'left')
+    res_df.where('match_start_time is null').groupBy('tournament').count().orderBy('tournament').show()
+    res_df = res_df\
         .withColumn('rank', F.expr('row_number() over (partition by date order by content_id desc)'))\
-        .withColumn('match_start_time', get_match_start_time_udf('content_id', 'rank', 'match_start_time')) \
+        .withColumn('match_start_time', get_match_start_time_udf('content_id', 'rank', 'match_start_time', 'tournament')) \
         .withColumn('match_time', F.expr('if(match_start_time < "06:00:00", 0, '
                                          'if(match_start_time < "12:00:00", 1, '
                                          'if(match_start_time < "18:00:00", 2, 3)))')) \
         .orderBy('date', 'content_id')
-    # res_df.groupBy('tournament').count().show()
-    # res_df.where('match_time is null').orderBy('date').show(200, False)
-    res_df.show(2000, False)
-    save_data_frame(res_df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_match_start_time")
+    res_df.groupBy('tournament').count().orderBy('tournament').show()
+    res_df.where('match_time is null').orderBy('date').show(200, False)
+    res_df.show(200, False)
+    res_df.where('tournament="wc2019"').orderBy('content_id').show(200, False)
+    return res_df
 
 
-def get_holiday_tag():
-    df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_match_start_time")\
-        .withColumn('if_holiday', if_holiday_udf('date'))
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_match_start_time_and_if_holiday")
-    df.select('date', 'if_holiday').orderBy('date').show(2000)
+def get_language_and_platform(tournament):
+    if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/language_and_platform_of_{tournament}"):
+        match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
+        valid_dates = match_df.select('date', 'content_id').distinct().collect()
+        content_id_col = "_col2"
+        language_col = "_col16"
+        platform_col = "_col23"
+        watch_df = reduce(lambda x, y: x.union(y),
+                          [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date[0]}', fmt="orc")
+                          .withColumnRenamed(content_id_col, 'content_id')
+                          .withColumnRenamed(language_col, 'language')
+                          .withColumnRenamed(platform_col, 'platform')
+                          .where(f'content_id = "{date[1]}"')
+                          .select('content_id', 'language', 'platform')
+                          .withColumn('language', F.expr('lower(language)'))
+                          .withColumn('platform', F.expr('lower(platform)'))
+                          .distinct() for date in valid_dates]) \
+            .groupBy('content_id') \
+            .agg(F.collect_list('language').alias('languages'), F.collect_list('platform').alias('platforms'))\
+            .withColumn('languages', F.array_distinct(F.col('languages')))\
+            .withColumn('platforms', F.array_distinct(F.col('platforms')))
+        save_data_frame(watch_df, live_ads_inventory_forecasting_root_path + f"/language_and_platform_of_{tournament}")
 
 
 def get_language_and_platform_all():
     for tournament in tournament_dic:
-        print(tournament_dic[tournament][0])
+        print(tournament)
         get_language_and_platform(tournament)
     df = reduce(lambda x, y: x.union(y),
                           [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/language_and_platform_of_{tournament}")
-                           for tournament in tournament_dic])
+                           for tournament in tournament_dic]) \
+        .withColumn('platforms', plaform_process_udf("platforms")) \
+        .withColumn('languages', languages_process_udf("languages")) \
+        .cache()
+    df.select('languages').withColumn('language', F.explode('languages')).select('language').distinct().orderBy('language').show(200, False)
+    df.select('platforms').withColumn('platform', F.explode('platforms')).select('platform').distinct().orderBy('platform').show(200, False)
     save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/language_and_platform_all")
 
 
-def add_more_features():
-    col_num_dic = {}
-    df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_match_start_time_and_if_holiday")\
-        .withColumn('venue', get_venue_udf('tournament', 'date'))\
-        .withColumn('match_type', get_match_type_udf('tournament'))\
+def add_more_features(feature_df):
+    df = feature_df \
+        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))'))\
+        .withColumn('if_holiday', if_holiday_udf('date'))\
+        .withColumn('venue_detail', get_venue_udf('tournament', 'date'))\
+        .withColumn('venue', F.expr('if(venue_detail="india", 1, 0)'))\
+        .withColumn('match_type', get_match_type_udf('tournament', 'date'))\
         .withColumn('tournament_name', get_tournament_name_udf('tournament'))\
-        .withColumn('gender_type', get_gender_type_udf('tournament'))\
         .withColumn('year', get_year_udf('tournament'))\
         .withColumn('hostar_influence', F.expr('year - 2016'))\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
         .withColumn('match_stage', get_match_stage_udf('tournament', 'date', 'rank')) \
-        .withColumn('simple_title', simple_title_udf('title'))\
-        .withColumn('teams_tier', get_teams_tier_udf('simple_title'))\
+        .withColumn('vod_type', F.expr('if(date <= "2020-08-30", "avod", "svod")')) \
+        .withColumn('gender_type', get_gender_type_udf('tournament')) \
+        .withColumn('teams', simple_title_udf('title'))\
+        .withColumn('continents', get_continents_udf('teams', 'tournament_type'))\
+        .withColumn('teams_tier', get_teams_tier_udf('teams'))\
         .cache()
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features")
-    df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features")\
+    df.groupBy('tournament', 'tournament_type')\
+        .agg(F.countDistinct('match_type'), F.collect_set('match_type'),
+             F.countDistinct('match_stage'), F.collect_set('match_stage'))\
+        .orderBy('tournament_type')\
+        .show(20, False)
+    df.where('continents = "" or teams_tier = ""').select('tournament', 'title', 'teams', 'continents', 'teams_tier').show(20, False)
+    return df
+
+
+def add_hots_features(feature_df):
+    col_num_dic = {}
+    df = feature_df\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
-        .withColumnRenamed('simple_title', 'teams')\
         .cache()
     df.groupBy('tournament').count().orderBy('tournament').show()
-    # ['tournament', 'content_id', 'date', 'title', 'shortsummary', 'total_frees_number', 'active_free_num', 'match_active_free_num', 'total_free_watch_time',
-    # 'total_subscribers_number', 'active_sub_num', 'match_active_sub_num', 'total_sub_watch_time', 'active_frees_rate', 'frees_watching_match_rate',
-    # 'watch_time_per_free_per_match', 'active_subscribers_rate', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match',
-    # 'if_contain_india_team', 'if_weekend', 'match_start_time', 'rank', 'match_time', 'if_holiday', 'venue', 'match_type', 'tournament_name',
-    # 'gender_type', 'year', 'hostar_influence', 'match_stage', 'teams', 'teams_tier']
     for col in multi_hot_cols:
         print(col)
         df2 = df\
@@ -534,6 +759,9 @@ def add_more_features():
         print(col)
         df = df\
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
+    for col in ['hostar_influence']:
+        print(col)
+        df = df.withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}")))
     df.groupBy('tournament').count().orderBy('tournament').show()
     # df.where('date >= "2022-11-09" and date <= "2022-11-13"').show(20, False)
     save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features_hots")
@@ -541,8 +769,6 @@ def add_more_features():
         .cache()
     df.groupBy('tournament').count().orderBy('tournament').show()
     language_and_platform_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/language_and_platform_all")\
-        .withColumn('platforms', plaform_process_udf("platforms"))\
-        .withColumn('languages', languages_process_udf("languages"))\
         .cache()
     for col in additional_cols:
         print(col)
@@ -574,7 +800,6 @@ def add_more_features():
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
     language_and_platform_df.show(10, False)
     df.groupBy('tournament').count().orderBy('tournament').show()
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format")
     cols = [col+"_hot_vector" for col in one_hot_cols]
     df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
     cols = [col+"_hot_vector" for col in multi_hot_cols]
@@ -582,29 +807,65 @@ def add_more_features():
     cols = [col+"_hot_vector" for col in additional_cols]
     df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
     print(col_num_dic)
-    # [content_id: string, match_stage: string, hostar_influence: int, gender_type: string, tournament_name: string, match_type: string, if_contain_india_team: int,
-    # venue: string, if_holiday: int, match_time: int, if_weekend: int, tournament: string, rank: int, date: string, title: string, shortsummary: string,
-    # total_frees_number: bigint, active_free_num: bigint, match_active_free_num: bigint, total_free_watch_time: double, total_subscribers_number: bigint,
-    # active_sub_num: bigint, match_active_sub_num: bigint, total_sub_watch_time: double, active_frees_rate: double, frees_watching_match_rate: double,
-    # watch_time_per_free_per_match: double, active_subscribers_rate: double, subscribers_watching_match_rate: double, watch_time_per_subscriber_per_match: double,
-    # match_start_time: string, year: int, teams: string, teams_tier: string, teams_hots: array<int>, teams_hots_num: int, teams_tier_hots: array<int>, teams_tier_hots_num: int,
-    # teams_hot_vector: array<int>, teams_tier_hot_vector: array<int>, if_weekend_hots: array<int>, if_weekend_hots_num: int, match_time_hots: array<int>, match_time_hots_num: int,
-    # if_holiday_hots: array<int>, if_holiday_hots_num: int, venue_hots: array<int>, venue_hots_num: int, if_contain_india_team_hots: array<int>, if_contain_india_team_hots_num: int,
-    # match_type_hots: array<int>, match_type_hots_num: int, tournament_name_hots: array<int>, tournament_name_hots_num: int, gender_type_hots: array<int>, gender_type_hots_num: int,
-    # hostar_influence_hots: array<int>, hostar_influence_hots_num: int, match_stage_hots: array<int>, match_stage_hots_num: int, if_weekend_hot_vector: array<int>, match_time_hot_vector: array<int>,
-    # if_holiday_hot_vector: array<int>, venue_hot_vector: array<int>, if_contain_india_team_hot_vector: array<int>, match_type_hot_vector: array<int>, tournament_name_hot_vector: array<int>,
-    # gender_type_hot_vector: array<int>, hostar_influence_hot_vector: array<int>, match_stage_hot_vector: array<int>, languages_hots: array<int>, languages_hots_num: int, platforms_hots: array<int>,
-    # platforms_hots_num: int, languages_hot_vector: array<int>, platforms_hot_vector: array<int>]
+    return df
 
 
-add_more_features()
+# feature_df = reduce(lambda x, y: x.union(y), [merge_sub_and_free_features(tournament) for tournament in tournament_dic])
+# path_suffix = "/wt_features"
+# save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+# path_suffix = "/wt_features_with_match_start_time"
+# res_df = get_match_time(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+# get_language_and_platform_all()
+
+
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+path_suffix = "/all_features"
+# res_df = add_more_features(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+
+feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+path_suffix = "/all_features_hots_format"
+res_df = add_hots_features(feature_df)
+save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+
+feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
+    .drop('total_frees_number', 'active_frees_rate')\
+    .cache()
+print(feature_df.count())
+sub_and_free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_num")\
+    .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/user_num"), 'cd')\
+    .withColumn('total_frees_number', F.expr('user_num - sub_num'))\
+    .cache()
+sub_and_free_num_df.orderBy('cd').show(1000)
+path_suffix = "/all_features_hots_format_with_new_sub_free_num"
+res_df = feature_df\
+    .join(sub_and_free_num_df.selectExpr('cd as date', 'total_frees_number'), 'date')\
+    .withColumn('active_frees_rate', F.expr('active_free_num/total_frees_number'))
+print(res_df.count())
+save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+
 
 cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
-df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format")\
+df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
     .drop(*cols)
-df.orderBy('date', 'content_id').show(300, False)
+df.orderBy('date', 'content_id').show(3000, False)
 
 
 # save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format_csv", "csv", True, '###')
+# feature_df.groupBy('tournament').count().show()
+# feature_df\
+#     .withColumn('tag', F.locate('ipl', F.col('tournament')))\
+#     .where('tag > 0')\
+#     .withColumn('simple_title', simple_title_udf('title'))\
+#     .withColumn('teams', F.split(F.col('simple_title'), ' vs '))\
+#     .withColumn('team', F.explode('teams'))\
+#     .select('team').distinct().orderBy('team').show(3000, False)
 
 

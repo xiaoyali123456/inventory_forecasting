@@ -176,35 +176,16 @@ play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log
 #             .where('_c0 >= 2')
 #             .withColumn('match_info', F.lit(file_name)) for file_name in file_list])
 # save_data_frame(df, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")
-
-tournament_dic = {"wc2022": "ICC Men\'s T20 World Cup 2022",
-                  "ipl2022": "TATA IPL 2022",
-                  "wc2021": "ICC Men\'s T20 World Cup 2021",
-                  "ipl2021": "VIVO IPL 2021",
-                  "wc2019": "ICC CWC 2019"}
 # tournament = "wc2022"
 # tournament = "ipl2022"
 # tournament = "wc2021"
 # tournament = "ipl2021"
 tournament = "wc2019"
 
-match_df = load_data_frame(spark, match_meta_path)\
-    .withColumn('date', F.expr('substring(from_unixtime(startdate), 1, 10)'))\
-    .where(f'shortsummary="{tournament_dic[tournament]}" and contenttype="SPORT_LIVE"')\
-    .withColumn('date', F.expr('if(contentid="1540019056", "2022-11-06", date)'))\
-    .withColumn('title', F.expr('lower(title)'))\
-    .withColumn('title_valid_tag', check_title_valid_udf('title', F.lit('warm-up'), F.lit('follow on'),
-                                                         F.lit(' fuls '), F.lit('live commentary'), F.lit('hotstar')))\
-    .where('title_valid_tag = 1')\
-    .selectExpr('date', 'contentid as content_id', 'title', 'shortsummary')\
-    .orderBy('date')\
-    .distinct()\
+match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}")\
     .withColumn('rank', F.expr('row_number() over (partition by date order by content_id)'))\
     .cache()
 
-# load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")\
-# .withColumn('file_name', F.expr('lower(file_name)'))\
-#     .where('file_name != "live" and match_info = "20190619_ICC_CWC_NZvsSA_Hindi_IOS_AsRun"').orderBy('date_ist').show(2000, False)
 
 df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/break_info/wc2019")\
     .withColumn('file_name', F.expr('lower(file_name)'))\
@@ -229,7 +210,7 @@ df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live
     .withColumn('tenant_final', F.expr('if(platform in ("us", "india", "canada"), platform, "")')) \
     .withColumn('date_ist_final', F.substring(F.col('date'), 1, 10)) \
     .withColumn('date_ist_final', F.expr('if(date_ist_final < "2019-05-30" or date_ist_final > "2019-07-15", date_tmp, date_ist_final)')) \
-    .where('file_name != "live" and time_ist_length >= 8 and time_ist_length <= 15') \
+    .where('time_ist_length >= 8 and time_ist_length <= 15') \
     .withColumn('time_ist_final', F.regexp_replace(F.col('time_ist'), " ", ""))\
     .withColumn('time_ist_final', F.regexp_replace(F.col('time_ist_final'), "am", " AM"))\
     .withColumn('time_ist_final', F.regexp_replace(F.col('time_ist_final'), "pm", " PM"))\
@@ -250,7 +231,7 @@ df3 = df\
 
 print(df.count())
 res_df = df\
-    .selectExpr('date_tmp as start_date', 'language_final as language',
+    .selectExpr('_c0 as break_id', 'date_tmp as start_date', 'language_final as language',
                 'platform_final as platform', 'tenant_final as tenant',
                 'date_ist_final as break_ist_date', 'time_ist_final as break_ist_start_time',
                 'duration_final as duration', 'teams_str', 'match_info', "file_name")\
@@ -263,7 +244,7 @@ res_df = df\
     .cache()
 print(res_df.count())
 save_data_frame(res_df,
-                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/")
+                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_tmp/wc2019/")
 
 
 load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/playout_log_v2/wc2019/")\
