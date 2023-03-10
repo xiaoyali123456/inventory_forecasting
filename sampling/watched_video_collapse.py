@@ -46,11 +46,12 @@ def parse(segments):
             filtered.add(t)
     return '|'.join(sorted(filtered))
 
-def process(dt):
+def process(dt, tour):
     print('process', dt)
     print('begin', pd.datetime.now())
     npar = 32
-    out_table_path = f'{out_path}quarter_data/tournament=wc2022/cd={dt}/'
+    # out_table_path = f'{out_path}quarter_data/tournament=wc2022/cd={dt}/'
+    out_table_path = f'{out_path}quarter_data/tournament={tour}/cd={dt}/'
     success_path = f'{out_table_path}_SUCCESS'
     if os.system('aws s3 ls ' + success_path) == 0:
         return
@@ -85,8 +86,11 @@ def process(dt):
 
 def main():
     for dt in pd.date_range('2022-10-16', '2022-11-13'):
-        process(dt.date())
+        process(dt.date(), 'wc2022')
     process('2022-11-15')
+
+    for dt in pd.date_range('2021-10-17', '2021-11-14'):
+        process(dt.date(), 'wc2021')
 
 if __name__ == '__main__':
     main()
