@@ -188,5 +188,13 @@ df4 = pd.concat([
     (df3.reach / df3.reach.sum()).rename('reach%'),
     (df3.watch_time / df3.watch_time.sum()).rename('watch_time%'),
 ], axis=1)
-df4.head(10).style.format({'reach%': '{:.2%}', 'watch_time%': '{:.2%}', 'accum%': '{:.2%}'}).hide_index()
+print(df4.head(10).style.format({'reach%': '{:.2%}', 'watch_time%': '{:.2%}', 'accum%': '{:.2%}'}).hide_index())
 
+df7 = df2.groupby(['cd'] + basic).sum().reset_index()
+df7['watch_time%'] = df7.watch_time / df7.groupby('cd').watch_time.transform('sum')
+df7['reach%'] = df7.reach / df7.groupby('cd').reach.transform('sum')
+
+df8 = df4.merge(df7, on=basic, suffixes=('', '_daily'))
+df9 = df8.pivot(df4.columns, 'cd', 'reach%_daily').reset_index().fillna(0)
+df9.to_csv('df9.csv', index=False, float_format='{:.2%}'.format)
+df9.head(11).style.format(lambda x: f'{x:.2%}' if isinstance(x, float) else x).hide_index()
