@@ -50,7 +50,6 @@ def process(dt, tour):
     print('process', dt)
     print('begin', pd.datetime.now())
     npar = 32
-    # out_table_path = f'{out_path}quarter_data/tournament=wc2022/cd={dt}/'
     out_table_path = f'{out_path}quarter_data/tournament={tour}/cd={dt}/'
     success_path = f'{out_table_path}_SUCCESS'
     if os.system('aws s3 ls ' + success_path) == 0:

@@ -208,5 +208,16 @@ for i in df.columns:
         s = df[i].apply(lambda x: float(x.strip('%'))/100)
         order = s.apply(lambda x: -x).argsort()
         outlier = s[:topn][order[:topn] >= topn]
-        ans.append([i, len(outlier), sum(outlier)])
-print(pd.DataFrame(ans, columns=['cd', 'outlier_num', 'outlier_sum']))
+        ans.append([i, len(outlier), len(outlier)/topn, sum(outlier)])
+ans_df=pd.DataFrame(ans, columns=['cd', 'outlier_num', 'outlier%', 'outlier_sum'])
+
+df2 = pd.concat([df[i].apply(lambda x:float(x.strip('%'))/100) for i in df.columns if i.startswith('2022')], axis=1)
+df3 = df2.sort_values('2022-10-23', ascending=False).reset_index(drop=True)
+ans = []
+for i in df3.columns:
+    s = df3[i]
+    order = s.apply(lambda x: -x).argsort(kind='stable')
+    outlier = s[:topn][order[:topn] >= topn]
+    ans.append([i, len(outlier), len(outlier)/topn, sum(outlier)])
+ans_df = pd.DataFrame(ans, columns=['cd', 'outlier_num', 'outlier%', 'outlier_sum'])
+
