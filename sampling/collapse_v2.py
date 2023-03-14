@@ -198,3 +198,15 @@ df8 = df4.merge(df7, on=basic, suffixes=('', '_daily'))
 df9 = df8.pivot(df4.columns, 'cd', 'reach%_daily').reset_index().fillna(0)
 df9.to_csv('df9.csv', index=False, float_format='{:.2%}'.format)
 df9.head(11).style.format(lambda x: f'{x:.2%}' if isinstance(x, float) else x).hide_index()
+
+# stability day by day
+df=pd.read_clipboard().dropna()
+topn = int(len(df)*0.2)
+ans = []
+for i in df.columns:
+    if i.startswith('2022'):
+        s = df[i].apply(lambda x: float(x.strip('%'))/100)
+        order = s.apply(lambda x: -x).argsort()
+        outlier = s[:topn][order[:topn] >= topn]
+        ans.append([i, len(outlier), sum(outlier)])
+print(pd.DataFrame(ans, columns=['cd', 'outlier_num', 'outlier_sum']))
