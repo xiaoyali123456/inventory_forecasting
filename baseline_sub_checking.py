@@ -116,7 +116,7 @@ def calculate_sub_num_on_target_date(sub_df, user_meta_df, target_date):
         .where(f'sub_start_time <= "{target_date}" and sub_end_time >= "{target_date}"')\
         .select('hid')\
         .distinct()\
-        .join(user_meta_df, 'hid')
+        .join(user_meta_df, 'hid') # advance
     return sub_df.select('dw_p_id').distinct().count()
 
 
