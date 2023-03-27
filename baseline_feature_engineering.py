@@ -561,9 +561,10 @@ for i in range(len(india_holidays)):
         items[2] = "0" + items[2]
     india_holidays[i] = "-".join(items)
 
-# match_type: t20, odi, test
+# match_type: odi, t20, test
 # tournament_name: IPL, World Cup
-# tournament_type: tour, national, international
+# tournament_type: international, national, tour
+# match_stage: final, group, qualifier, semi-final
 # ipl if_contain_india_team is true
 # continent name
 # ask a tier list from nirmal
@@ -810,6 +811,29 @@ def add_hots_features(feature_df):
     return df
 
 
+def add_free_timer_features(feature_df):
+    avod_tournament_list = ['wc2019', 'west_indies_tour_of_india2019', 'australia_tour_of_india2020', 'india_tour_of_new_zealand2020']
+    #  'content_id', 'carrier_jio', 'match_active_free_num', 'total_free_watch_time', 'avg_watch_time', 'date'
+    free_timer_df = reduce(lambda x, y: x.union(y),
+                           [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_watch_time_detailed_of_{tournament}").withColumn('tournament', F.lit(tournament))
+                            for tournament in avod_tournament_list])\
+        .withColumn('free_timer', F.expr('if(carrier_jio=1, 1000, 10)'))\
+        .cache()
+    free_timer_df = free_timer_df\
+        .join(free_timer_df.groupBy('content_id').agg(F.sum('match_active_free_num').alias('total_match_active_free_num')), 'content_id')\
+        .withColumn('user_rate', F.expr('match_active_free_num/total_match_active_free_num'))\
+        .cache()
+    free_timer_df.orderBy('date').show(500, False)
+    res_df = feature_df\
+        .join(free_timer_df.selectExpr('date', 'content_id', 'user_rate', 'free_timer', 'avg_watch_time as watch_time_per_free_per_match_with_free_timer'),
+              ['date', 'content_id'], 'left')\
+        .fillna(5, ['free_timer'])\
+        .fillna(1.0, ['user_rate'])\
+        .fillna(-1, ['watch_time_per_free_per_match_with_free_timer'])\
+        .withColumn('watch_time_per_free_per_match_with_free_timer', F.expr('if(watch_time_per_free_per_match_with_free_timer<0, watch_time_per_free_per_match, watch_time_per_free_per_match_with_free_timer)'))
+    return res_df
+
+
 # feature_df = reduce(lambda x, y: x.union(y), [merge_sub_and_free_features(tournament) for tournament in tournament_dic])
 # path_suffix = "/wt_features"
 # save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
@@ -823,39 +847,117 @@ def add_hots_features(feature_df):
 
 
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
-path_suffix = "/all_features"
+# path_suffix = "/all_features"
 # res_df = add_more_features(feature_df)
 # save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
 
 
-feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+# path_suffix = "/all_features_hots_format"
+# res_df = add_hots_features(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+#
+#
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
+#     .drop('total_frees_number', 'active_frees_rate')\
+#     .withColumn("rand", F.rand(seed=4321))\
+#     .cache()
+# print(feature_df.count())
+# sub_and_free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_num")\
+#     .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/user_num"), 'cd')\
+#     .withColumn('total_frees_number', F.expr('user_num - sub_num'))\
+#     .cache()
+# # sub_and_free_num_df.orderBy('cd').show(1000)
+# path_suffix = "/all_features_hots_format_with_new_sub_free_num"
+# res_df = feature_df\
+#     .join(sub_and_free_num_df.selectExpr('cd as date', 'total_frees_number'), 'date')\
+#     .withColumn('active_frees_rate', F.expr('active_free_num/total_frees_number'))
+# print(res_df.count())
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+#
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+# path_suffix = "/all_features_hots_format_with_new_sub_free_num_and_free_timer"
+# res_df = add_free_timer_features(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+#
+#
+# for path_suffix in ["/all_features_hots_format_with_new_sub_free_num", "/all_features_hots_format_with_new_sub_free_num_and_free_timer"]:
+#     feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+#     for col in one_hot_cols:
+#         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+#             print(col)
+#             feature_df = feature_df\
+#                 .withColumn(f"{col}_hots_num", F.lit(1))\
+#                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
+#     save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix + "_and_simple_one_hot")
+#
+
+
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
 path_suffix = "/all_features_hots_format"
-res_df = add_hots_features(feature_df)
-save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
-
-
+# res_df = add_hots_features(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+#
+#
 feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
-    .drop('total_frees_number', 'active_frees_rate')\
+    .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", '
+           '"1540019005", "1540019014", "1540019017","1540016333")')\
+    .drop('total_frees_number', 'frees_watching_match_rate', 'total_subscribers_number', 'subscribers_watching_match_rate')\
+    .withColumn("rand", F.rand(seed=4321))\
     .cache()
 print(feature_df.count())
-sub_and_free_num_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_num")\
-    .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/user_num"), 'cd')\
-    .withColumn('total_frees_number', F.expr('user_num - sub_num'))\
+# match_num_df = feature_df\
+#     .groupBy('date')\
+#     .agg(F.count('content_id').alias('match_num'))\
+#     .withColumn('match_num_hots_num', F.lit(3))\
+#     .withColumn('match_num', F.expr('match_num - 1'))\
+#     .withColumn('match_num_hots', F.array(F.col('match_num')))\
+#     .withColumn(f"match_num_hot_vector", generate_hot_vector_udf(f"match_num_hots", f"match_num_hots_num"))\
+#     .cache()
+# match_num_df.show()
+# save_data_frame(match_num_df, live_ads_inventory_forecasting_complete_feature_path + "/match_num")
+
+sub_and_free_num_df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/")\
+    .withColumn('total_frees_number', F.expr('vv - sub_vv'))\
+    .selectExpr('ds as date', 'total_frees_number', 'sub_vv as total_subscribers_number')\
+    .join(feature_df.select('date', 'tournament').distinct(), 'date')\
+    .groupBy('tournament')\
+    .agg(F.avg('total_frees_number').alias('total_frees_number'),
+         F.avg('total_subscribers_number').alias('total_subscribers_number'))\
     .cache()
-sub_and_free_num_df.orderBy('cd').show(1000)
-path_suffix = "/all_features_hots_format_with_new_sub_free_num"
+path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num"
 res_df = feature_df\
-    .join(sub_and_free_num_df.selectExpr('cd as date', 'total_frees_number'), 'date')\
-    .withColumn('active_frees_rate', F.expr('active_free_num/total_frees_number'))
+    .join(sub_and_free_num_df, 'tournament')\
+    .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number'))\
+    .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))
 print(res_df.count())
 save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
 
+feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num_and_free_timer"
+res_df = add_free_timer_features(feature_df)
+save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+
+for path_suffix in ["/all_features_hots_format_with_avg_au_sub_free_num", "/all_features_hots_format_with_avg_au_sub_free_num_and_free_timer"]:
+    feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+    for col in one_hot_cols:
+        if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+            print(col)
+            feature_df = feature_df\
+                .withColumn(f"{col}_hots_num", F.lit(1))\
+                .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
+    save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix + "_and_simple_one_hot")
 
 
 cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
 df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
     .drop(*cols)
-df.orderBy('date', 'content_id').show(3000, False)
+df.orderBy('date', 'content_id').select('date', 'content_id', 'tournament', 'title', 'total_frees_number', 'frees_watching_match_rate', 'total_subscribers_number', 'subscribers_watching_match_rate').show(3000, False)
+
+
+
+
 
 
 # save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format_csv", "csv", True, '###')

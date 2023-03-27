@@ -300,31 +300,31 @@ watch_time_col = "_col27"
 # sub_num_df.write.partitionBy('cd').mode('overwrite').parquet(live_ads_inventory_forecasting_root_path + "/sub_num")
 
 #
-sub_df = load_hive_table(spark, "in_hspay_subscriptions.subscriptions_s3")\
-    .select('expiry_time', 'created_on', 'hid', 'is_deleted', 'status')\
-    .cache()
-save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table")
-sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table")\
-    .where('status in ("ACTIVE", "CANCELLED", "EXPIRED", "GRACE")')\
-    .withColumn('sub_start_time', F.expr("from_unixtime(created_on/1000)"))\
-    .withColumn('sub_end_time', F.expr("from_unixtime(expiry_time/1000)"))\
-    .select('sub_start_time', 'sub_end_time', 'hid')\
-    .withColumn('sub_start_time', F.expr('substring(from_utc_timestamp(sub_start_time, "IST"), 1, 10)'))\
-    .withColumn('sub_end_time', F.expr('substring(from_utc_timestamp(sub_end_time, "IST"), 1, 10)'))
-save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table_valid")
-user_meta_df = load_hive_table(spark, "in_ums.user_umfnd_s3") \
-    .select('pid', 'hid', 'joinedon') \
-    .withColumn('pid', F.expr('sha2(pid, 256)'))\
-    .withColumnRenamed('pid', 'dw_p_id')\
-    .distinct()\
-    .cache()
-# # user_meta_df.groupBy('hid').count().where('count>1').show(20, False)
-save_data_frame(user_meta_df, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping")
+# sub_df = load_hive_table(spark, "in_hspay_subscriptions.subscriptions_s3")\
+#     .select('expiry_time', 'created_on', 'hid', 'is_deleted', 'status')\
+#     .cache()
+# save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table")
+# sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table")\
+#     .where('status in ("ACTIVE", "CANCELLED", "EXPIRED", "GRACE")')\
+#     .withColumn('sub_start_time', F.expr("from_unixtime(created_on/1000)"))\
+#     .withColumn('sub_end_time', F.expr("from_unixtime(expiry_time/1000)"))\
+#     .select('sub_start_time', 'sub_end_time', 'hid')\
+#     .withColumn('sub_start_time', F.expr('substring(from_utc_timestamp(sub_start_time, "IST"), 1, 10)'))\
+#     .withColumn('sub_end_time', F.expr('substring(from_utc_timestamp(sub_end_time, "IST"), 1, 10)'))
+# save_data_frame(sub_df, live_ads_inventory_forecasting_root_path + f"/sub_table_valid")
+# user_meta_df = load_hive_table(spark, "in_ums.user_umfnd_s3") \
+#     .select('pid', 'hid', 'joinedon') \
+#     .withColumn('pid', F.expr('sha2(pid, 256)'))\
+#     .withColumnRenamed('pid', 'dw_p_id')\
+#     .distinct()\
+#     .cache()
+# # # user_meta_df.groupBy('hid').count().where('count>1').show(20, False)
+# save_data_frame(user_meta_df, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping")
 user_meta_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/hid_pid_mapping") \
     .cache()
 sub_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_table_valid").cache()
 for date in get_date_list("2019-05-08", 1370):
-    if check_s3_path_exist_simple(live_ads_inventory_forecasting_root_path + f"/sub_num/cd={date}"):
+    if date <= "2022-01-15" or check_s3_path_exist_simple(live_ads_inventory_forecasting_root_path + f"/sub_num/cd={date}"):
         continue
     sub_num = calculate_sub_num_on_target_date(sub_df, user_meta_df, date)
     df = spark.createDataFrame([(sub_num, )], ["sub_num"])

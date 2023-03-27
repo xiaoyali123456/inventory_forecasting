@@ -319,10 +319,10 @@ top_N_matches = 5
 # test_tournament = "ac2022"
 # test_tournament = "wc2021"
 # test_tournament = "ipl2022"
-version = "baseline"
+# version = "baseline"
 # version = "baseline_with_feature_similarity"
 # version = "baseline_with_weighted_feature_similarity"
-# version = "baseline_with_predicted_parameters"
+version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "_mask_knock_off"
 # version = "save_free_and_sub_number_predictions"
@@ -359,13 +359,23 @@ tournament_list = [item[0] for item in tournament_df]
 print(tournament_list)
 tournament_idx_dic = {}
 match_type_list = ["t20", "odi", "test"]
-matching_features_list = ['match_type', 'vod_type', 'tournament_name', 'tournament_type', 'hostar_influence']
+matching_features_list = ['match_type', 'vod_type', 'tournament_type', 'tournament_name']
 for idx in range(len(tournament_list)):
     tournament_idx_dic[tournament_list[idx]] = idx
 
 res_list = []
-for test_tournament in tournament_list[1:]:
-    print(test_tournament)
+
+# df = reduce(lambda x, y: x.union(y), [load_labels(tournament).withColumn('tournament', F.lit(tournament)) for tournament in tournament_list[1:]]).where('total_inventory > 0').cache()
+# df.orderBy('date', 'content_id').show(1000, False)
+# df.groupBy('tournament').agg(F.avg('total_inventory').alias('avg_inventory'), F.count('title')).orderBy('avg_inventory').show(1000, False)
+
+
+# for test_tournament in tournament_list:
+for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]:
+# for test_tournament in ["ac2022", "wc2022"]:
+# for test_tournament in ["wc2019"]:
+    if test_tournament == "ipl2019":
+        continue
     previous_tournament = tournament_list[tournament_idx_dic[test_tournament]-1]
     if tournament_idx_dic[previous_tournament] == 0:
         tag_tournament_1 = tournament_list[2]
@@ -382,7 +392,7 @@ for test_tournament in tournament_list[1:]:
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match')\
         .cache()
     test_match_type_list = test_feature_df.select('match_type').distinct().collect()
-    print(test_match_type_list)
+    # print(test_match_type_list)
     test_label_df = load_labels(f"{test_tournament}")\
         .join(test_feature_df, 'content_id')\
         .cache()
@@ -392,6 +402,7 @@ for test_tournament in tournament_list[1:]:
         .distinct()\
         .cache()
     for match_type in test_match_type_list:
+        print(test_tournament)
         print(match_type[0])
         test_df = test_label_df\
             .where(f'match_type="{match_type[0]}"')\
@@ -409,6 +420,7 @@ for test_tournament in tournament_list[1:]:
                     .collect()[0][0]
                 break
         print(base_tournament)
+        # print("")
         base_tournament_days = days_bewteen_st_and_et(first_match_data(feature_df.where(f"tournament='{base_tournament}'"), 'date'),
                                                       last_match_data(feature_df.where(f"tournament='{base_tournament}'"), 'date'))
         if base_tournament == "ipl2021":
@@ -429,7 +441,9 @@ for test_tournament in tournament_list[1:]:
         # print(first_match_sub_num)
         # print(sub_num_increasing_rate)
         test_df = test_df\
-            .withColumn('datediff', F.datediff(F.col('date'), F.lit(first_match_date)))\
+            .withColumn('datediff', F.datediff(F.col('date'), F.lit(first_match_date))) \
+            .withColumn('estimated_free_num', F.expr(f"{first_match_free_num} + datediff * {free_num_increasing_rate}")) \
+            .withColumn('estimated_sub_num', F.expr(f"{first_match_sub_num} + datediff * {sub_num_increasing_rate}")) \
             .cache()
         # <-- for raw baseline with simple rules -->
         if version == "baseline":
@@ -534,8 +548,6 @@ for test_tournament in tournament_list[1:]:
             # res = [free_rate, free_watch_rate, free_watch_time, sub_rate, sub_watch_rate, sub_watch_time]
             # print(test_df.count())
             new_test_label_df = test_df \
-                    .withColumn('estimated_free_num', F.expr(f"{first_match_free_num} + datediff * {free_num_increasing_rate}"))\
-                    .withColumn('estimated_sub_num', F.expr(f"{first_match_sub_num} + datediff * {sub_num_increasing_rate}"))\
                     .crossJoin(F.broadcast(india_match_df.drop('tag')))\
                     .crossJoin(F.broadcast(qualifier_match_df.drop('tag')))\
                     .crossJoin(F.broadcast(group_match_df.drop('tag')))\
@@ -574,7 +586,7 @@ for test_tournament in tournament_list[1:]:
             # print(new_test_label_df.count())
             save_data_frame(new_test_label_df.select('date', 'content_id', 'estimated_total_free_watch_time', 'estimated_total_sub_watch_time').orderBy('date', 'content_id'),
                             live_ads_inventory_forecasting_root_path+f"/total_free_and_sub_wt_prediction_by_baseline/test_tournament={test_tournament}")
-            for configuration in configurations[:1]:
+            for configuration in configurations[1:2]:
                 total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
                 res_df = new_test_label_df \
                     .drop('estimated_total_free_watch_time', 'estimated_total_sub_watch_time')\
@@ -591,6 +603,7 @@ for test_tournament in tournament_list[1:]:
                     .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach')) \
                     .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
                     .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)'))\
+                    .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory'))\
                     .where('total_inventory > 0') \
                     .drop('tournament', 'match_stage_detail', 'datediff') \
                     .cache()
@@ -607,13 +620,10 @@ for test_tournament in tournament_list[1:]:
                 save_data_frame(res_df,
                                 live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}")
                 res_list.append(res_df
-                                .groupBy('shortsummary')
-                                .agg(F.sum('total_inventory').alias('total_inventory'),
-                                     F.sum('estimated_inventory').alias('estimated_inventory'))
-                                .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))
                                 .withColumn('tournament', F.lit(test_tournament))
                                 .withColumn('match_type', F.lit(match_type[0])))
                 # save_data_frame(res_df, live_ads_inventory_forecasting_root_path+f"/test_result_of_{test_tournament}_using_{version}_2")
+                res_df.select('date', 'title', 'estimated_inventory').show(200, False)
                 # res_df.show(200, False)
                 # print(configuration)
                 # res_df \
@@ -630,106 +640,20 @@ for test_tournament in tournament_list[1:]:
                 #     .show(200, False)
         # <-- for raw baseline with simple rules -->
         # <-- for optimized baseline with feature similarity -->
-        if version in ["baseline_with_feature_similarity", 'baseline_with_weighted_feature_similarity']:
-            print(first_match_date)
-            # feature_filter = f"date < '{first_match_date}' and tournament != 'wc2019'"
-            feature_filter = f"tournament != '{test_tournament}'"
-            valid_feature_df = feature_df\
-                .where(feature_filter)\
-                .select('tournament', 'title', 'content_id', *feature_cols)\
-                .collect()
-            valid_feature_dic = {}
-            for row in valid_feature_df:
-                key = row[0] + ": " + row[1] + f" ({row[2]})"
-                value = row[3:]
-                valid_feature_dic[key] = value
-            print(valid_feature_dic[key])
-            valid_parameter_df = feature_df\
-                .where(feature_filter)\
-                .select('tournament', 'title', 'content_id', *dynamic_parameters)\
-                .collect()
-            valid_parameter_dic = {}
-            for row in valid_parameter_df:
-                key = row[0] + ": " + row[1] + f" ({row[2]})"
-                value = row[3:]
-                valid_parameter_dic[key] = list(value)
-            print(valid_parameter_dic[key])
-            for sub_version in range(1, 2):
-                new_test_label_df = test_df \
-                    .withColumn('estimated_free_num', F.expr(f"{first_match_free_num} + datediff * {free_num_increasing_rate}"))\
-                    .withColumn('estimated_sub_num', F.expr(f"{first_match_sub_num} + datediff * {sub_num_increasing_rate}"))\
-                    .withColumn('estimated_variables', estimate_avg_concurrency_using_feature_similarity_udf(F.lit(sub_version), *feature_cols))\
-                    .withColumn('estimated_free_rate', F.col('estimated_variables').getItem(0))\
-                    .withColumn('estimated_free_watch_rate', F.col('estimated_variables').getItem(1))\
-                    .withColumn('estimated_free_watch_time', F.col('estimated_variables').getItem(2))\
-                    .withColumn('estimated_sub_rate', F.col('estimated_variables').getItem(3))\
-                    .withColumn('estimated_sub_watch_rate', F.col('estimated_variables').getItem(4))\
-                    .withColumn('estimated_sub_watch_time', F.col('estimated_variables').getItem(5))\
-                    .cache()
-                for configuration in configurations[:1]:
-                    total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
-                    res_df = new_test_label_df \
-                        .withColumn('real_avg_concurrency', F.expr(f'(total_frees_number * real_active_frees_rate * real_frees_watching_match_rate * real_watch_time_per_free_per_match '
-                            f'+ total_subscribers_number * real_active_subscribers_rate * real_subscribers_watching_match_rate * real_watch_time_per_subscriber_per_match)'
-                            f'/{total_match_duration_in_minutes}')) \
-                        .withColumn('estimated_avg_concurrency', F.expr(f'(estimated_free_num * estimated_free_rate * estimated_free_watch_rate * estimated_free_watch_time '
-                                                                        f'+ estimated_sub_num * estimated_sub_rate * estimated_sub_watch_rate * estimated_sub_watch_time)/{total_match_duration_in_minutes}'))\
-                        .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {drop_off_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)'))\
-                        .withColumn('estimated_reach', F.expr(f"(estimated_free_num * estimated_free_rate * estimated_free_watch_rate / {sub_pid_did_rate}) + (estimated_sub_num * estimated_sub_rate * estimated_sub_watch_rate / {free_pid_did_rate})"))\
-                        .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)'))\
-                        .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)'))\
-                        .withColumn('avg_concurrency_bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency'))\
-                        .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach'))\
-                        .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
-                        .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)'))\
-                        .where('total_inventory > 0')\
-                        .drop('teams', 'datediff')\
-                        .cache()
-                    cols = res_df.columns
-                    important_cols = ["real_avg_concurrency", "estimated_avg_concurrency", "avg_concurrency_bias",
-                                      "total_did_reach", 'estimated_reach', "reach_bias",
-                                      "total_inventory", "estimated_inventory", "inventory_bias", 'inventory_bias_abs']
-                    for col in important_cols:
-                        cols.remove(col)
-                    final_cols = cols + important_cols
-                    # print(final_cols)
-                    res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-                    save_data_frame(res_df,
-                                    live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}_{sub_version}")
-                    # save_data_frame(res_df, live_ads_inventory_forecasting_root_path+f"/test_result_of_{test_tournament}_using_{version}_2")
-                    res_df.show(200, False)
-                    print(configuration)
-                    print(sub_version)
-                    res_df \
-                        .groupBy('shortsummary') \
-                        .agg(F.sum('total_inventory').alias('total_inventory'),
-                             F.sum('estimated_inventory').alias('estimated_inventory')) \
-                        .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-                        .show(200, False)
-                    res_df \
-                        .groupBy('shortsummary') \
-                        .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
-                             F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency')) \
-                        .withColumn('bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
-                        .show(200, False)
-        # <-- for optimized baseline with feature similarity -->
-        # <-- for optimized baseline with predicted parameters -->
         if version in ["baseline_with_predicted_parameters"]:
             label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
                           'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
             # print(first_match_date)
             new_test_label_df = test_df \
-                .withColumn('estimated_free_num', F.expr(f"{first_match_free_num} + datediff * {free_num_increasing_rate}"))\
-                .withColumn('estimated_sub_num', F.expr(f"{first_match_sub_num} + datediff * {sub_num_increasing_rate}")) \
                 .withColumn('estimated_variables', F.lit(0)) \
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[0]}").drop('real_'+label_cols[0]), ['date', 'content_id'])\
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[1]}").drop('real_'+label_cols[1]), ['date', 'content_id'])\
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[2]}").drop('real_'+label_cols[2]), ['date', 'content_id'])\
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[3]}").drop('real_'+label_cols[3]), ['date', 'content_id'])\
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[4]}").drop('real_'+label_cols[4]), ['date', 'content_id'])\
-                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[5]}").drop('real_'+label_cols[5]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[0]}").drop('sample_tag', 'real_'+label_cols[0]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[1]}").drop('sample_tag', 'real_'+label_cols[1]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[2]}").drop('sample_tag', 'real_'+label_cols[2]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[3]}").drop('sample_tag', 'real_'+label_cols[3]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[4]}").drop('sample_tag', 'real_'+label_cols[4]), ['date', 'content_id'])\
+                .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label_cols[5]}").drop('sample_tag', 'real_'+label_cols[5]), ['date', 'content_id'])\
                 .cache()
-            for configuration in configurations[:1]:
+            for configuration in configurations[1:2]:
                 total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
                 res_df = new_test_label_df \
                     .withColumn('real_avg_concurrency', F.expr(f'(total_frees_number * real_active_frees_rate * real_frees_watching_match_rate * real_watch_time_per_free_per_match '
@@ -744,7 +668,8 @@ for test_tournament in tournament_list[1:]:
                     .withColumn('avg_concurrency_bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency'))\
                     .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach'))\
                     .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
-                    .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)'))\
+                    .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
+                    .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
                     .where('total_inventory > 0')\
                     .drop('teams', 'datediff')\
                     .cache()
@@ -759,6 +684,7 @@ for test_tournament in tournament_list[1:]:
                 res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
                 save_data_frame(res_df, live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}")
                 # save_data_frame(res_df, live_ads_inventory_forecasting_root_path+f"/test_result_of_{test_tournament}_using_{version}_2")
+                # res_df.select('date', 'title', 'estimated_inventory').show(200, False)
                 # res_df.show(200, False)
                 # print(configuration)
                 # res_df \
@@ -774,28 +700,20 @@ for test_tournament in tournament_list[1:]:
                 #     .withColumn('bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
                 #     .show(200, False)
                 res_list.append(res_df \
-                                .groupBy('shortsummary') \
-                                .agg(F.sum('total_inventory').alias('total_inventory'),
-                                     F.sum('estimated_inventory').alias('estimated_inventory'))
-                                .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))
                                 .withColumn('tournament', F.lit(test_tournament))
                                 .withColumn('match_type', F.lit(match_type[0])))
         # <-- for optimized baseline with predicted parameters -->
-        if version in ["save_free_and_sub_number_predictions"]:
-            new_test_label_df = test_df \
-                .withColumn('estimated_free_num', F.expr(f"{first_match_free_num} + datediff * {free_num_increasing_rate}"))\
-                .withColumn('estimated_sub_num', F.expr(f"{first_match_sub_num} + datediff * {sub_num_increasing_rate}")) \
-                .select('date', 'content_id', 'estimated_free_num', 'estimated_sub_num')\
-                .orderBy('date', 'content_id')
-            save_data_frame(new_test_label_df,
-                            live_ads_inventory_forecasting_root_path+f"/free_and_sub_number_prediction/test_tournament={test_tournament}")
-            new_test_label_df.show(200)
     print("")
     print("")
 
 reduce(lambda x, y: x.union(y), res_list)\
     .groupBy('tournament') \
-    .agg(F.sum('total_inventory').alias('total_inventory'),
-         F.sum('estimated_inventory').alias('estimated_inventory'))\
-    .withColumn('bias', F.expr('(estimated_inventory - total_inventory) / total_inventory'))\
+    .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
+         F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
+         F.sum('total_inventory').alias('total_inventory'),
+         F.sum('estimated_inventory').alias('estimated_inventory'),
+         F.avg('inventory_bias_abs_rate').alias('avg_inventory_error'),
+         F.count('content_id'))\
+    .withColumn('concurrency_bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
+    .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
     .orderBy('tournament').show(100, False)
