@@ -9,7 +9,7 @@ def classify(reach):
         return 'dense'
     else:
         return 'super'
-    
+
 df = spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/watched_time_for_collapse/quarter_data_v2_2/')
 df2 = df[(df.cd > '2022-06-01') & df.is_cricket].withColumn('sparse', classify('reach'))
 
