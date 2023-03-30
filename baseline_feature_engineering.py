@@ -139,7 +139,7 @@ def simple_title(title):
         "ire": "ireland",
         "dc.": "dc"
     }
-    title = title.lower()
+    title = title.strip().lower()
     if title.find(": ") > -1:
         title = title.split(": ")[-1]
     if title.find(", ") > -1:
@@ -271,6 +271,13 @@ def get_match_stage(tournament, date, rank):
             return "group"
         else:
             return "final"
+    elif tournament == "wc2023":
+        if date >= "2023-11-26":
+            return "final"
+        elif date >= "2023-11-21":
+            return "semi-final"
+        else:
+            return "group"
     else:
         return "group"
 
@@ -534,6 +541,14 @@ tournament_dic = {
         'venue': 'India',
         'gender_type': 'men',
         'vod_type': 'avod'
+    },
+    'wc2023': {
+            'tournament_name': 'World Cup 2023',
+            'tournament_type': 'International',
+            'match_type': 'ODI',
+            'venue': 'India',
+            'gender_type': 'men',
+            ' ': 'avod'
     }
 }
 
@@ -688,7 +703,7 @@ def add_more_features(feature_df):
         .withColumn('hostar_influence', F.expr('year - 2016'))\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
         .withColumn('match_stage', get_match_stage_udf('tournament', 'date', 'rank')) \
-        .withColumn('vod_type', F.expr('if(date <= "2020-08-30", "avod", "svod")')) \
+        .withColumn('vod_type', F.expr('if(date <= "2020-08-30" or date >= "2023-09-01", "avod", "svod")')) \
         .withColumn('gender_type', get_gender_type_udf('tournament')) \
         .withColumn('teams', simple_title_udf('title'))\
         .withColumn('continents', get_continents_udf('teams', 'tournament_type'))\
@@ -703,7 +718,7 @@ def add_more_features(feature_df):
     return df
 
 
-def add_hots_features(feature_df):
+def add_hots_features(feature_df, type="train", if_language_and_platform=True, root_path=live_ads_inventory_forecasting_root_path):
     col_num_dic = {}
     df = feature_df\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
@@ -715,17 +730,21 @@ def add_hots_features(feature_df):
             .select('tournament', 'rank', f"{col}")\
             .withColumn(f"{col}_list", F.split(F.col(col), " vs "))\
             .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))
-        col_df = df2\
-            .select(f"{col}_item") \
-            .distinct() \
-            .withColumn('tag', F.lit(1)) \
-            .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col}_item)')) \
-            .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1')) \
-            .drop('tag')\
-            .cache()
+        if type == "train":
+            col_df = df2 \
+                .select(f"{col}_item") \
+                .distinct() \
+                .withColumn('tag', F.lit(1)) \
+                .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col}_item)')) \
+                .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1')) \
+                .drop('tag') \
+                .cache()
+            save_data_frame(col_df, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col)
+        col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
         print(col_num)
         col_num_dic[col] = col_num
+        print(df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count())
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
@@ -737,22 +756,26 @@ def add_hots_features(feature_df):
         print(col)
         df = df\
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features_multi_hots")
-    df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features_multi_hots")
+    save_data_frame(df, root_path + "/baseline_features_with_all_features_multi_hots")
+    df = load_data_frame(spark, root_path + "/baseline_features_with_all_features_multi_hots")
     for col in one_hot_cols:
         print(col)
-        col_df = df\
-            .select(col)\
-            .distinct()\
-            .withColumn('tag', F.lit(1))\
-            .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col})'))\
-            .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1'))\
-            .withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))\
-            .drop('tag')\
-            .cache()
+        if type == "train":
+            col_df = df\
+                .select(col)\
+                .distinct()\
+                .withColumn('tag', F.lit(1))\
+                .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col})'))\
+                .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1'))\
+                .drop('tag')\
+                .cache()
+            save_data_frame(col_df, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col)
+        col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
+        col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
         print(col_num)
         col_num_dic[col] = col_num
+        print(df.join(col_df, col, 'left').where(f"{col}_hots is null").count())
         df = df\
             .join(col_df, col)\
             .withColumn(f"{col}_hots_num", F.lit(col_num))
@@ -765,49 +788,50 @@ def add_hots_features(feature_df):
         df = df.withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}")))
     df.groupBy('tournament').count().orderBy('tournament').show()
     # df.where('date >= "2022-11-09" and date <= "2022-11-13"').show(20, False)
-    save_data_frame(df, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features_hots")
-    df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/baseline_features_with_all_features_hots")\
+    save_data_frame(df, root_path + "/baseline_features_with_all_features_hots")
+    df = load_data_frame(spark, root_path + "/baseline_features_with_all_features_hots")\
         .cache()
     df.groupBy('tournament').count().orderBy('tournament').show()
-    language_and_platform_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/language_and_platform_all")\
-        .cache()
-    for col in additional_cols:
-        print(col)
-        df2 = language_and_platform_df\
-            .select('content_id', f"{col}")\
-            .withColumn(f"{col}_item", F.explode(F.col(f"{col}")))
-        col_df = df2\
-            .select(f"{col}_item") \
-            .distinct() \
-            .withColumn('tag', F.lit(1)) \
-            .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col}_item)')) \
-            .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1')) \
-            .drop('tag')\
+    if if_language_and_platform:
+        language_and_platform_df = load_data_frame(spark, root_path + f"/language_and_platform_all")\
             .cache()
-        col_num = col_df.count()
-        col_num_dic[col] = col_num
-        col_df.groupBy(f'{col}_item').count().orderBy(f"{col}_item").show(20, False)
-        print(col_num)
-        df = df\
-            .join(df2
-                  .select('content_id', f"{col}_item")
-                  .join(col_df, f"{col}_item")
-                  .groupBy('content_id')
-                  .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), 'content_id') \
-            .withColumn(f"{col}_hots_num", F.lit(col_num))
-    for col in additional_cols:
-        print(col)
-        df = df\
-            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
-    language_and_platform_df.show(10, False)
-    df.groupBy('tournament').count().orderBy('tournament').show()
-    cols = [col+"_hot_vector" for col in one_hot_cols]
-    df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
-    cols = [col+"_hot_vector" for col in multi_hot_cols]
-    df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
-    cols = [col+"_hot_vector" for col in additional_cols]
-    df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
-    print(col_num_dic)
+        for col in additional_cols:
+            print(col)
+            df2 = language_and_platform_df\
+                .select('content_id', f"{col}")\
+                .withColumn(f"{col}_item", F.explode(F.col(f"{col}")))
+            col_df = df2\
+                .select(f"{col}_item") \
+                .distinct() \
+                .withColumn('tag', F.lit(1)) \
+                .withColumn(f"{col}_hots", F.expr(f'row_number() over (partition by tag order by {col}_item)')) \
+                .withColumn(f"{col}_hots", F.expr(f'{col}_hots - 1')) \
+                .drop('tag')\
+                .cache()
+            col_num = col_df.count()
+            col_num_dic[col] = col_num
+            col_df.groupBy(f'{col}_item').count().orderBy(f"{col}_item").show(20, False)
+            print(col_num)
+            df = df\
+                .join(df2
+                      .select('content_id', f"{col}_item")
+                      .join(col_df, f"{col}_item")
+                      .groupBy('content_id')
+                      .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), 'content_id') \
+                .withColumn(f"{col}_hots_num", F.lit(col_num))
+        for col in additional_cols:
+            print(col)
+            df = df\
+                .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
+        language_and_platform_df.show(10, False)
+        df.groupBy('tournament').count().orderBy('tournament').show()
+        # cols = [col+"_hot_vector" for col in one_hot_cols]
+        # df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
+        # cols = [col+"_hot_vector" for col in multi_hot_cols]
+        # df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
+        # cols = [col+"_hot_vector" for col in additional_cols]
+        # df.where('date = "2022-11-13"').select('content_id', *cols).show(20, False)
+        print(col_num_dic)
     return df
 
 
@@ -834,30 +858,75 @@ def add_free_timer_features(feature_df):
     return res_df
 
 
+def generate_wc2013_dataset():
+    file_name = "cwc2023.csv"
+    tournament = "wc2023"
+    parameter_list = ['total_frees_number', 'active_free_num', 'match_active_free_num', 'total_free_watch_time',
+                        'total_subscribers_number', 'active_sub_num', 'match_active_sub_num', 'total_sub_watch_time',
+                        'active_frees_rate', 'frees_watching_match_rate', 'watch_time_per_free_per_match',
+                        'active_subscribers_rate', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match']
+    feature_df = load_data_frame(spark, file_name, "csv", True) \
+        .withColumn("if_contain_india_team", F.locate('india', F.col('title'))) \
+        .withColumn('if_contain_india_team', F.expr('if(if_contain_india_team > 0, 1, 0)')) \
+        .withColumn('if_weekend', F.dayofweek(F.col('date'))) \
+        .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)'))\
+        .withColumn('tournament', F.lit(tournament))\
+        .withColumn('shortsummary', F.lit(tournament))\
+        .withColumn('content_id', F.expr('cast(cast(100000+rank as int) as string)'))\
+        .withColumn('rank', F.expr('row_number() over (partition by date order by content_id desc)'))\
+        .withColumn('match_start_time', F.expr('if(rank=1, "14:00:00", "09:00:00")')) \
+        .withColumn('match_time', F.expr('if(match_start_time < "06:00:00", 0, '
+                                         'if(match_start_time < "12:00:00", 1, '
+                                         'if(match_start_time < "18:00:00", 2, 3)))'))
+    res_df = add_more_features(feature_df)
+    save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament + "all_features")
+    feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament + "all_features")
+    res_df = add_hots_features(feature_df, type="test", if_language_and_platform=False, root_path=live_ads_inventory_forecasting_complete_feature_path+"/"+tournament)
+    res_df.orderBy('date', 'content_id').show(50, False)
+    for parameter in parameter_list:
+        res_df = res_df.withColumn(parameter, F.lit(-1.0))
+    base_path_suffix = "/all_features_hots_format"
+    save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path+"/"+tournament+"/"+base_path_suffix)
+    for path_suffix in ["/"+tournament+base_path_suffix]:
+        feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+        for col in one_hot_cols:
+            if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+                print(col)
+                feature_df = feature_df\
+                    .withColumn(f"{col}_hots_num", F.lit(1))\
+                    .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
+        save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix + "_and_simple_one_hot")
+    cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
+    df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix + "_and_simple_one_hot")\
+        .drop(*cols)
+    df.orderBy('date', 'content_id').show(3000, False)
+
+
+
 # feature_df = reduce(lambda x, y: x.union(y), [merge_sub_and_free_features(tournament) for tournament in tournament_dic])
 # path_suffix = "/wt_features"
 # save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
-
+#
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
 # path_suffix = "/wt_features_with_match_start_time"
 # res_df = get_match_time(feature_df)
 # save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
-
+#
 # get_language_and_platform_all()
-
-
+#
+#
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
 # path_suffix = "/all_features"
 # res_df = add_more_features(feature_df)
 # save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
-
+#
 
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
 # path_suffix = "/all_features_hots_format"
 # res_df = add_hots_features(feature_df)
 # save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
-#
-#
+
+
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
 #     .drop('total_frees_number', 'active_frees_rate')\
 #     .withColumn("rand", F.rand(seed=4321))\
@@ -894,6 +963,8 @@ def add_free_timer_features(feature_df):
 
 
 # feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).cache()
+
+
 path_suffix = "/all_features_hots_format"
 # res_df = add_hots_features(feature_df)
 # save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
@@ -903,9 +974,10 @@ feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feat
     .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", '
            '"1540019005", "1540019014", "1540019017","1540016333")')\
     .drop('total_frees_number', 'frees_watching_match_rate', 'total_subscribers_number', 'subscribers_watching_match_rate')\
-    .withColumn("rand", F.rand(seed=4321))\
+    .withColumn("rand", F.rand(seed=54321))\
     .cache()
 print(feature_df.count())
+
 # match_num_df = feature_df\
 #     .groupBy('date')\
 #     .agg(F.count('content_id').alias('match_num'))\
