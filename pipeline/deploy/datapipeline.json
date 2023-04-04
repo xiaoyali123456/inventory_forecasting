@@ -1,0 +1,91 @@
+{
+    "objects": [
+        {
+            "id": "Default",
+            "name": "Default",
+            "failureAndRerunMode": "CASCADE",
+            "pipelineLogUri": "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/logs/",
+            "resourceRole": "#{myResourceRole}",
+            "role": "#{myRole}",
+            "schedule": {
+                "ref": "DefaultSchedule"
+            },
+            "scheduleType": "cron"
+        },
+        {
+            "id": "DefaultSchedule",
+            "type": "Schedule",
+            "period": "1 day",
+            "startDateTime": "#{myStartDate}T10:30:00"
+        },
+        {
+            "id": "emr",
+            "name": "emr",
+            "type": "EmrCluster",
+            "applications": [
+                "spark"
+            ],
+            "bootstrapAction": [
+                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/bootstrap.sh"
+            ],
+            "coreInstanceCount": "1",
+            "coreInstanceType": "r5.xlarge",
+            "keyPair": "#{myEmrKeyPair}",
+            "masterInstanceType": "m5.xlarge",
+            "maximumRetries": "1",
+            "region": "#{myEmrRegion}",
+            "releaseLabel": "emr-5.31.0",
+            "resourceRole": "#{myEmrResourceRole}",
+            "role": "#{myEmrRole}",
+            "subnetId": "#{myEmrSubnetId}",
+            "terminateAfter": "600 Minutes",
+            "useOnDemandOnLastAttempt": "true"
+        },
+        {
+            "id": "ShellCommandActivityId_etl",
+            "name": "ibt_data_etl",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myScriptPath}etl_label.sh",
+            "scriptArgument": [
+                "#{myRunningDate}"
+            ],
+            "onFail": {
+                "ref": "Action_SNSFailureNotification"
+            },
+            "onSuccess": {
+                "ref": "Action_SNSSuccessNotification"
+            },
+            "runsOn": {
+                "ref": "emr"
+            },
+            "schedule": {
+                "ref": "DefaultSchedule"
+            }
+        },
+        {
+            "id": "Action_SNSSuccessNotification",
+            "name": "SNS Success Notification",
+            "subject": "Live Inventory Forecasting Pipeline Success: #{node.@pipelineId} - #{node.name}",
+            "message": "Cong",
+            "type": "SnsAlarm",
+            "topicArn": "#{mySNSTopicArn}"
+        },
+        {
+            "id": "Action_SNSFailureNotification",
+            "name": "SNS Failure Notification",
+            "subject": "Live Inventory Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
+            "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
+            "type": "SnsAlarm",
+            "topicArn": "#{mySNSTopicArn}"
+        }
+    ],
+    "parameters": [
+        {
+            "id": "myRunningDate",
+            "type": "String",
+            "description": "running date",
+            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}",
+            "optional": "true"
+        }
+    ]
+}
