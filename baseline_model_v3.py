@@ -353,8 +353,8 @@ top_N_matches = 5
 # version = "baseline_with_feature_similarity"
 # version = "baseline_with_weighted_feature_similarity"
 version = "baseline_with_predicted_parameters"
-# mask_tag = ""
-mask_tag = "mask_knock_off"
+mask_tag = ""
+# mask_tag = "mask_knock_off"
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
 feature_weights_list = [
@@ -462,10 +462,10 @@ res_list = []
 
 
 # for test_tournament in tournament_list:
-for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]:
+for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]:
     # for test_tournament in ["ac2022", "wc2022"]:
     # for test_tournament in ["wc2019"]:
-# for test_tournament in ["wc2023"]:
+    # for test_tournament in ["wc2023"]:
     if test_tournament == "ipl2019":
         continue
     previous_tournament = tournament_list[tournament_idx_dic[test_tournament] - 1]
@@ -816,6 +816,7 @@ for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]:
                     .withColumn('avg_concurrency_bias',
                                 F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
                     .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach')) \
+                    .withColumn('reach_bias_abs', F.expr('abs(reach_bias)')) \
                     .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
                     .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
                     .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
@@ -857,17 +858,34 @@ for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]:
     print("")
 
 
+tournament_dic = {
+    "wc2023": -1,
+    "wc2022": 0,
+    "ac2022": 1,
+    "ipl2022": 2,
+    "wc2021": 3,
+    "wc2019": 4,
+}
+tag_mapping_udf = F.udf(lambda x: tournament_dic[x], IntegerType())
+
+
 reduce(lambda x, y: x.union(y), res_list) \
     .groupBy('tournament') \
     .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
          F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
          F.sum('total_inventory').alias('total_inventory'),
          F.sum('estimated_inventory').alias('estimated_inventory'),
-         F.avg('inventory_bias_abs_rate').alias('avg_inventory_abs_error'),
+         F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
+         F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
+         F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
          F.count('content_id')) \
     .withColumn('concurrency_bias', F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
-    .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-    .orderBy('tournament').show(100, False)
+    .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+    .withColumn('total_match_error', F.expr('sum_inventory_abs_error / total_inventory')) \
+    .withColumn('tag', tag_mapping_udf('tournament')) \
+    .orderBy('tag')\
+    .drop('tag')\
+    .show(100, False)
 
 
 prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_result_of_{tournament}_using_{version}{mask_tag}")
@@ -889,7 +907,7 @@ prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads
     .cache()
 
 
-reduce(lambda x, y:x.union(y), [load_labels(tournament, all_feature_df) for tournament in tournament_list])\
+reduce(lambda x, y: x.union(y), [load_labels(tournament, all_feature_df) for tournament in tournament_list])\
     .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", "1540019005", "1540019014", "1540019017","1540016333")')\
     .join(prediction_df, ['date', 'content_id', 'title'], 'full')\
     .orderBy('date', 'content_id')\

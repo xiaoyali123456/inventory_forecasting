@@ -154,24 +154,24 @@ def simple_title(title):
 def get_continents(teams, tournament_type):
     teams = teams.split(" vs ")
     continent_dic = {'australia': 'OC',
-                        'england': 'EU',
-                        'india': 'AS',
-                        'new zealand': 'OC',
-                        'pakistan': 'AS',
-                        'south africa': 'AF',
-                        'sri lanka': 'AS',
-                        'afghanistan': 'AS',
-                        'bangladesh': 'AS',
-                        'west indies': 'NA',
-                        'zimbabwe': 'AF',
-                        'hong kong': 'AS',
-                        'ireland': 'EU',
-                        'namibia': 'AF',
-                        'netherlands': 'EU',
-                        'oman': 'AS',
-                        'papua new guinea': 'OC',
-                        'scotland': 'EU',
-                        'uae': 'AS'}
+                    'england': 'EU',
+                    'india': 'AS',
+                    'new zealand': 'OC',
+                    'pakistan': 'AS',
+                    'south africa': 'AF',
+                    'sri lanka': 'AS',
+                    'afghanistan': 'AS',
+                    'bangladesh': 'AS',
+                    'west indies': 'NA',
+                    'zimbabwe': 'AF',
+                    'hong kong': 'AS',
+                    'ireland': 'EU',
+                    'namibia': 'AF',
+                    'netherlands': 'EU',
+                    'oman': 'AS',
+                    'papua new guinea': 'OC',
+                    'scotland': 'EU',
+                    'uae': 'AS'}
     if tournament_type == "national":
         return "AS vs AS"
     elif teams[0] in continent_dic and teams[1] in continent_dic:
@@ -543,12 +543,12 @@ tournament_dic = {
         'vod_type': 'avod'
     },
     'wc2023': {
-            'tournament_name': 'World Cup 2023',
-            'tournament_type': 'International',
-            'match_type': 'ODI',
-            'venue': 'India',
-            'gender_type': 'men',
-            ' ': 'avod'
+        'tournament_name': 'World Cup 2023',
+        'tournament_type': 'International',
+        'match_type': 'ODI',
+        'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
     }
 }
 
@@ -787,7 +787,6 @@ def add_hots_features(feature_df, type="train", if_language_and_platform=True, r
         print(col)
         df = df.withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}")))
     df.groupBy('tournament').count().orderBy('tournament').show()
-    # df.where('date >= "2022-11-09" and date <= "2022-11-13"').show(20, False)
     save_data_frame(df, root_path + "/baseline_features_with_all_features_hots")
     df = load_data_frame(spark, root_path + "/baseline_features_with_all_features_hots")\
         .cache()
