@@ -7,11 +7,13 @@ scriptFolder=$(dirname "$0")
 pipeline_unique_name="live-ads-inventory-forecasting"
 
 # find pipeline
-pipeline_id=$(
-    aws datapipeline list-pipelines --region $REGION --profile $ENV | python -c \
-    "import sys, json; candidates = [x for x in json.loads(sys.stdin.read())['pipelineIdList'] \
-    if x['name'] == '$pipeline_unique_name']; sys.stdout.write('' if 0 == len(candidates) else candidates[0]['id'])"
+res=$(
+    aws datapipeline list-pipelines --region $REGION --profile $ENV --query "pipelineIdList[?name == '$pipeline_unique_name'].id|[0] || ''"
 )
+pipeline_id="${result//\"/}"
+
+# breakpoint for debug
+exit
 
 # destroy pipeline
 if [[ -z $pipeline_id ]]; then
@@ -52,13 +54,7 @@ aws datapipeline put-pipeline-definition \
     mySNSTopicArn=$SNS_TOPIC \
     mySNSTopicPdArn=arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd
 
-echo "[INFO] pipeline definition = $create_command"
-eval "$create_command"
 aws datapipeline activate-pipeline --pipeline-id "$new_pipeline_id" --region $REGION --profile $ENV
-
-
-bash deploy_datapipeline_internal.sh
-err=$?
 
 echo "[INFO] send sns message"
 if [ $err -ne 0 ]; then
