@@ -4,7 +4,7 @@
             "id": "Default",
             "name": "Default",
             "failureAndRerunMode": "CASCADE",
-            "pipelineLogUri": "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/logs/",
+            "pipelineLogUri": "#{myProjectFolder}/logs/",
             "keyPair": "#{myKeyPair}",
             "role": "#{myRole}",
             "resourceRole": "#{myRole}",
