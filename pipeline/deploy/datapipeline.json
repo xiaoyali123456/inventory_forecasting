@@ -5,8 +5,9 @@
             "name": "Default",
             "failureAndRerunMode": "CASCADE",
             "pipelineLogUri": "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/logs/",
-            "resourceRole": "#{myResourceRole}",
+            "keyPair": "#{myKeyPair}",
             "role": "#{myRole}",
+            "resourceRole": "#{myRole}",
             "schedule": {
                 "ref": "DefaultSchedule"
             },
@@ -16,36 +17,27 @@
             "id": "DefaultSchedule",
             "type": "Schedule",
             "period": "1 day",
-            "startDateTime": "#{myStartDate}T10:30:00"
+            "startDateTime": "#{myStartDate}T02:30:00"
         },
         {
-            "id": "emr",
-            "name": "emr",
-            "type": "EmrCluster",
-            "applications": [
-                "spark"
-            ],
-            "bootstrapAction": [
-                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/bootstrap.sh"
-            ],
-            "coreInstanceCount": "1",
-            "coreInstanceType": "r5.xlarge",
-            "keyPair": "#{myEmrKeyPair}",
-            "masterInstanceType": "m5.xlarge",
-            "maximumRetries": "1",
-            "region": "#{myEmrRegion}",
-            "releaseLabel": "emr-5.31.0",
-            "resourceRole": "#{myEmrResourceRole}",
-            "role": "#{myEmrRole}",
-            "subnetId": "#{myEmrSubnetId}",
-            "terminateAfter": "600 Minutes",
-            "useOnDemandOnLastAttempt": "true"
+            "id": "Ec2",
+            "name": "Ec2",
+            "type": "Ec2Resource",
+            "imageId": "ami-525d3528",
+            "instanceType": "m5.large",
+            "maxActiveInstances": "1",
+            "region": "#{myRegion}",
+            "schedule": {
+                "ref": "DefaultSchedule"
+            },
+            "securityGroupIds": "sg-aeeb4ad8",
+            "subnetId": "#{mySubnetId}"
         },
         {
-            "id": "ShellCommandActivityId_etl",
-            "name": "ibt_data_etl",
+            "id": "TestActivity",
+            "name": "TestActivity",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myScriptPath}etl_label.sh",
+            "scriptUri": "#{myProjectFolder}/code/run.sh",
             "scriptArgument": [
                 "#{myRunningDate}"
             ],
@@ -56,7 +48,7 @@
                 "ref": "Action_SNSSuccessNotification"
             },
             "runsOn": {
-                "ref": "emr"
+                "ref": "Ec2"
             },
             "schedule": {
                 "ref": "DefaultSchedule"
