@@ -9,8 +9,9 @@ PROJ_FOLDER="s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecastin
 SNS_TOPIC=arn:aws:sns:us-east-1:253474845919:sirius-notification
 
 # deploy code
-aws s3 sync ../ $PROJ_FOLDER
-if [[ "$CODE_ONLY" != false ]]; then
+local_folder=$(cd $(dirname "$0")/../; pwd)
+aws s3 sync $local_folder $PROJ_FOLDER
+if [[ "$CODE_ONLY" == true ]]; then
   exit
 fi
 
