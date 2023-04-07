@@ -45,6 +45,6 @@ def check2(segments):
 
 df2 = df.select('city', check2('user_segments').alias('test'))
 print(df.count(), df2[df2.city != df2.test].count()) # 170841106 7593776
-print(df2[df2.city.isNull()].count())
-print(df2[df2.test.isNull()].count())
-
+print(df2[df2.city.isNull()].count()) # 28673707
+print(df2[df2.test.isNull()].count()) # 28673707
+df2[df2.city.isNull() & df2.test.isNotNull()].show()
