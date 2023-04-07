@@ -44,7 +44,7 @@ aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION --pr
 # put pipeline definition
 aws datapipeline put-pipeline-definition \
   --pipeline-id $new_pipeline_id \
-  --pipeline-definition "$PROJ_FOLDER/deploy/datapipeline.json" \
+  --pipeline-definition "file://$local_folder/deploy/datapipeline.json" \
   --region $REGION \
   --profile $ENV \
   --parameter-values \
