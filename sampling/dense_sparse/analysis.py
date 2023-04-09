@@ -4,6 +4,7 @@ import pandas as pd
 # df = spark.read.parquet(input_root)
 # df2 = df[df.is_cricket].toPandas()
 
+# prefer local loading due to save memory
 df2 = pd.read_parquet('qdata_v2')
 df2 = df2[df2.is_cricket&~df2.is_cricket.isna()]
 
@@ -68,6 +69,9 @@ replace = {
     'gender': {
         'm': 'male',
         'other': 'female',
+    },
+    'custom': {
+        '': 'other',
     },
     'state': {
         'up': 'Uttar Pradesh + Uttarakhand',
@@ -174,6 +178,64 @@ def merge(df):
     df2['state'] = df2[['city', 'state']].apply(fix_state, axis=1)
     return df2
 
-df3 = merge(df2)
+def classisfy(rank, thd=0.25):
+    if rank < 0.05:
+        return 'super_dense'
+    elif rank < thd:
+        return 'dense'
+    else:
+        return 'sparse'
 
-df3[['cd', 'reach'] + basic].sort_values(['cd', 'reach'], ascending=False)
+def clean(tag):
+    lst = [t for t in tag.split('|') if '_NA' not in t]
+    res = '|'.join(lst)
+    return 'other' if res == '' else res
+
+df3 = merge(df2)
+df3['custom'] = df3['custom'].map(clean)
+
+# look num of custom cohort
+ext = basic + ['custom']
+x = df3[['cd'] + basic].drop_duplicates().groupby('cd').size()
+y = df3[['cd'] + ext].drop_duplicates().groupby('cd').size()
+(y / x).describe()
+
+df4 = df3.groupby(['cd'] + basic).reach.sum().reset_index()
+df4['rank'] = df4.groupby(['cd']).reach.rank(method='first', ascending=False, pct=True)
+df4['total'] = df4.groupby(['cd']).reach.transform('size')
+df4['class1'] = df4['rank'].map(classisfy)
+df4['class2'] = df4['rank'].map(lambda x:classisfy(x, 0.3))
+
+df5 = df3.groupby(['cd'] + ext).reach.sum().reset_index()
+df5['rank'] = df5.groupby(['cd']).reach.rank(method='first', ascending=False, pct=True)
+df5['total'] = df5.groupby(['cd']).reach.transform('size')
+df5['class1'] = df5['rank'].map(classisfy)
+df5['class2'] = df5['rank'].map(lambda x:classisfy(x, 0.3))
+
+df6 = df5.merge(df4, on=['cd']+basic, how='left')
+err1 = df6.groupby(['cd', 'class1_x', 'class1_y']).agg(
+    reach=('reach_x', 'sum'),
+    num=('reach_x', 'size')
+    ).reset_index()
+err1['pct'] = err1.num / err1.groupby(['cd', 'class1_x']).num.transform(sum)
+# pivot_table is better than pivot on old version
+piv1 = err1.pivot_table(index='cd', columns=['class1_x', 'class1_y'], values=['reach', 'num', 'pct']).fillna(0).reset_index()
+piv1.to_csv('piv1.csv', index=False)
+
+# Analyze the cause of misclassification
+# %store -r df6
+from copydf import copyDF
+copyDF(df6[(df6.cd.map(str) == '2022-10-23')&(df6.class1_x == 'super_dense')&(df6.class1_y == 'dense')])
+copyDF(df6[(df6.class1_x == 'super_dense')&(df6.class1_y == 'sparse')])
+
+# Improve based on threshold
+err2 = df6.groupby(['cd', 'class2_x', 'class2_y']).agg(
+    reach=('reach_x', 'sum'),
+    num=('reach_x', 'size')
+    ).reset_index()
+err2['pct'] = err2.num / err2.groupby(['cd', 'class2_x']).num.transform(sum)
+# pivot_table is better than pivot on old version
+piv2 = err2.pivot_table(index='cd', columns=['class2_x', 'class2_y'], values=['reach', 'num', 'pct']).fillna(0)
+piv2.to_csv('piv2.csv')
+
+df6[(df6.class2_x == 'super_dense')&(df6.class2_y == 'dense')].to_csv()
