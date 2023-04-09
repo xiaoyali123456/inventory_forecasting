@@ -16,7 +16,6 @@ df2.watch_time *= 4
 # df3 = df2.groupby('cd').reach.sum().reset_index()
 # (df3.reach / rdf.reach).describe()
 
-basic = ['platform', 'language', 'city', 'state', 'age', 'device', 'gender']
 replace = {
     'city': {
         'mumbai':'mumbai',
@@ -178,10 +177,10 @@ def merge(df):
     df2['state'] = df2[['city', 'state']].apply(fix_state, axis=1)
     return df2
 
-def classisfy(rank, thd=0.25):
-    if rank < 0.05:
+def classisfy(rank, thd1=0.05, thd2=0.2):
+    if rank <= thd1:
         return 'super_dense'
-    elif rank < thd:
+    elif rank <= thd1 + thd2:
         return 'dense'
     else:
         return 'sparse'
@@ -193,8 +192,10 @@ def clean(tag):
 
 df3 = merge(df2)
 df3['custom'] = df3['custom'].map(clean)
+df3.cd = df3.cd.map(str)
 
 # look num of custom cohort
+basic = ['platform', 'language', 'city', 'state', 'age', 'device', 'gender']
 ext = basic + ['custom']
 x = df3[['cd'] + basic].drop_duplicates().groupby('cd').size()
 y = df3[['cd'] + ext].drop_duplicates().groupby('cd').size()
@@ -203,39 +204,56 @@ y = df3[['cd'] + ext].drop_duplicates().groupby('cd').size()
 df4 = df3.groupby(['cd'] + basic).reach.sum().reset_index()
 df4['rank'] = df4.groupby(['cd']).reach.rank(method='first', ascending=False, pct=True)
 df4['total'] = df4.groupby(['cd']).reach.transform('size')
-df4['class1'] = df4['rank'].map(classisfy)
-df4['class2'] = df4['rank'].map(lambda x:classisfy(x, 0.3))
+df4['class3'] = df4['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
+# df4['class1'] = df4['rank'].map(classisfy)
+# df4['class2'] = df4['rank'].map(lambda x:classisfy(x, 0.05, 0.3))
 
 df5 = df3.groupby(['cd'] + ext).reach.sum().reset_index()
 df5['rank'] = df5.groupby(['cd']).reach.rank(method='first', ascending=False, pct=True)
 df5['total'] = df5.groupby(['cd']).reach.transform('size')
-df5['class1'] = df5['rank'].map(classisfy)
-df5['class2'] = df5['rank'].map(lambda x:classisfy(x, 0.3))
+df5['class3'] = df5['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
+# df5['class1'] = df5['rank'].map(classisfy)
+# df5['class2'] = df5['rank'].map(lambda x:classisfy(x, 0.3))
 
-df6 = df5.merge(df4, on=['cd']+basic, how='left')
-err1 = df6.groupby(['cd', 'class1_x', 'class1_y']).agg(
-    reach=('reach_x', 'sum'),
-    num=('reach_x', 'size')
+df6 = df5.merge(df4, on=['cd']+basic, how='left', suffixes=['_truth', '_forecast'])
+def confusion(df, truth='class3_truth', forecast='class3_forecast'):
+    gr = df.groupby(['cd', truth, forecast]).agg(
+        reach=('reach_truth', 'sum'),
+        num=('reach_truth', 'size')
     ).reset_index()
-err1['pct'] = err1.num / err1.groupby(['cd', 'class1_x']).num.transform(sum)
-# pivot_table is better than pivot on old version
-piv1 = err1.pivot_table(index='cd', columns=['class1_x', 'class1_y'], values=['reach', 'num', 'pct']).fillna(0).reset_index()
-piv1.to_csv('piv1.csv', index=False)
+    gr['reach%'] = gr.reach / gr.groupby('cd').reach.transform(sum)
+    gr['num%'] = gr.num / gr.groupby(['cd', truth]).num.transform(sum)
+    piv = gr.pivot_table(
+        index='cd',
+        columns=[truth, forecast],
+        values=['reach', 'reach%', 'num', 'num%']
+    ).fillna(0).reset_index()
+    return piv
 
 # Analyze the cause of misclassification
 # %store -r df6
-from copydf import copyDF
-copyDF(df6[(df6.cd.map(str) == '2022-10-23')&(df6.class1_x == 'super_dense')&(df6.class1_y == 'dense')])
-copyDF(df6[(df6.class1_x == 'super_dense')&(df6.class1_y == 'sparse')])
+# confusion(df6, 'class1_x', 'class1_y')
+# df6[(df6.cd.map(str) == '2022-10-23')&(df6.class1_x == 'super_dense')&(df6.class1_y == 'dense')]
+# df6[(df6.class1_x == 'super_dense')&(df6.class1_y == 'sparse')]
 
 # Improve based on threshold
-err2 = df6.groupby(['cd', 'class2_x', 'class2_y']).agg(
-    reach=('reach_x', 'sum'),
-    num=('reach_x', 'size')
-    ).reset_index()
-err2['pct'] = err2.num / err2.groupby(['cd', 'class2_x']).num.transform(sum)
-# pivot_table is better than pivot on old version
-piv2 = err2.pivot_table(index='cd', columns=['class2_x', 'class2_y'], values=['reach', 'num', 'pct']).fillna(0)
-piv2.to_csv('piv2.csv')
+# confusion(df6, 'class2_x', 'class2_y')
+# df6[(df6.class2_x == 'super_dense')&(df6.class2_y == 'dense')].to_csv()
 
-df6[(df6.class2_x == 'super_dense')&(df6.class2_y == 'dense')].to_csv()
+# Reduce the super-dense to adapt the real capacity
+t = confusion(df6, 'class3_truth', 'class3_forecast')
+print(t['reach%'])
+print(t.to_csv()) # for copy to google sheet
+df6[(df6.cd.map(str) == '2022-10-23')&(df6.class3_truth == 'super_dense')&(df6.class3_forecast == 'dense')].to_csv()
+
+# time series forecast
+sep = '2022-11-01'
+history = df3[df3.cd < sep].groupby(basic).agg({'reach': 'mean'}).reset_index()
+history['rank'] = history.reach.rank(method='first', ascending=False, pct=True)
+history['class3'] = history['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
+
+df7 = df5[df5.cd >= sep].merge(history, on=basic, how='left', suffixes=['_truth', '_forecast'])
+#%store -r df7
+t = confusion(df7, 'class3_truth', 'class3_forecast')
+print(t['reach%'])
+print(t.to_csv())
