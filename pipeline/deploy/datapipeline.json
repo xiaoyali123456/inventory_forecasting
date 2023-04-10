@@ -11,6 +11,7 @@
             "schedule": {
                 "ref": "DefaultSchedule"
             },
+            "terminateAfter": "600 Minutes",
             "scheduleType": "cron"
         },
         {
@@ -24,7 +25,7 @@
             "name": "Ec2",
             "type": "Ec2Resource",
             "imageId": "ami-525d3528",
-            "instanceType": "m5.large",
+            "instanceType": "m5.xlarge",
             "maxActiveInstances": "1",
             "region": "#{myRegion}",
             "schedule": {

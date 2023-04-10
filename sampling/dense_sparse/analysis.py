@@ -248,7 +248,8 @@ df6[(df6.cd.map(str) == '2022-10-23')&(df6.class3_truth == 'super_dense')&(df6.c
 
 # time series forecast
 sep = '2022-11-01'
-history = df3[df3.cd < sep].groupby(basic).agg({'reach': 'mean'}).reset_index()
+df3b = df3[(df3.cd < sep)].groupby(['cd'] + basic).reach.sum().reset_index() # XXX: deduplication
+history = df3b.groupby(basic).mean().reset_index()
 history['rank'] = history.reach.rank(method='first', ascending=False, pct=True)
 history['class3'] = history['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
 
@@ -257,3 +258,7 @@ df7 = df5[df5.cd >= sep].merge(history, on=basic, how='left', suffixes=['_truth'
 t = confusion(df7, 'class3_truth', 'class3_forecast')
 print(t['reach%'])
 print(t.to_csv())
+
+# output custom cohort
+print(df7[(df7.cd == '2022-11-10')&(df7.class3_truth == 'super_dense')&(df7.class3_forecast == 'dense')].to_csv())
+print((df3.groupby('custom').reach.sum()/len(set(df3.cd))).to_csv())
