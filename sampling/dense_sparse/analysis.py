@@ -259,6 +259,13 @@ t = confusion(df7, 'class3_truth', 'class3_forecast')
 print(t['reach%'])
 print(t.to_csv())
 
-# output custom cohort
-print(df7[(df7.cd == '2022-11-10')&(df7.class3_truth == 'super_dense')&(df7.class3_forecast == 'dense')].to_csv())
+# custom cohort
 print((df3.groupby('custom').reach.sum()/len(set(df3.cd))).to_csv())
+
+# badcases
+df8 = df7[(df7.cd == '2022-11-10')&(df7.class3_truth == 'super_dense')&(df7.class3_forecast == 'dense')]
+df7.merge(df8[['cd']+basic], on=['cd']+basic).to_csv('bad.csv', index=False)
+
+# badcases2
+df9 = df7[(df7.cd == '2022-11-10')&(df7.class3_truth == 'dense')&(df7.class3_forecast == 'sparse')]
+df7.merge(df9[['cd']+basic], on=['cd']+basic).to_csv('bad2.csv', index=False)

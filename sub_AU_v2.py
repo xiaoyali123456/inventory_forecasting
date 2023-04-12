@@ -1,12 +1,10 @@
 import pandas as pd
 
-if 'spark0' not in globals():
-    spark0 = spark
-    spark = SparkSession.builder \
-        .config("spark.sql.hive.convertMetastoreParquet", "false") \
-        .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
-        .enableHiveSupport() \
-        .getOrCreate()
+spark = SparkSession.builder \
+    .config("spark.sql.hive.convertMetastoreParquet", "false") \
+    .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
+    .enableHiveSupport() \
+    .getOrCreate()
 
 out = 'sub_vv_2.csv'
 AU_table = 'data_warehouse.watched_video_daily_aggregates_ist'

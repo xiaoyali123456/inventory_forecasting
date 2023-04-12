@@ -4,9 +4,10 @@ if [[ -z $START_DATE || $START_DATE == "default" ]]; then
   START_DATE=$(date --iso-8601)
 fi
 echo $DESTROY $START_DATE $CODE_ONLY
+aws --version
 
+# PROFILE="--profile $ENV" # comment out for debug
 ENV=prod
-# PROFILE="--profile $ENV" # comment outfor debug
 REGION=us-east-1
 PIPELINE_UNIQUE_NAME=live-ads-inventory-forecasting
 PROJ_FOLDER=s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline
@@ -62,4 +63,4 @@ aws datapipeline put-pipeline-definition \
   mySNSTopicPdArn=arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd
 
 aws datapipeline activate-pipeline --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE
-aws sns publish --topic-arn "$SNS_TOPIC" --subject "$pipeline_id" --message "datapipeline $PIPELINE_UNIQUE_NAME deployment done!" --region $REGION
+aws sns publish --topic-arn "$SNS_TOPIC" --subject "$new_pipeline_id" --message "datapipeline $PIPELINE_UNIQUE_NAME deployment done!" --region $REGION

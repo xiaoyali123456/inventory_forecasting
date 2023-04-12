@@ -472,4 +472,4 @@ content_language_col3 = "_c1"
 
 
 # save_base_dataset()
-# main(spark, date, content_id, tournament_name)
+main(spark, date, content_id, tournament_name)

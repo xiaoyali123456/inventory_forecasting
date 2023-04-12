@@ -2,7 +2,6 @@
     "objects": [
         {
             "id": "Default",
-            "name": "Default",
             "failureAndRerunMode": "CASCADE",
             "pipelineLogUri": "#{myProjectFolder}/logs/",
             "keyPair": "#{myKeyPair}",
@@ -11,7 +10,7 @@
             "schedule": {
                 "ref": "DefaultSchedule"
             },
-            "terminateAfter": "600 Minutes",
+            "terminateAfter": "480 Minutes",
             "scheduleType": "cron"
         },
         {
@@ -22,7 +21,6 @@
         },
         {
             "id": "Ec2",
-            "name": "Ec2",
             "type": "Ec2Resource",
             "imageId": "ami-525d3528",
             "instanceType": "m5.xlarge",
@@ -35,8 +33,15 @@
             "subnetId": "#{mySubnetId}"
         },
         {
+            "id": "Emr1",
+            "type": "EmrCluster",
+            "applications": [
+                "spark"
+            ],
+            "bootstrapAction": "#{myProjectFolder}/"
+        },
+        {
             "id": "TestActivity",
-            "name": "TestActivity",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/run.sh",
             "scriptArgument": [
@@ -57,15 +62,13 @@
         },
         {
             "id": "Action_SNSSuccessNotification",
-            "name": "SNS Success Notification",
             "subject": "Live Inventory Forecasting Pipeline Success: #{node.@pipelineId} - #{node.name}",
-            "message": "Cong",
+            "message": "Good",
             "type": "SnsAlarm",
             "topicArn": "#{mySNSTopicArn}"
         },
         {
             "id": "Action_SNSFailureNotification",
-            "name": "SNS Failure Notification",
             "subject": "Live Inventory Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
             "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
             "type": "SnsAlarm",
