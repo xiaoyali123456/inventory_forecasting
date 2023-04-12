@@ -14,7 +14,8 @@ try:
 except:
     df = pd.DataFrame({'ds':[], 'vv': [], 'sub_vv': []})
 
-for i in pd.date_range('2022-06-01', '2023-03-01'):
+# for i in pd.date_range('2022-06-01', '2023-03-01'):
+for i in pd.date_range('2023-03-02', '2023-04-11'):
     ds = str(i.date())
     if ds not in set(df.ds):
         print(ds)
@@ -31,4 +32,10 @@ for i in pd.date_range('2022-06-01', '2023-03-01'):
             df.to_csv(out, index=False)
 
 df.to_csv(out, index=False)
-!aws s3 cp sub_vv_2.csv s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/ # type: ignore
+!aws s3 cp sub_vv_2.csv s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/sub_vv_3.csv # type: ignore
+
+# out = 'sub_vv_2.csv'
+# df = pd.read_csv(out)
+# df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/')
+# df3 = pd.concat([df2, df])
+# df3.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/cd=2023-04-11/part0.parquet')
