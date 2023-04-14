@@ -1,2 +1,8 @@
-holidays
+backports.zoneinfo==0.2.1
+convertdate==2.4.0
+hijri-converter==2.2.4
+holidays==0.22
+korean-lunar-calendar==0.3.1
+PyMeeus==0.5.12
+scipy==1.7.3
 xgboost==1.6.2

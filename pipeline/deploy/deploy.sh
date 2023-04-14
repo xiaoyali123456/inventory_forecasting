@@ -1,5 +1,6 @@
 set -ex
 
+# show all environment variables
 if [[ -z $START_DATE || $START_DATE == "default" ]]; then
   START_DATE=$(date --iso-8601)
 fi
@@ -46,20 +47,13 @@ aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PRO
   --tags key=Owner,value=tao.xiong@hotstar.com key=CostCenter,value=India key=Product,value=Hotstar key=Team,value=ML \
   key=Stage,value=prod key=Name,value=$PIPELINE_UNIQUE_NAME
 
-# put pipeline definition
 aws datapipeline put-pipeline-definition \
   --pipeline-id $new_pipeline_id \
   --pipeline-definition "file://$local_folder/deploy/datapipeline.json" \
   --region $REGION $PROFILE \
   --parameter-values \
   myProjectFolder=$PROJ_FOLDER \
-  myStartDate=$START_DATE \
-  mySubnetId=subnet-156c324f \
-  myKeyPair=research-prod \
-  myRole=sirius_universal_role_prod \
-  myRegion=$REGION \
-  mySNSTopicArn=$SNS_TOPIC \
-  mySNSTopicPdArn=arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd
+  myStartDate=$START_DATE
 
 aws datapipeline activate-pipeline --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE
 aws sns publish --topic-arn "$SNS_TOPIC" --subject "$new_pipeline_id" --message "datapipeline $PIPELINE_UNIQUE_NAME deployment done!" --region $REGION

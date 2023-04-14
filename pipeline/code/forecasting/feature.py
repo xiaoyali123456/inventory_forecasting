@@ -494,3 +494,5 @@ additional_cols = ["languages", "platforms"]
 # save_base_dataset("")
 # save_base_dataset("_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
+
+print("argv", sys.argv)

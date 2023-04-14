@@ -4,14 +4,24 @@
             "id": "Default",
             "failureAndRerunMode": "CASCADE",
             "pipelineLogUri": "#{myProjectFolder}/logs/",
-            "keyPair": "#{myKeyPair}",
-            "role": "#{myRole}",
-            "resourceRole": "#{myRole}",
+            "keyPair": "research-prod",
+            "role": "sirius_universal_role_prod",
+            "resourceRole": "sirius_universal_role_prod",
+            "maximumRetries": "1",
+            "terminateAfter": "8 Hours",
+            "securityGroupIds": "sg-aeeb4ad8",
+            "subnetId": "subnet-156c324f",
+            "maxActiveInstances": "1",
+            "scheduleType": "cron",
             "schedule": {
                 "ref": "DefaultSchedule"
             },
-            "terminateAfter": "480 Minutes",
-            "scheduleType": "cron"
+            "onFail": {
+                "ref": "SNSFailureNotification"
+            },
+            "onSuccess": {
+                "ref": "SNSSuccessNotification"
+            }
         },
         {
             "id": "DefaultSchedule",
@@ -24,13 +34,7 @@
             "type": "Ec2Resource",
             "imageId": "ami-525d3528",
             "instanceType": "m5.xlarge",
-            "maxActiveInstances": "1",
-            "region": "#{myRegion}",
-            "schedule": {
-                "ref": "DefaultSchedule"
-            },
-            "securityGroupIds": "sg-aeeb4ad8",
-            "subnetId": "#{mySubnetId}"
+            "region": "#{myRegion}"
         },
         {
             "id": "Emr1",
@@ -38,7 +42,11 @@
             "applications": [
                 "spark"
             ],
-            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh"
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
+            "coreInstanceCount": "1",
+            "coreInstanceType": "m4.large",
+            "masterInstanceType": "m4.large",
+            "releaseLabel": "emr-5.31.0"
         },
         {
             "id": "TestActivity",
@@ -47,48 +55,37 @@
             "scriptArgument": [
                 "#{myRunningDate}"
             ],
-            "onFail": {
-                "ref": "Action_SNSFailureNotification"
-            },
-            "onSuccess": {
-                "ref": "Action_SNSSuccessNotification"
-            },
             "runsOn": {
                 "ref": "Ec2"
-            },
-            "schedule": {
-                "ref": "DefaultSchedule"
             }
         },
         {
-            "id": "TestActivity",
+            "id": "TotalInventoryForecast",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/run.sh",
+            "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
             "scriptArgument": [
-                "#{myRunningDate}"
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/forecasting"
             ],
             "onFail": {
-                "ref": "Action_SNSFailureNotification"
+                "ref": "SNSFailureNotification"
             },
             "onSuccess": {
-                "ref": "Action_SNSSuccessNotification"
+                "ref": "SNSSuccessNotification"
             },
             "runsOn": {
-                "ref": "Ec2"
-            },
-            "schedule": {
-                "ref": "DefaultSchedule"
+                "ref": "Emr1"
             }
         },
         {
-            "id": "Action_SNSSuccessNotification",
+            "id": "SNSSuccessNotification",
             "subject": "Live Inventory Forecasting Pipeline Success: #{node.@pipelineId} - #{node.name}",
-            "message": "Good",
+            "message": "Done",
             "type": "SnsAlarm",
             "topicArn": "#{mySNSTopicArn}"
         },
         {
-            "id": "Action_SNSFailureNotification",
+            "id": "SNSFailureNotification",
             "subject": "Live Inventory Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
             "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
             "type": "SnsAlarm",
@@ -99,9 +96,17 @@
         {
             "id": "myRunningDate",
             "type": "String",
-            "description": "running date",
-            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}",
-            "optional": "true"
+            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}"
+        },
+        {
+            "id": "mySNSTopicPdArn",
+            "type": "String",
+            "default": "arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd"
+        },
+        {
+            "id": "mySNSTopicArn",
+            "type": "String",
+            "default": "arn:aws:sns:us-east-1:253474845919:sirius-notification"
         }
     ]
 }
