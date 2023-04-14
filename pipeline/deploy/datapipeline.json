@@ -38,7 +38,27 @@
             "applications": [
                 "spark"
             ],
-            "bootstrapAction": "#{myProjectFolder}/"
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh"
+        },
+        {
+            "id": "TestActivity",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/run.sh",
+            "scriptArgument": [
+                "#{myRunningDate}"
+            ],
+            "onFail": {
+                "ref": "Action_SNSFailureNotification"
+            },
+            "onSuccess": {
+                "ref": "Action_SNSSuccessNotification"
+            },
+            "runsOn": {
+                "ref": "Ec2"
+            },
+            "schedule": {
+                "ref": "DefaultSchedule"
+            }
         },
         {
             "id": "TestActivity",

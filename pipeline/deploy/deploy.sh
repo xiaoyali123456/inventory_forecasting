@@ -39,8 +39,8 @@ fi
 
 # create new pipeline
 new_pipeline_id=$(
-  aws datapipeline create-pipeline --name "$PIPELINE_UNIQUE_NAME" --unique-id "$PIPELINE_UNIQUE_NAME" --region $REGION \
-    --query pipelineId --output text $PROFILE
+  aws datapipeline create-pipeline --name "$PIPELINE_UNIQUE_NAME" --unique-id "$PIPELINE_UNIQUE_NAME" \
+   --region $REGION $PROFILE --query pipelineId --output text
 )
 aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE \
   --tags key=Owner,value=tao.xiong@hotstar.com key=CostCenter,value=India key=Product,value=Hotstar key=Team,value=ML \
@@ -50,8 +50,7 @@ aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PRO
 aws datapipeline put-pipeline-definition \
   --pipeline-id $new_pipeline_id \
   --pipeline-definition "file://$local_folder/deploy/datapipeline.json" \
-  --region $REGION \
-  $PROFILE \
+  --region $REGION $PROFILE \
   --parameter-values \
   myProjectFolder=$PROJ_FOLDER \
   myStartDate=$START_DATE \
