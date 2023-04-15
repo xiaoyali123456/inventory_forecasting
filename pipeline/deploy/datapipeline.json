@@ -2,26 +2,20 @@
     "objects": [
         {
             "id": "Default",
-            "failureAndRerunMode": "CASCADE",
             "pipelineLogUri": "#{myProjectFolder}/logs/",
             "keyPair": "research-prod",
             "role": "sirius_universal_role_prod",
             "resourceRole": "sirius_universal_role_prod",
             "maximumRetries": "1",
             "terminateAfter": "8 Hours",
+            "region": "us-east-1",
             "securityGroupIds": "sg-aeeb4ad8",
             "subnetId": "subnet-156c324f",
             "maxActiveInstances": "1",
             "scheduleType": "cron",
-            "schedule": {
-                "ref": "DefaultSchedule"
-            },
-            "onFail": {
-                "ref": "SNSFailureNotification"
-            },
-            "onSuccess": {
-                "ref": "SNSSuccessNotification"
-            }
+            "schedule": {"ref": "DefaultSchedule"},
+            "failureAndRerunMode": "CASCADE",
+            "onFail": {"ref": "FailureNotification"}
         },
         {
             "id": "DefaultSchedule",
@@ -30,18 +24,9 @@
             "startDateTime": "#{myStartDate}T02:30:00"
         },
         {
-            "id": "Ec2",
-            "type": "Ec2Resource",
-            "imageId": "ami-525d3528",
-            "instanceType": "m5.xlarge",
-            "region": "#{myRegion}"
-        },
-        {
             "id": "Emr1",
             "type": "EmrCluster",
-            "applications": [
-                "spark"
-            ],
+            "applications": "spark",
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
             "coreInstanceCount": "1",
             "coreInstanceType": "m4.large",
@@ -49,43 +34,26 @@
             "releaseLabel": "emr-5.31.0"
         },
         {
-            "id": "TestActivity",
-            "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/run.sh",
-            "scriptArgument": [
-                "#{myRunningDate}"
-            ],
-            "runsOn": {
-                "ref": "Ec2"
-            }
-        },
-        {
-            "id": "TotalInventoryForecast",
+            "id": "ForecastTotal",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/forecasting"
             ],
-            "onFail": {
-                "ref": "SNSFailureNotification"
-            },
-            "onSuccess": {
-                "ref": "SNSSuccessNotification"
-            },
             "runsOn": {
                 "ref": "Emr1"
             }
         },
         {
-            "id": "SNSSuccessNotification",
+            "id": "SuccessNotification",
             "subject": "Live Inventory Forecasting Pipeline Success: #{node.@pipelineId} - #{node.name}",
             "message": "Done",
             "type": "SnsAlarm",
             "topicArn": "#{mySNSTopicArn}"
         },
         {
-            "id": "SNSFailureNotification",
+            "id": "FailureNotification",
             "subject": "Live Inventory Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
             "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
             "type": "SnsAlarm",

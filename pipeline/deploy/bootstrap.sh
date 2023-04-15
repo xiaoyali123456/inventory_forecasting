@@ -1,4 +1,5 @@
 sudo yum -y install python3-devel libffi-devel
+python3 -m pip install --user pip==23.0.1 # upgrade
 python3 -m pip install --user s3fs==0.5.1 \
   fsspec==0.8.7 \
   aiobotocore==1.2.2 \

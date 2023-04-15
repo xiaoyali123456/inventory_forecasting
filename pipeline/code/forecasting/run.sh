@@ -4,7 +4,7 @@ DATE=$1
 CODE=$2
 aws s3 sync $CODE .
 
-pip install --user -r requirements.txt
+python3 -m pip install --user -r requirements.txt
 
 SPARK="spark-submit --deploy-mode client \
     --driver-memory 8g \

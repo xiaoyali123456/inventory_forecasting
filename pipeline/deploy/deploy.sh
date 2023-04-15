@@ -2,7 +2,7 @@ set -ex
 
 # show all environment variables
 if [[ -z $START_DATE || $START_DATE == "default" ]]; then
-  START_DATE=$(date --iso-8601)
+  START_DATE=$(date -I)
 fi
 echo $DESTROY $START_DATE $CODE_ONLY
 aws --version
@@ -17,6 +17,7 @@ SNS_TOPIC=arn:aws:sns:us-east-1:253474845919:sirius-notification
 # deploy code
 local_folder=$(cd $(dirname "$0")/../; pwd)
 aws s3 sync $local_folder $PROJ_FOLDER
+exit # debug
 if [[ "$CODE_ONLY" == true ]]; then
   exit
 fi
