@@ -1,10 +1,22 @@
 import json
-from typing import Optional
+from enum import Enum, auto
 
 from fastapi import FastAPI, Query
 from typing_extensions import Annotated
+from pydantic import BaseModel
+
+class Status(str, Enum):
+    INIT = 'INIT'
+    IN_PROGRESS = 'IN_PROGRESS'
+    SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'
+
+class Payload(BaseModel):
+    request_status: Status
+    version: int
 
 app = FastAPI()
+example = 'example/requests.json'
 
 @app.get('/inventory/forecast-request')
 def get_by_status(
@@ -13,18 +25,15 @@ def get_by_status(
     page_size: Annotated[int, Query(alias='page-size')] = None,
     ):
     print(locals())
-    with open('example/requests.json') as f: 
+    with open(example) as f: 
         return json.load(f)
 
 @app.patch('/inventory/{inventory_id}/ad-placement/{ad_placement}/forecast-request')
 def update_req_status(
     inventory_id: str,
     ad_placement: str,
-    request_status: str = None,
-    version: int = 1,
+    data: Payload
     ):
     print(locals())
-    with open('req.json') as f: 
+    with open(example) as f: 
         return json.load(f)
-
-
