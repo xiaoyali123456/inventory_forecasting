@@ -4,10 +4,7 @@ DATE=$1
 CODE=$2
 aws s3 sync $CODE .
 
-python3 -m pip install --user -r requirements.txt
-
 SPARK="spark-submit --deploy-mode client \
-    --driver-memory 8g \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0"
 
 $SPARK feature.py $DATE
