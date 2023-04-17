@@ -24,7 +24,7 @@
                     "teams": [
                         {
                             "name": "India",
-                            "tier": ""
+                            "tier": "tier1"
                         },
                         {
                             "name": "Australia",

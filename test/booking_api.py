@@ -28,6 +28,7 @@ def get_by_status(
     with open(example) as f: 
         return json.load(f)
 
+# TODO: what is ad_placement?
 @app.patch('/inventory/{inventory_id}/ad-placement/{ad_placement}/forecast-request')
 def update_req_status(
     inventory_id: str,
