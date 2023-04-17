@@ -309,7 +309,7 @@ def main(version, mask_tag):
                         .withColumn('estimated_inventory', F.expr(
                         f'estimated_avg_concurrency * {drop_off_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)')) \
                         .withColumn('estimated_reach', F.expr(
-                        f"(estimated_free_num * estimated_free_watch_rate / {sub_pid_did_rate}) + (estimated_sub_num * estimated_sub_watch_rate / {free_pid_did_rate})")) \
+                        f"(estimated_free_num * estimated_free_watch_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_sub_watch_rate / {sub_pid_did_rate})")) \
                         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
                         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
                         .withColumn('avg_concurrency_bias',

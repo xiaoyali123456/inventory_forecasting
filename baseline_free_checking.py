@@ -154,12 +154,12 @@ for tournament in tournament_dic:
 # tournament = "wc2022"
 # tournament = "ac2022"
 # tournament = "ipl2022"
-# tournament = "wc2021"
+tournament = "wc2021"
 # tournament = "ipl2021"
 # tournament = "wc2019"
 # tournament = "west_indies_tour_of_india2019"
 # tournament = "australia_tour_of_india2020"
-tournament = "india_tour_of_new_zealand2020"
+# tournament = "india_tour_of_new_zealand2020"
 # tournament = "england_tour_of_india2021"
 # tournament = "ipl2020"
 # tournament = "south_africa_tour_of_india2022"
@@ -177,24 +177,19 @@ content_id_col = "_col2"
 watch_time_col = "_col27"
 
 
-for date in get_date_list("2019-01-01", 365):
-    if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}"):
-        print(date)
-        viewers_df = load_data_frame(spark, f'{viewAggregatedInputPath}/cd={date}', fmt="orc")\
-            .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
-            .select('dw_p_id')\
-            .distinct()
-        save_data_frame(viewers_df, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}")
-
-
-
-
-
-df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}")
-            .withColumn('date', F.lit(date))
-                                      for date in get_date_list("2019-02-08", 150)]).cache()
-
-df.groupBy('date').agg(F.count('dw_p_id')).orderBy('date').show(200)
+# for date in get_date_list("2019-01-01", 365):
+#     if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}"):
+#         print(date)
+#         viewers_df = load_data_frame(spark, f'{viewAggregatedInputPath}/cd={date}', fmt="orc")\
+#             .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
+#             .select('dw_p_id')\
+#             .distinct()
+#         save_data_frame(viewers_df, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}")
+# df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/all_viewers/cd={date}")
+#             .withColumn('date', F.lit(date))
+#                                       for date in get_date_list("2019-02-08", 150)]).cache()
+#
+# df.groupBy('date').agg(F.count('dw_p_id')).orderBy('date').show(200)
 
 
 match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
@@ -215,6 +210,40 @@ for date in valid_dates:
         complete_valid_dates.append(next_date)
 
 print(complete_valid_dates)
+
+
+reduce(lambda x, y: x.union(y),
+    [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
+        .withColumnRenamed(subscription_status_col, 'subscription_status')
+        .withColumnRenamed(dw_p_id_col, 'dw_p_id')
+        .withColumnRenamed(content_id_col, 'content_id')
+        .withColumnRenamed(watch_time_col, 'watch_time')
+        .withColumn('subscription_status', F.upper(F.col('subscription_status')))
+        .where('subscription_status in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
+        .groupBy('content_id')
+        .agg(F.countDistinct('dw_p_id').alias('pid_num'), F.countDistinct('dw_d_id').alias('did_num'))
+        .withColumn('date', F.lit(date)) for date in complete_valid_dates]) \
+    .join(match_df, ['date', 'content_id'])\
+    .orderBy('date', 'content_id')\
+    .show(100, False)
+
+
+reduce(lambda x, y: x.union(y),
+    [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
+        .withColumnRenamed(subscription_status_col, 'subscription_status')
+        .withColumnRenamed(dw_p_id_col, 'dw_p_id')
+        .withColumnRenamed(content_id_col, 'content_id')
+        .withColumnRenamed(watch_time_col, 'watch_time')
+        .withColumn('subscription_status', F.upper(F.col('subscription_status')))
+        .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
+        .groupBy('content_id')
+        .agg(F.countDistinct('dw_p_id').alias('pid_num'), F.countDistinct('dw_d_id').alias('did_num'))
+        .withColumn('date', F.lit(date)) for date in complete_valid_dates]) \
+    .join(match_df, ['date', 'content_id'])\
+    .orderBy('date', 'content_id')\
+    .show(100, False)
+
+
 
 
 # enriched_watch_df = reduce(lambda x, y: x.union(y),
