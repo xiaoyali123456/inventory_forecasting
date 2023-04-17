@@ -11,16 +11,16 @@
             "svodFreeTimeDuration": 5,
             "svodSubscriptionPlan": "free",
             "sportType": "CRICKET",
-            "tournamentCategory": "ODI",
-            "estimatedMatchDuration": "300",
             "tournamentLocation": "India",
             "matchDetails": [
                 {
                     "matchId": 1235,
                     "matchName": "",
+                    "tournamentCategory": "ODI",
+                    "estimatedMatchDuration": 300,
                     "matchDate": "2023-02-23",
                     "matchStartHour": 20,
-                    "matchType": "group_stage",
+                    "matchType": "group",
                     "teams": [
                         {
                             "name": "India",
@@ -28,22 +28,20 @@
                         },
                         {
                             "name": "Australia",
-                            "tier": ""
+                            "tier": "tier1"
                         }
                     ],
-                    "fixedBreak": "40",
-                    "averageBreakDuration": "",
+                    "fixedBreak": 50,
+                    "averageBreakDuration": 45,
                     "fixedAdPodsPerBreak": [
-                        23,
-                        45
                     ],
-                    "adhocBreak": "5",
-                    "adhocBreakDuration": "",
+                    "adhocBreak": 5,
+                    "adhocBreakDuration": 10,
                     "publicHoliday": "true",
                     "contentLanguage": "",
                     "PlatformSuported": [
                         "android",
-                        "ISO",
+                        "IOS",
                         "web"
                     ]
                 }

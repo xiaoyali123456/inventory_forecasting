@@ -320,9 +320,11 @@ def add_hots_features(feature_df, type="train", root_path=""):
             save_data_frame(col_df, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col)
         col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
-        print(col_num)
+        # print(col_num)
         col_num_dic[col] = col_num
-        print(df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count())
+        unvalid_num = df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count()
+        if unvalid_num > 0:
+            print(unvalid_num)
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
@@ -351,9 +353,11 @@ def add_hots_features(feature_df, type="train", root_path=""):
         col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
         col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
-        print(col_num)
+        # print(col_num)
         col_num_dic[col] = col_num
-        print(df.join(col_df, col, 'left').where(f"{col}_hots is null").count())
+        unvalid_num = df.join(col_df, col, 'left').where(f"{col}_hots is null").count()
+        if unvalid_num > 0:
+            print(unvalid_num)
         df = df\
             .join(col_df, col)\
             .withColumn(f"{col}_hots_num", F.lit(col_num))
@@ -438,9 +442,10 @@ def main(spark, date, content_id, tournament_name, match_type,
         .withColumn('teams', simple_title_udf('title')) \
         .withColumn('continents', get_continents_udf('teams', 'tournament_type')) \
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
+        .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, 5)')) \
         .cache()
     feature_df = add_hots_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
-    base_path_suffix = "/all_features_hots_format"
+    base_path_suffix = "/all_features_hots_format_and_free_timer"
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={date}/contentid={content_id}")
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
@@ -468,6 +473,80 @@ def save_base_dataset(path_suffix):
         save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/content_id={content_id}")
 
 
+def generate_prediction_dataset(configuration):
+    res = []
+    cols = ['request_id', 'tournament_name', 'tournament', 'match_type', 'vod_type', 'venue_detail', 'free_timer',
+            'content_id', 'match_stage', 'date', 'year', 'match_start_time', 'title', 'if_holiday', 'match_duration', 'break_duration']
+    for request in configuration:
+        request_id = request['id']
+        tournament_name = request['tournamentName'].lower()
+        tournament = request['seasonName'].replace(" ", "_").lower()
+        vod_type = request['tournamentType'].lower()
+        venue_detail = request['tournamentLocation'].lower()
+        free_timer = request['svodFreeTimeDuration']
+        for match in request['matchDetails']:
+            content_id = match['matchId']
+            date = match['matchDate']
+            year = int(date[:4])
+            match_start_time = f"{match['matchStartHour']}:00:00"
+            if len(match_start_time) < 8:
+                match_start_time = "0" + match_start_time
+            match_stage = match['matchType']
+            title = match['teams'][0]['name'].lower() + " vs " + match['teams'][1]['name'].lower()
+            # tiers = match['teams'][0]['tier'].lower() + " vs " + match['teams'][1]['tier'].lower()
+            if_holiday = match['publicHoliday']
+            match_type = match['tournamentCategory'].lower()
+            match_duration = int(match['estimatedMatchDuration'])
+            break_duration = float(match['fixedBreak'] * match['averageBreakDuration'] + match['adhocBreak'] * match['adhocBreakDuration'])
+            res.append((request_id, tournament_name, tournament, match_type, vod_type, venue_detail, free_timer,
+                        content_id, match_stage, date, year, match_start_time, title, if_holiday, match_duration, break_duration))
+    active_user_df = load_data_frame(spark, f'{active_user_num_path}') \
+        .withColumn('total_frees_number', F.expr('vv - sub_vv')) \
+        .selectExpr('ds as date', 'total_frees_number', 'sub_vv as total_subscribers_number') \
+        .cache()
+    prediction_df = spark.createDataFrame(res, cols) \
+        .withColumn('active_frees_rate', F.lit(-1.0)) \
+        .withColumn('active_subscribers_rate', F.lit(-1.0)) \
+        .withColumn('frees_watching_match_rate', F.lit(-1.0)) \
+        .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
+        .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
+        .withColumn('gender_type', F.lit("men")) \
+        .withColumn("if_contain_india_team", F.locate('india', F.col('title'))) \
+        .withColumn('if_contain_india_team', F.expr('if(if_contain_india_team > 0, 1, 0)')) \
+        .withColumn('if_weekend', F.dayofweek(F.col('date'))) \
+        .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
+        .withColumn('match_time', F.expr('if(match_start_time < "06:00:00", 0, '
+                                         'if(match_start_time < "12:00:00", 1, '
+                                         'if(match_start_time < "18:00:00", 2, 3)))')) \
+        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
+        .withColumn('if_holiday', F.expr('if(if_holiday="true", 1, 0)')) \
+        .withColumn('venue', F.expr('if(venue_detail="india", 1, 0)')) \
+        .withColumn('hostar_influence', F.expr('year - 2016')) \
+        .withColumn('teams', simple_title_udf('title')) \
+        .withColumn('continents', get_continents_udf('teams', 'tournament_type')) \
+        .withColumn('teams_tier', get_teams_tier_udf('teams')) \
+        .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, free_timer)')) \
+        .join(active_user_df, 'date')\
+        .cache()
+    feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
+    base_path_suffix = "/prediction/all_features_hots_format_and_free_timer"
+    today = str(datetime.date.today())
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
+    for col in one_hot_cols:
+        if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+            print(col)
+            feature_df = feature_df \
+                .withColumn(f"{col}_hots_num", F.lit(1)) \
+                .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
+    cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + additional_cols]
+    df = load_data_frame(spark,
+                         pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
+        .drop(*cols)
+    df.orderBy('date', 'content_id').show(3000, False)
+    return feature_df
+
+
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
 get_match_start_time_udf = F.udf(get_match_start_time, StringType())
 strip_udf = F.udf(lambda x: x.strip(), StringType())
@@ -493,6 +572,93 @@ additional_cols = ["languages", "platforms"]
 
 # save_base_dataset("")
 # save_base_dataset("_and_simple_one_hot")
+# save_base_dataset("_and_free_timer")
+# save_base_dataset("_and_free_timer_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
-print("argv", sys.argv)
+# print("argv", sys.argv)
+
+configuraion = {
+    "results": [
+        {
+            "id": "123_586",
+            "tournamentId": 123,
+            "tournamentName": "World Cup",
+            "seasonId": 586,
+            "seasonName": "World Cup 2023",
+            "requestStatus": "INIT",
+            "tournamentType": "AVOD",
+            "svodFreeTimeDuration": 5,
+            "svodSubscriptionPlan": "free",
+            "sportType": "CRICKET",
+            "tournamentLocation": "India",
+            "matchDetails": [
+                {
+                    "matchId": 1235,
+                    "matchName": "",
+                    "tournamentCategory": "ODI",
+                    "estimatedMatchDuration": 300,
+                    "matchDate": "2023-02-23",
+                    "matchStartHour": 20,
+                    "matchType": "group",
+                    "teams": [
+                        {
+                            "name": "India",
+                            "tier": "tier1"
+                        },
+                        {
+                            "name": "Australia",
+                            "tier": "tier1"
+                        }
+                    ],
+                    "fixedBreak": 50,
+                    "averageBreakDuration": 45,
+                    "fixedAdPodsPerBreak": [
+                    ],
+                    "adhocBreak": 5,
+                    "adhocBreakDuration": 10,
+                    "publicHoliday": "true",
+                    "contentLanguage": "",
+                    "PlatformSuported": [
+                        "android",
+                        "IOS",
+                        "web"
+                    ]
+                }
+            ],
+            "customAudienes": [
+                {
+                    "uploadSource": "ap_tool",
+                    "segmentName": "AP_567",
+                    "customCohort": "C_14_1",
+                    "upload_date": "2023-02-26"
+                }
+            ],
+            "adPlacements": [
+                {
+                    "adPlacement": "MIDROLL",
+                    "version": 1,
+                    "forecastSize": 15236523
+                },
+                {
+                    "adPlacement": "PREROLL",
+                    "version": 2,
+                    "forecastSize": 551236265
+                }
+            ],
+            "tournamentStartDate": "2023-02-26",
+            "tournamentEndDate": "2023-04-26",
+            "userName": "Navin Kumar",
+            "emailId": "navin.kumar@hotstar.com",
+            "creationDate": "2021-04-08T06:08:45.717+00:00",
+            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
+            "error": ""
+        }
+    ],
+    "current_page": 1,
+    "total_items": 1,
+    "total_pages": 1
+}
+generate_prediction_dataset(configuration=configuraion["results"])
+
+
