@@ -2,77 +2,58 @@
     "objects": [
         {
             "id": "Default",
-            "name": "Default",
+            "pipelineLogUri": "#{myProjectFolder}/logs/",
+            "keyPair": "research-prod",
+            "role": "sirius_universal_role_prod",
+            "resourceRole": "sirius_universal_role_prod",
+            "maximumRetries": "1",
+            "terminateAfter": "8 Hours",
+            "region": "us-east-1",
+            "securityGroupIds": "sg-aeeb4ad8",
+            "subnetId": "subnet-156c324f",
+            "maxActiveInstances": "1",
+            "scheduleType": "cron",
+            "schedule": {"ref": "DefaultSchedule"},
             "failureAndRerunMode": "CASCADE",
-            "pipelineLogUri": "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/logs/",
-            "resourceRole": "#{myResourceRole}",
-            "role": "#{myRole}",
-            "schedule": {
-                "ref": "DefaultSchedule"
-            },
-            "scheduleType": "cron"
+            "onFail": {"ref": "FailureNotification"}
         },
         {
             "id": "DefaultSchedule",
             "type": "Schedule",
             "period": "1 day",
-            "startDateTime": "#{myStartDate}T10:30:00"
+            "startDateTime": "#{myStartDate}T02:30:00"
         },
         {
-            "id": "emr",
-            "name": "emr",
+            "id": "Emr1",
             "type": "EmrCluster",
-            "applications": [
-                "spark"
-            ],
-            "bootstrapAction": [
-                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/bootstrap.sh"
-            ],
+            "applications": "spark",
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
             "coreInstanceCount": "1",
-            "coreInstanceType": "r5.xlarge",
-            "keyPair": "#{myEmrKeyPair}",
-            "masterInstanceType": "m5.xlarge",
-            "maximumRetries": "1",
-            "region": "#{myEmrRegion}",
-            "releaseLabel": "emr-5.31.0",
-            "resourceRole": "#{myEmrResourceRole}",
-            "role": "#{myEmrRole}",
-            "subnetId": "#{myEmrSubnetId}",
-            "terminateAfter": "600 Minutes",
-            "useOnDemandOnLastAttempt": "true"
+            "coreInstanceType": "m4.large",
+            "masterInstanceType": "m4.large",
+            "releaseLabel": "emr-5.31.0"
         },
         {
-            "id": "ShellCommandActivityId_etl",
-            "name": "ibt_data_etl",
+            "id": "ForecastTotal",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myScriptPath}etl_label.sh",
+            "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
             "scriptArgument": [
-                "#{myRunningDate}"
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/forecasting"
             ],
-            "onFail": {
-                "ref": "Action_SNSFailureNotification"
-            },
-            "onSuccess": {
-                "ref": "Action_SNSSuccessNotification"
-            },
             "runsOn": {
-                "ref": "emr"
-            },
-            "schedule": {
-                "ref": "DefaultSchedule"
+                "ref": "Emr1"
             }
         },
         {
-            "id": "Action_SNSSuccessNotification",
-            "name": "SNS Success Notification",
+            "id": "SuccessNotification",
             "subject": "Live Inventory Forecasting Pipeline Success: #{node.@pipelineId} - #{node.name}",
-            "message": "Cong",
+            "message": "Done",
             "type": "SnsAlarm",
             "topicArn": "#{mySNSTopicArn}"
         },
         {
-            "id": "Action_SNSFailureNotification",
-            "name": "SNS Failure Notification",
+            "id": "FailureNotification",
             "subject": "Live Inventory Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
             "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
             "type": "SnsAlarm",
@@ -83,9 +64,17 @@
         {
             "id": "myRunningDate",
             "type": "String",
-            "description": "running date",
-            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}",
-            "optional": "true"
+            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}"
+        },
+        {
+            "id": "mySNSTopicPdArn",
+            "type": "String",
+            "default": "arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd"
+        },
+        {
+            "id": "mySNSTopicArn",
+            "type": "String",
+            "default": "arn:aws:sns:us-east-1:253474845919:sirius-notification"
         }
     ]
 }

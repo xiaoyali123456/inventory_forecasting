@@ -1,0 +1,13 @@
+import requests
+from fetch_requests import SERVER_URL_ROOT
+
+if __name__ == '__main__':
+    r = requests.patch(
+        SERVER_URL_ROOT + 'inventory/123_586/ad-placement/unknown/forecast-request',
+        json = {
+            "request_status": "SUCCESS",
+            "version": 1,
+        }
+    )
+    print(r.status_code)
+
