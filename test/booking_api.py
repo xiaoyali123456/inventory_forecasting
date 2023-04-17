@@ -11,6 +11,10 @@ class Status(str, Enum):
     SUCCESS = 'SUCCESS'
     FAILED = 'FAILED'
 
+class AdPlacement(str, Enum):
+    MIDROLL = 'MIDROLL'
+    PREROLL = 'PREROLL'
+
 class Payload(BaseModel):
     request_status: Status
     version: int
@@ -32,7 +36,7 @@ def get_by_status(
 @app.patch('/inventory/{inventory_id}/ad-placement/{ad_placement}/forecast-request')
 def update_req_status(
     inventory_id: str,
-    ad_placement: str,
+    ad_placement: AdPlacement,
     data: Payload
     ):
     print(locals())

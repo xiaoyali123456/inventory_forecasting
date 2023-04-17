@@ -10,5 +10,6 @@ SPARK="spark-submit --deploy-mode client \
 $SPARK feature.py $DATE
 # disable due to no new data yet
 # $SPARK label.py
+# $SPARK DAU_etl_and_predict.py
 # $SPARK xgb_model.py
 # $SPARK inventory_prediction.py
