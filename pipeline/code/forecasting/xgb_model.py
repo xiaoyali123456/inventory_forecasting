@@ -230,21 +230,30 @@ def generate_hot_vector(hots, hots_num):
 
 
 def feature_processing(feature_df):
-    return feature_df\
-        .withColumn(repeat_num_col, F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)'))\
-        .withColumn("hostar_influence_hots_num", F.lit(1))\
-        .withColumn("if_contain_india_team_hots_num", F.lit(2))\
-        .withColumn("if_contain_india_team_hots", if_contain_india_team_hot_vector_udf('if_contain_india_team_hots', 'tournament_type'))\
-        .withColumn("if_contain_india_team_hot_vector", generate_hot_vector_udf('if_contain_india_team_hots', 'if_contain_india_team_hots_num'))\
-        .withColumn("match_rank", F.expr('row_number() over (partition by tournament, match_stage order by rand)'))\
-        .withColumn("knock_rank", F.expr('row_number() over (partition by tournament order by date desc)'))\
-        .withColumn("knock_rank", F.expr('if(match_stage not in ("final", "semi-final"), 100, knock_rank)'))\
+    match_rank_df = feature_df \
+        .select('content_id', 'tournament', 'match_stage', 'rand') \
+        .distinct() \
+        .withColumn("match_rank", F.expr('row_number() over (partition by tournament, match_stage order by rand)')) \
+        .select('content_id', 'match_rank') \
+        .cache()
+    return feature_df \
+        .withColumn(repeat_num_col, F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)')) \
+        .withColumn("hostar_influence_hots_num", F.lit(1)) \
+        .withColumn("if_contain_india_team_hots_num", F.lit(2)) \
+        .withColumn("if_contain_india_team_hots",
+                    if_contain_india_team_hot_vector_udf('if_contain_india_team_hots', 'tournament_type')) \
+        .withColumn("if_contain_india_team_hot_vector",
+                    generate_hot_vector_udf('if_contain_india_team_hots', 'if_contain_india_team_hots_num')) \
+        .join(match_rank_df, 'content_id') \
+        .withColumn("knock_rank", F.expr('row_number() over (partition by tournament order by date desc)')) \
+        .withColumn("knock_rank", F.expr('if(match_stage not in ("final", "semi-final"), 100, knock_rank)')) \
         .withColumn("knock_rank_hot_vector", F.array(F.col('knock_rank'))) \
-        .withColumn("knock_rank_hots_num", F.lit(1))\
-        .withColumn("sample_tag", F.expr('if(tournament="wc2019", if(match_stage="group", if(rand<0.5, 1, 2), if(match_rank<=1, 1, 2)), 0)'))\
-        .withColumn("sub_tag", F.array(F.lit(1)))\
-        .withColumn("free_tag", F.array(F.lit(0)))\
-        .withColumn("sub_free_tag_hots_num", F.lit(1))
+        .withColumn("knock_rank_hots_num", F.lit(1)) \
+        .withColumn("sample_tag", F.expr('if(tournament="wc2019", if(match_stage="group", if(rand<0.5, 1, 2), if(match_rank<=1, 1, 2)), 0)')) \
+        .withColumn("sub_tag", F.array(F.lit(1))) \
+        .withColumn("free_tag", F.array(F.lit(0))) \
+        .withColumn("sub_free_tag_hots_num", F.lit(1)) \
+        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))
 
 
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
@@ -270,135 +279,6 @@ pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_in
 # spark = hive_spark('statistics')
 # match_df = load_hive_table(spark, "in_cms.match_update_s3")
 # save_data_frame(match_df, match_meta_path)
-tournament_dic = {
-    'sri_lanka_tour_of_india2023': {
-        'tournament_name': 'Sri Lanka Tour of India 2023',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'new_zealand_tour_of_india2023': {
-        'tournament_name': 'New Zealand Tour of India 2023',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'wc2022': {
-        'tournament_name': 'World Cup 2022',
-        'tournament_type': 'International',
-        'match_type': 'T20',
-        'venue': 'Australia',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'ac2022': {
-        'tournament_name': 'Asia Cup 2022',
-        'tournament_type': 'International',
-        'match_type': 'T20',
-        'venue': 'United Arab Emirates',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'south_africa_tour_of_india2022': {
-        'tournament_name': 'South Africa Tour of India 2022',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'west_indies_tour_of_india2022': {
-        'tournament_name': 'West Indies Tour of India 2022',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'ipl2022': {
-        'tournament_name': 'IPL 2022',
-        'tournament_type': 'National',
-        'match_type': 'T20',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'england_tour_of_india2021': {
-        'tournament_name': 'England Tour of India 2021',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'wc2021': {
-        'tournament_name': 'World Cup 2021',
-        'tournament_type': 'International',
-        'match_type': 'T20',
-        'venue': 'United Arab Emirates',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'ipl2021': {
-        'tournament_name': 'IPL 2021',
-        'tournament_type': 'National',
-        'match_type': 'T20',
-        'venue': 'India, United Arab Emirates',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'australia_tour_of_india2020': {
-        'tournament_name': 'Australia Tour of India 2020',
-        'tournament_type': 'Tour',
-        'match_type': 'ODI',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'avod'
-    },
-    'india_tour_of_new_zealand2020': {
-        'tournament_name': 'India Tour of New Zealand 2020',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'New Zealand',
-        'gender_type': 'men',
-        'vod_type': 'avod'
-    },
-    'ipl2020': {
-        'tournament_name': 'IPL 2020',
-        'tournament_type': 'National',
-        'match_type': 'T20',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'svod'
-    },
-    'west_indies_tour_of_india2019': {
-        'tournament_name': 'West Indies Tour India 2019',
-        'tournament_type': 'Tour',
-        'match_type': '',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'avod'},
-    'wc2019': {
-        'tournament_name': 'World Cup 2019',
-        'tournament_type': 'International',
-        'match_type': 'ODI',
-        'venue': 'England',
-        'gender_type': 'men',
-        'vod_type': 'avod'
-    },
-    'ipl2019': {
-        'tournament_name': 'IPL 2019',
-        'tournament_type': 'National',
-        'match_type': 'T20',
-        'venue': 'India',
-        'gender_type': 'men',
-        'vod_type': 'avod'
-    }
-}
 
 configuration = {
     'model': "xgb",
@@ -406,8 +286,8 @@ configuration = {
     'tournament_list': "all",
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
-    'sample_weight': False,
-    # 'sample_weight': True,
+    # 'sample_weight': False,
+    'sample_weight': True,
     'test_tournaments': ["ac2022", "wc2022"],
     'predict_tournaments': [],
     # 'predict_tournaments': ["wc2023"],
@@ -461,177 +341,134 @@ hots_num_dic = {
     'vod_type_hots': 2
 }
 
-tournament_list = [tournament for tournament in tournament_dic]
-tournament_list.remove('ipl2019')
-if configuration['tournament_list'] == "svod":
-    tournament_list = tournament_list[:-5]+["ipl2020"]
-elif configuration['tournament_list'] == "t20":
-    tournament_list = ["wc2022", 'ac2022', 'ipl2022', 'wc2021']
+tournament_list = ['sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023', 'wc2022', 'ac2022',
+                   'south_africa_tour_of_india2022', 'west_indies_tour_of_india2022', 'ipl2022',
+                   'england_tour_of_india2021', 'wc2021', 'ipl2021', 'australia_tour_of_india2020',
+                   'india_tour_of_new_zealand2020', 'ipl2020', 'west_indies_tour_of_india2019', 'wc2019']
 
-base_label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
-                   'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-combine_label_cols = ['active_rate', 'watching_match_rate', "watch_time_per_match"]
-if configuration['if_combine_model']:
-    label_cols = combine_label_cols
-    estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
-                            'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
-    large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
-    if configuration['if_free_timer'] != "":
-        label_cols = combine_label_cols[-1:]
-else:
-    if configuration['if_free_timer'] == "":
-        label_cols = base_label_cols
+def load_dataset():
+    if configuration['tournament_list'] == "svod":
+        tournament_list = tournament_list[:-5]+["ipl2020"]
+    elif configuration['tournament_list'] == "t20":
+        tournament_list = ["wc2022", 'ac2022', 'ipl2022', 'wc2021']
+    base_label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
+                       'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
+    combine_label_cols = ['active_rate', 'watching_match_rate', "watch_time_per_match"]
+    if configuration['if_combine_model']:
+        label_cols = combine_label_cols
         estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
                                 'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
         large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
+        if configuration['if_free_timer'] != "":
+            label_cols = combine_label_cols[-1:]
     else:
-        label_cols = ["watch_time_per_free_per_match_with_free_timer"]
-        estimated_label_cols = ['estimated_free_watch_time_with_free_timer']
-        large_vals = [5]
-
-
-sub_pid_did_rate = 0.94
-free_pid_did_rate = 1.02
-
-repeat_union = 0.05
-knock_off_repeat_num = 1
-repeat_num_col = "knock_off_repeat_num"
-mask_condition = 'match_stage in ("final", "semi-final")'
-path_suffix = "/all_features_hots_format" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
-feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
-    .cache()
-
-predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
-                                              + "/all_features_hots_format" + configuration['if_simple_one_hot']) for tournament in configuration['predict_tournaments_candidate']])\
-    .withColumn("rand", F.rand(seed=54321)))\
-    .cache()
-
-one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                'match_type', 'tournament_name', 'hostar_influence',
-                'match_stage', 'vod_type', 'gender_type']
-multi_hot_cols = ['teams', 'continents', 'teams_tier']
-additional_cols = ["languages", "platforms"]
-if not configuration['if_hotstar_influence']:
-    one_hot_cols.remove('hostar_influence')
-
-if not configuration['if_teams']:
-    multi_hot_cols.remove('teams')
-
-if configuration['if_combine_model']:
-    one_hot_cols = ['sub_free_tag'] + one_hot_cols
-
-if configuration['if_knock_off_rank']:
-    one_hot_cols = ['knock_rank'] + one_hot_cols
-
-if configuration['if_improve_ties']:
-    feature_df = feature_df \
-        .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
-        .withColumn("teams_tier_hots_num", F.lit(1)) \
+        if configuration['if_free_timer'] == "":
+            label_cols = base_label_cols
+            estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
+                                    'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
+            large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
+        else:
+            label_cols = ["watch_time_per_free_per_match_with_free_timer"]
+            estimated_label_cols = ['estimated_free_watch_time_with_free_timer']
+            large_vals = [5]
+    repeat_union = 0.05
+    knock_off_repeat_num = 1
+    repeat_num_col = "knock_off_repeat_num"
+    mask_condition = 'match_stage in ("final", "semi-final")'
+    path_suffix = "/all_features_hots_format" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
+    feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
         .cache()
-    predict_feature_df = predict_feature_df \
-        .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
-        .withColumn("teams_tier_hots_num", F.lit(1)) \
+    predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
+                                                  + "/all_features_hots_format" + configuration['if_simple_one_hot']) for tournament in configuration['predict_tournaments_candidate']])\
+        .withColumn("rand", F.rand(seed=54321)))\
         .cache()
-
-mask_features = ['if_contain_india_team']
-if configuration['if_cross_features']:
-    for idx in range(len(configuration['cross_features'])):
-        feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in configuration['cross_features'][idx]])
-        print(feature_dim)
+    one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
+                    'match_type', 'tournament_name', 'hostar_influence',
+                    'match_stage', 'vod_type']
+    multi_hot_cols = ['teams', 'continents', 'teams_tier']
+    additional_cols = ["languages", "platforms"]
+    if not configuration['if_hotstar_influence']:
+        one_hot_cols.remove('hostar_influence')
+    if not configuration['if_teams']:
+        multi_hot_cols.remove('teams')
+    if configuration['if_combine_model']:
+        one_hot_cols = ['sub_free_tag'] + one_hot_cols
+    if configuration['if_knock_off_rank']:
+        one_hot_cols = ['knock_rank'] + one_hot_cols
+    if configuration['if_improve_ties']:
         feature_df = feature_df \
-            .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
+            .withColumn("teams_tier_hots_num", F.lit(1)) \
             .cache()
         predict_feature_df = predict_feature_df \
-            .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
+            .withColumn("teams_tier_hots_num", F.lit(1)) \
             .cache()
-        one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
-        mask_features.append(f'cross_features_{idx}')
-        # feature_df.select(f"cross_features_{idx}_hots_num", f"cross_features_{idx}_hot_vector").show(20, False)
-
-mask_cols = [col+"_hot_vector" for col in multi_hot_cols + mask_features]
-feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols]
-if configuration['if_contains_language_and_platform']:
-    feature_cols += [col+"_hot_vector" for col in additional_cols]
-
-if configuration['if_free_timer'] != "":
-    feature_df = feature_df \
-        .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
-        .withColumn("free_timer_hots_num", F.lit(1)) \
-        .cache()
-    predict_feature_df = predict_feature_df \
-        .withColumn("free_timer_hot_vector", F.array(F.lit(1000))) \
-        .withColumn("free_timer_hots_num", F.lit(1)) \
-        .cache()
-    feature_cols += ["free_timer_hot_vector"]
-else:
-    if not configuration['if_combine_model']:
+    mask_features = ['if_contain_india_team']
+    if configuration['if_cross_features']:
+        for idx in range(len(configuration['cross_features'])):
+            feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in configuration['cross_features'][idx]])
+            print(feature_dim)
+            feature_df = feature_df \
+                .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
+                .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
+                .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+                .cache()
+            predict_feature_df = predict_feature_df \
+                .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
+                .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
+                .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+                .cache()
+            one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
+            mask_features.append(f'cross_features_{idx}')
+            # feature_df.select(f"cross_features_{idx}_hots_num", f"cross_features_{idx}_hot_vector").show(20, False)
+    mask_cols = [col+"_hot_vector" for col in multi_hot_cols + mask_features]
+    feature_cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols]
+    if configuration['if_contains_language_and_platform']:
+        feature_cols += [col+"_hot_vector" for col in additional_cols]
+    if configuration['if_free_timer'] != "":
         feature_df = feature_df \
-            .withColumn(f"{label_cols[0]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[0]} - {large_vals[0]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[0]}_repeat_num",
-                        F.expr(f'if({label_cols[0]}_repeat_num > 0, {label_cols[0]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[1]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[1]} - {large_vals[1]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[1]}_repeat_num",
-                        F.expr(f'if({label_cols[1]}_repeat_num > 0, {label_cols[1]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[2]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[2]} - {large_vals[2]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[2]}_repeat_num",
-                        F.expr(f'if({label_cols[2]}_repeat_num > 0, {label_cols[2]}_repeat_num, 1)'))\
-            .withColumn(f"{label_cols[3]}_repeat_num",
-                    F.expr(f'1 + cast(({label_cols[3]} - {large_vals[3]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[3]}_repeat_num",
-                        F.expr(f'if({label_cols[3]}_repeat_num > 0, {label_cols[3]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[4]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[4]} - {large_vals[4]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[4]}_repeat_num",
-                        F.expr(f'if({label_cols[4]}_repeat_num > 0, {label_cols[4]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[5]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[5]} - {large_vals[5]})/{repeat_union * 5} as int)')) \
-            .withColumn(f"{label_cols[5]}_repeat_num",
-                        F.expr(f'if({label_cols[5]}_repeat_num > 0, {label_cols[5]}_repeat_num, 1)'))\
+            .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
+            .withColumn("free_timer_hots_num", F.lit(1)) \
             .cache()
-
-if configuration['if_make_match_stage_ranked']:
-    feature_df = feature_df \
-        .withColumn("match_stage_hot_vector", order_match_stage_udf('match_stage')) \
-        .withColumn("match_stage_hots_num", F.lit(1)) \
-        .cache()
-    predict_feature_df = predict_feature_df \
-        .withColumn("match_stage_hot_vector", order_match_stage_udf('match_stage')) \
-        .withColumn("match_stage_hots_num", F.lit(1)) \
-        .cache()
-
-if configuration['model'] == "xgb":
-    tree_num_list = [n_estimators for n_estimators in range(1, 100, 4)]
-    max_depth_list = [max_depth for max_depth in range(1, 15, 2)]
-    learning_rate_list = [0.01, 0.05, 0.1, 0.2]
-else:
-    tree_num_list = [n_estimators for n_estimators in range(50, 201, 4)]
-    max_depth_list = [max_depth for max_depth in range(10, 50, 2)]
-    learning_rate_list = [0.01]
-
-if configuration['if_feature_weight']:
-    colsample_bynode = 0.8
-else:
-    colsample_bynode = 1.0
-
-print(colsample_bynode)
-feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
-feature_num = len(feature_cols)
-# label = "total_inventory"
-feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
-res_dic = {}
-best_parameter_dic = {}
-s_time = time.time()
-selected_cols = ['date', 'content_id'] + feature_cols + label_cols
+        predict_feature_df = predict_feature_df \
+            .withColumn("free_timer_hot_vector", F.array(F.lit(1000))) \
+            .withColumn("free_timer_hots_num", F.lit(1)) \
+            .cache()
+        feature_cols += ["free_timer_hot_vector"]
+    if configuration['if_make_match_stage_ranked']:
+        feature_df = feature_df \
+            .withColumn("match_stage_hot_vector", order_match_stage_udf('match_stage')) \
+            .withColumn("match_stage_hots_num", F.lit(1)) \
+            .cache()
+        predict_feature_df = predict_feature_df \
+            .withColumn("match_stage_hot_vector", order_match_stage_udf('match_stage')) \
+            .withColumn("match_stage_hots_num", F.lit(1)) \
+            .cache()
+    if configuration['model'] == "xgb":
+        tree_num_list = [n_estimators for n_estimators in range(1, 100, 4)]
+        max_depth_list = [max_depth for max_depth in range(1, 15, 2)]
+        learning_rate_list = [0.01, 0.05, 0.1, 0.2]
+    else:
+        tree_num_list = [n_estimators for n_estimators in range(50, 201, 4)]
+        max_depth_list = [max_depth for max_depth in range(10, 50, 2)]
+        learning_rate_list = [0.01]
+    if configuration['if_feature_weight']:
+        colsample_bynode = 0.8
+    else:
+        colsample_bynode = 1.0
+    print(colsample_bynode)
+    feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
+    feature_num = len(feature_cols)
+    # label = "total_inventory"
+    feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
+    selected_cols = ['date', 'content_id'] + feature_cols + label_cols
 
 
 def main(task, test_tournaments, mask_tag="", wc2019_test_tag=1):
+    res_dic = {}
+    best_parameter_dic = {}
+    s_time = time.time()
     train_error_list = []
     train_error_list2 = {}
     test_error_list = []

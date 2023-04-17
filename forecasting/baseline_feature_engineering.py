@@ -991,28 +991,28 @@ print(feature_df.count())
 # save_data_frame(match_num_df, live_ads_inventory_forecasting_complete_feature_path + "/match_num")
 
 # using predicted dau as label
-sub_and_free_num_df = load_data_frame(spark, dau_prediction_path)\
-    .withColumn('total_frees_number', F.expr('DAU - subs_DAU'))\
-    .selectExpr('cd as date', 'total_frees_number', 'subs_DAU as total_subscribers_number')\
-    .join(feature_df.select('date', 'tournament').distinct(), 'date')\
-    .groupBy('tournament')\
-    .agg(F.avg('total_frees_number').alias('total_frees_number'),
-         F.avg('total_subscribers_number').alias('total_subscribers_number'))\
-    .cache()
-path_suffix = "/all_features_hots_format_with_avg_predicted_au_sub_free_num"
-
-
-# # using gt dau as label
-# sub_and_free_num_df = load_data_frame(spark, dau_path)\
-#     .withColumn('total_frees_number', F.expr('vv - sub_vv'))\
-#     .selectExpr('ds as date', 'total_frees_number', 'sub_vv as total_subscribers_number')\
+# sub_and_free_num_df = load_data_frame(spark, dau_prediction_path)\
+#     .withColumn('total_frees_number', F.expr('DAU - subs_DAU'))\
+#     .selectExpr('cd as date', 'total_frees_number', 'subs_DAU as total_subscribers_number')\
 #     .join(feature_df.select('date', 'tournament').distinct(), 'date')\
 #     .groupBy('tournament')\
 #     .agg(F.avg('total_frees_number').alias('total_frees_number'),
 #          F.avg('total_subscribers_number').alias('total_subscribers_number'))\
 #     .cache()
-# path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num"
+# path_suffix = "/all_features_hots_format_with_avg_predicted_au_sub_free_num"
+
+
 # # using gt dau as label
+sub_and_free_num_df = load_data_frame(spark, dau_path)\
+    .withColumn('total_frees_number', F.expr('vv - sub_vv'))\
+    .selectExpr('ds as date', 'total_frees_number', 'sub_vv as total_subscribers_number')\
+    .join(feature_df.select('date', 'tournament').distinct(), 'date')\
+    .groupBy('tournament')\
+    .agg(F.avg('total_frees_number').alias('total_frees_number'),
+         F.avg('total_subscribers_number').alias('total_subscribers_number'))\
+    .cache()
+path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num"
+# using gt dau as label
 
 res_df = feature_df\
     .join(sub_and_free_num_df, 'tournament')\
