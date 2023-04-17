@@ -34,15 +34,66 @@
             "releaseLabel": "emr-5.31.0"
         },
         {
-            "id": "ForecastTotal",
+            "id": "Ec2",
+            "type": "Ec2Resource",
+            "imageId": "ami-06e46074ae430fba6",
+            "instanceType": "t2.micro"
+        },
+        {
+            "id": "Preprocess",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/run.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "runsOn": {
+                "ref": "Emr1"
+            }
+        },
+        {
+            "id": "Forecasting",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/forecasting"
             ],
+            "dependsOn": {
+                "ref": "Precprocess"
+            },
             "runsOn": {
                 "ref": "Emr1"
+            }
+        },
+        {
+            "id": "Sampling",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/sampling/run.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/sampling/"
+            ],
+            "dependsOn": {
+                "ref": "Forecasting"
+            },
+            "runsOn": {
+                "ref": "Emr1"
+            }
+        },
+        {
+            "id": "Postprocess",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "dependsOn": {
+                "ref": "Sampling"
+            },
+            "runsOn": {
+                "ref": "Ec2"
             }
         },
         {
