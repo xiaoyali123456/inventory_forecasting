@@ -1,7 +1,7 @@
 import pandas as pd
 import sys
 import json
-import os
+from subprocess import check_output
 
 SERVER_URL_ROOT = 'http://localhost:4321/'
 
@@ -22,7 +22,7 @@ def main(date):
     out = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd={date}/requests.json'
     with open(tmp, 'w') as f:
         json.dump(req_lst, f)
-    os.system(f'aws s3 cp {tmp} {out}')
+    check_output(['aws', 's3', 'cp', tmp, out])
 
 
 if __name__ == '__main__':

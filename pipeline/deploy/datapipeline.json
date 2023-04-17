@@ -60,7 +60,7 @@
                 "#{myProjectFolder}/code/forecasting"
             ],
             "dependsOn": {
-                "ref": "Precprocess"
+                "ref": "Preprocess"
             },
             "runsOn": {
                 "ref": "Emr1"

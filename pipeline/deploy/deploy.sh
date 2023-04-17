@@ -29,26 +29,25 @@ res=$(
 )
 pipeline_id="${res//\"/}"
 
-# # destroy pipeline
-# if [[ -z "$pipeline_id" ]]; then
-#   echo "[INFO] pipeline $destroy_pipeline_name does not exist"
-# else
-#   aws datapipeline delete-pipeline --pipeline-id "$pipeline_id" --region $REGION $PROFILE
-#   echo "[INFO] deleted pipeline: $pipeline_id"
-# fi
-# if [[ "$DESTROY" == true ]]; then
-#   exit
-# fi
+# destroy pipeline
+if [[ -z "$pipeline_id" ]]; then
+  echo "[INFO] pipeline $destroy_pipeline_name does not exist"
+else
+  aws datapipeline delete-pipeline --pipeline-id "$pipeline_id" --region $REGION $PROFILE
+  echo "[INFO] deleted pipeline: $pipeline_id"
+fi
+if [[ "$DESTROY" == true ]]; then
+  exit
+fi
 
-# # create new pipeline
-# new_pipeline_id=$(
-#   aws datapipeline create-pipeline --name "$PIPELINE_UNIQUE_NAME" --unique-id "$PIPELINE_UNIQUE_NAME" \
-#    --region $REGION $PROFILE --query pipelineId --output text
-# )
-# aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE \
-#   --tags key=Owner,value=tao.xiong@hotstar.com key=CostCenter,value=India key=Product,value=Hotstar key=Team,value=ML \
-#   key=Stage,value=prod key=Name,value=$PIPELINE_UNIQUE_NAME
-new_pipeline_id=$pipeline_id # debug
+# create new pipeline
+new_pipeline_id=$(
+  aws datapipeline create-pipeline --name "$PIPELINE_UNIQUE_NAME" --unique-id "$PIPELINE_UNIQUE_NAME" \
+   --region $REGION $PROFILE --query pipelineId --output text
+)
+aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE \
+  --tags key=Owner,value=tao.xiong@hotstar.com key=CostCenter,value=India key=Product,value=Hotstar key=Team,value=ML \
+  key=Stage,value=prod key=Name,value=$PIPELINE_UNIQUE_NAME
 
 aws datapipeline put-pipeline-definition \
   --pipeline-id $new_pipeline_id \
