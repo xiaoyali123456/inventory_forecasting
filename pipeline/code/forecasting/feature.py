@@ -474,11 +474,11 @@ def save_base_dataset(path_suffix):
         save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
 
 
-def generate_prediction_dataset(configuration):
+def generate_prediction_dataset(config):
     res = []
     cols = ['request_id', 'tournament_name', 'tournament', 'match_type', 'vod_type', 'venue_detail', 'free_timer',
             'content_id', 'match_stage', 'date', 'year', 'match_start_time', 'title', 'if_holiday', 'match_duration', 'break_duration']
-    for request in configuration:
+    for request in config:
         request_id = request['id']
         tournament_name = request['tournamentName'].lower()
         tournament = request['seasonName'].replace(" ", "_").lower()
@@ -486,7 +486,7 @@ def generate_prediction_dataset(configuration):
         venue_detail = request['tournamentLocation'].lower()
         free_timer = request['svodFreeTimeDuration']
         for match in request['matchDetails']:
-            content_id = match['matchId']
+            content_id = f"{request_id}-{match['matchId']}"
             date = match['matchDate']
             year = int(date[:4])
             match_start_time = f"{match['matchStartHour']}:00:00"
@@ -501,16 +501,15 @@ def generate_prediction_dataset(configuration):
             break_duration = float(match['fixedBreak'] * match['averageBreakDuration'] + match['adhocBreak'] * match['adhocBreakDuration'])
             res.append((request_id, tournament_name, tournament, match_type, vod_type, venue_detail, free_timer,
                         content_id, match_stage, date, year, match_start_time, title, if_holiday, match_duration, break_duration))
-    active_user_df = load_data_frame(spark, f'{active_user_num_path}') \
-        .withColumn('total_frees_number', F.expr('vv - sub_vv')) \
-        .selectExpr('ds as date', 'total_frees_number', 'sub_vv as total_subscribers_number') \
-        .cache()
     prediction_df = spark.createDataFrame(res, cols) \
+        .withColumn('total_frees_number', F.lit(-1)) \
+        .withColumn('total_subscribers_number', F.lit(-1)) \
         .withColumn('active_frees_rate', F.lit(-1.0)) \
         .withColumn('active_subscribers_rate', F.lit(-1.0)) \
         .withColumn('frees_watching_match_rate', F.lit(-1.0)) \
         .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
-        .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
+        .withColumn('watch_time_per_free_per_match', F.lit(-1.0)) \
+        .withColumn('watch_time_per_subscriber_per_match', F.lit(-1.0)) \
         .withColumn('gender_type', F.lit("men")) \
         .withColumn("if_contain_india_team", F.locate('india', F.col('title'))) \
         .withColumn('if_contain_india_team', F.expr('if(if_contain_india_team > 0, 1, 0)')) \
@@ -527,10 +526,9 @@ def generate_prediction_dataset(configuration):
         .withColumn('continents', get_continents_udf('teams', 'tournament_type')) \
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, free_timer)')) \
-        .join(active_user_df, 'date')\
         .cache()
     feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
-    base_path_suffix = "/prediction/all_features_hots_format_and_free_timer"
+    base_path_suffix = "/prediction/all_features_hots_format"
     today = str(datetime.date.today())
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
@@ -539,7 +537,8 @@ def generate_prediction_dataset(configuration):
             feature_df = feature_df \
                 .withColumn(f"{col}_hots_num", F.lit(1)) \
                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
+    save_data_frame(feature_df.drop('free_timer'), pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_free_timer_and_simple_one_hot" + f"/cd={today}")
     cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + additional_cols]
     df = load_data_frame(spark,
                          pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
@@ -563,6 +562,7 @@ active_user_num_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
+dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
 
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
@@ -572,14 +572,14 @@ multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
 
 # save_base_dataset("")
-save_base_dataset("_and_simple_one_hot")
+# save_base_dataset("_and_simple_one_hot")
 # save_base_dataset("_and_free_timer")
-save_base_dataset("_and_free_timer_and_simple_one_hot")
+# save_base_dataset("_and_free_timer_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)
 
-configuraion = {
+config = {
     "results": [
         {
             "id": "123_586",
@@ -598,9 +598,9 @@ configuraion = {
                     "matchId": 1235,
                     "matchName": "",
                     "tournamentCategory": "ODI",
-                    "estimatedMatchDuration": 300,
-                    "matchDate": "2023-02-23",
-                    "matchStartHour": 20,
+                    "estimatedMatchDuration": 420,
+                    "matchDate": "2023-10-14",
+                    "matchStartHour": 14,
                     "matchType": "group",
                     "teams": [
                         {
@@ -616,9 +616,9 @@ configuraion = {
                     "averageBreakDuration": 45,
                     "fixedAdPodsPerBreak": [
                     ],
-                    "adhocBreak": 5,
+                    "adhocBreak": 30,
                     "adhocBreakDuration": 10,
-                    "publicHoliday": "true",
+                    "publicHoliday": "false",
                     "contentLanguage": "",
                     "PlatformSuported": [
                         "android",
@@ -660,6 +660,6 @@ configuraion = {
     "total_items": 1,
     "total_pages": 1
 }
-# generate_prediction_dataset(configuration=configuraion["results"])
+generate_prediction_dataset(config=config["results"])
 
 

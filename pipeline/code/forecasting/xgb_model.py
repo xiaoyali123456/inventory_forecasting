@@ -301,22 +301,28 @@ knock_off_repeat_num = 1
 repeat_num_col = "knock_off_repeat_num"
 mask_condition = 'match_stage in ("final", "semi-final")'
 mask_cols = []
+today = str(datetime.date.today())
 
 
-def load_train_and_prediction_dataset(config):
+def load_train_and_prediction_dataset(config, if_free_timer):
     base_label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
                        'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-    if configuration['if_free_timer'] == "":
+    if if_free_timer == "":
         label_cols = base_label_cols
     else:
         label_cols = ["watch_time_per_free_per_match_with_free_timer"]
-    path_suffix = "/all_features_hots_format" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
+    path_suffix = "/all_features_hots_format" + if_free_timer + configuration['if_simple_one_hot']
     feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
         .cache()
-    predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
-                                                  + "/all_features_hots_format" + configuration['if_simple_one_hot']) for tournament in configuration['predict_tournaments_candidate']])\
-        .withColumn("rand", F.rand(seed=54321)))\
-        .cache()
+    if config == {}:
+        predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
+                                                      + "/all_features_hots_format" + configuration['if_simple_one_hot']) for tournament in configuration['predict_tournaments_candidate']])\
+            .withColumn("rand", F.rand(seed=54321)))\
+            .cache()
+    else:
+        base_path_suffix = "/prediction/all_features_hots_format" + if_free_timer + configuration['if_simple_one_hot']
+        predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={today}").withColumn("rand", F.rand(seed=54321))) \
+            .cache()
     one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
                     'match_type', 'tournament_name', 'hostar_influence',
                     'match_stage', 'vod_type']
@@ -339,7 +345,7 @@ def load_train_and_prediction_dataset(config):
     if configuration['if_cross_features']:
         for idx in range(len(configuration['cross_features'])):
             feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in configuration['cross_features'][idx]])
-            print(feature_dim)
+            # print(feature_dim)
             feature_df = feature_df \
                 .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
                 .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
@@ -358,7 +364,7 @@ def load_train_and_prediction_dataset(config):
     feature_cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols]
     if configuration['if_contains_language_and_platform']:
         feature_cols += [col+"_hot_vector" for col in additional_cols]
-    if configuration['if_free_timer'] != "":
+    if if_free_timer != "":
         feature_df = feature_df \
             .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
             .withColumn("free_timer_hots_num", F.lit(1)) \
@@ -389,9 +395,7 @@ def model_prediction(test_tournaments, feature_df, predict_feature_df, feature_c
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
     labeled_tournaments = [item[0] for item in feature_df.select('tournament').distinct().collect()]
-    print(labeled_tournaments)
-    print(feature_cols)
-    print(feature_num_col_list)
+    print(label_cols)
     best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
                         'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
                         'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
@@ -457,8 +461,10 @@ def model_prediction(test_tournaments, feature_df, predict_feature_df, feature_c
                 pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
-            save_data_frame(prediction_df,
-                            pipeline_base_path + f"/xgb_prediction{mask_tag}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
+            if config == {}:
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
+            else:
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/future_tournaments/{today}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
             error = metrics.mean_absolute_error(y_test, y_pred)
             y_mean = y_test.mean()
             print(error / y_mean)
@@ -466,14 +472,104 @@ def model_prediction(test_tournaments, feature_df, predict_feature_df, feature_c
     print(res_dic)
 
 
-def main(config={}):
-    feature_df, predict_feature_df, feature_cols, label_cols = load_train_and_prediction_dataset(config)
-    items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
-             (["wc2019"], 2),
-             (["wc2023"], 1)]
-    for item in items:
-        model_prediction(item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
-                         wc2019_test_tag=item[1], config={})
+def main(config={}, free_time_tag=""):
+    feature_df, predict_feature_df, feature_cols, label_cols = load_train_and_prediction_dataset(config, if_free_timer=free_time_tag)
+    if config == {}:
+        items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
+                 (["wc2019"], 2),
+                 (["wc2023"], 1)]
+        for item in items:
+            model_prediction(item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
+                             wc2019_test_tag=item[1], config=config)
+    else:
+        test_tournaments = []
+        for tournament in config['results']:
+            test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
+        print(test_tournaments)
+        model_prediction(test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
 
-main()
+config = {
+    "results": [
+        {
+            "id": "123_586",
+            "tournamentId": 123,
+            "tournamentName": "World Cup",
+            "seasonId": 586,
+            "seasonName": "World Cup 2023",
+            "requestStatus": "INIT",
+            "tournamentType": "AVOD",
+            "svodFreeTimeDuration": 5,
+            "svodSubscriptionPlan": "free",
+            "sportType": "CRICKET",
+            "tournamentLocation": "India",
+            "matchDetails": [
+                {
+                    "matchId": 1235,
+                    "matchName": "",
+                    "tournamentCategory": "ODI",
+                    "estimatedMatchDuration": 420,
+                    "matchDate": "2023-10-14",
+                    "matchStartHour": 14,
+                    "matchType": "group",
+                    "teams": [
+                        {
+                            "name": "India",
+                            "tier": "tier1"
+                        },
+                        {
+                            "name": "Australia",
+                            "tier": "tier1"
+                        }
+                    ],
+                    "fixedBreak": 50,
+                    "averageBreakDuration": 45,
+                    "fixedAdPodsPerBreak": [
+                    ],
+                    "adhocBreak": 30,
+                    "adhocBreakDuration": 10,
+                    "publicHoliday": "false",
+                    "contentLanguage": "",
+                    "PlatformSuported": [
+                        "android",
+                        "IOS",
+                        "web"
+                    ]
+                }
+            ],
+            "customAudienes": [
+                {
+                    "uploadSource": "ap_tool",
+                    "segmentName": "AP_567",
+                    "customCohort": "C_14_1",
+                    "upload_date": "2023-02-26"
+                }
+            ],
+            "adPlacements": [
+                {
+                    "adPlacement": "MIDROLL",
+                    "version": 1,
+                    "forecastSize": 15236523
+                },
+                {
+                    "adPlacement": "PREROLL",
+                    "version": 2,
+                    "forecastSize": 551236265
+                }
+            ],
+            "tournamentStartDate": "2023-02-26",
+            "tournamentEndDate": "2023-04-26",
+            "userName": "Navin Kumar",
+            "emailId": "navin.kumar@hotstar.com",
+            "creationDate": "2021-04-08T06:08:45.717+00:00",
+            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
+            "error": ""
+        }
+    ],
+    "current_page": 1,
+    "total_items": 1,
+    "total_pages": 1
+}
+# main()
+main(config=config)
+main(config=config, free_time_tag="_and_free_timer")

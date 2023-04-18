@@ -104,13 +104,13 @@ def load_labels(tournament, feature_df):
     if not check_s3_folder_exist(pipeline_base_path + f"/label/inventory/tournament={tournament}"):
         df = feature_df\
             .where(f"tournament='{tournament}'")\
-            .select('date', 'content_id', 'title', 'shortsummary')\
+            .select('date', 'content_id', 'title')\
             .withColumn('total_inventory', F.lit(2023))\
             .withColumn('total_pid_reach', F.lit(-1))\
             .withColumn('total_did_reach', F.lit(-1))
     else:
         df = load_data_frame(spark, pipeline_base_path + f"/label/inventory/tournament={tournament}")
-    # date, content_id, title, shortsummary,
+    # date, content_id, title,
     # total_inventory, total_pid_reach, total_did_reach
     return df.select('date', 'content_id', 'total_inventory', 'total_pid_reach', 'total_did_reach')
 
@@ -148,6 +148,7 @@ predict_tournament = "wc2023"
 dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
+today = str(datetime.date.today())
 
 
 def load_dataset(config):
@@ -155,8 +156,13 @@ def load_dataset(config):
     all_feature_df = load_data_frame(spark, pipeline_base_path + path_suffix) \
         .withColumn('tag', F.lit(1)) \
         .cache()
-    predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{predict_tournament}/all_features_hots_format")\
-        .cache()
+    if config == {}:
+        predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{predict_tournament}/all_features_hots_format") \
+            .cache()
+    else:
+        base_path_suffix = "/prediction/all_features_hots_format_and_simple_one_hot"
+        predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={today}") \
+            .cache()
     common_cols = list(set(all_feature_df.columns).intersection(set(predict_feature_df.columns)))
     all_feature_df = all_feature_df.select(*common_cols)\
         .union(predict_feature_df.select(*common_cols))\
@@ -165,7 +171,7 @@ def load_dataset(config):
     estimated_dau_df = all_feature_df\
         .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
         .distinct()\
-        .where(f'tournament != "{predict_tournament}"')\
+        .where(f'estimated_free_num > 0 and estimated_sub_num > 0')\
         .union(load_data_frame(spark, dau_prediction_path)
                .withColumn('estimated_free_num', F.expr('DAU - subs_DAU'))
                .selectExpr('cd as date', 'estimated_free_num', 'subs_DAU as estimated_sub_num')
@@ -182,14 +188,19 @@ def load_dataset(config):
 
 def main(version, mask_tag, config={}):
     all_feature_df, estimated_dau_df = load_dataset(config)
+    if config == {}:
+        test_tournaments = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]
+        parameter_path = ""
+    else:
+        test_tournaments = []
+        for tournament in config['results']:
+            test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
+        parameter_path = f"future_tournaments/{today}/"
     res_list = []
-    for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]:
-        # for test_tournament in ["ac2022", "wc2022"]:
-        # for test_tournament in ["wc2019"]:
-        # for test_tournament in ["wc2023"]:
+    for test_tournament in test_tournaments:
         test_feature_df = all_feature_df \
             .where(f"tournament='{test_tournament}'") \
-            .selectExpr('content_id', 'title', 'shortsummary', 'rank', 'teams', 'tournament', 'match_stage',
+            .selectExpr('content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
                         'total_frees_number', 'active_frees_rate as real_active_frees_rate',
                         'frees_watching_match_rate as real_frees_watching_match_rate',
                         'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
@@ -207,7 +218,7 @@ def main(version, mask_tag, config={}):
         if version in ["baseline_with_predicted_parameters"]:
             label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                           'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-            label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{test_tournament}"
+            label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}{test_tournament}"
             # print(first_match_date)
             new_test_label_df = test_df \
                 .withColumn('estimated_variables', F.lit(0)) \
@@ -273,7 +284,88 @@ def main(version, mask_tag, config={}):
 version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "_mask_knock_off"
-res_list = main(version=version, mask_tag=mask_tag)
+config = {
+    "results": [
+        {
+            "id": "123_586",
+            "tournamentId": 123,
+            "tournamentName": "World Cup",
+            "seasonId": 586,
+            "seasonName": "World Cup 2023",
+            "requestStatus": "INIT",
+            "tournamentType": "AVOD",
+            "svodFreeTimeDuration": 5,
+            "svodSubscriptionPlan": "free",
+            "sportType": "CRICKET",
+            "tournamentLocation": "India",
+            "matchDetails": [
+                {
+                    "matchId": 1235,
+                    "matchName": "",
+                    "tournamentCategory": "ODI",
+                    "estimatedMatchDuration": 420,
+                    "matchDate": "2023-10-14",
+                    "matchStartHour": 14,
+                    "matchType": "group",
+                    "teams": [
+                        {
+                            "name": "India",
+                            "tier": "tier1"
+                        },
+                        {
+                            "name": "Australia",
+                            "tier": "tier1"
+                        }
+                    ],
+                    "fixedBreak": 50,
+                    "averageBreakDuration": 45,
+                    "fixedAdPodsPerBreak": [
+                    ],
+                    "adhocBreak": 30,
+                    "adhocBreakDuration": 10,
+                    "publicHoliday": "false",
+                    "contentLanguage": "",
+                    "PlatformSuported": [
+                        "android",
+                        "IOS",
+                        "web"
+                    ]
+                }
+            ],
+            "customAudienes": [
+                {
+                    "uploadSource": "ap_tool",
+                    "segmentName": "AP_567",
+                    "customCohort": "C_14_1",
+                    "upload_date": "2023-02-26"
+                }
+            ],
+            "adPlacements": [
+                {
+                    "adPlacement": "MIDROLL",
+                    "version": 1,
+                    "forecastSize": 15236523
+                },
+                {
+                    "adPlacement": "PREROLL",
+                    "version": 2,
+                    "forecastSize": 551236265
+                }
+            ],
+            "tournamentStartDate": "2023-02-26",
+            "tournamentEndDate": "2023-04-26",
+            "userName": "Navin Kumar",
+            "emailId": "navin.kumar@hotstar.com",
+            "creationDate": "2021-04-08T06:08:45.717+00:00",
+            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
+            "error": ""
+        }
+    ],
+    "current_page": 1,
+    "total_items": 1,
+    "total_pages": 1
+}
+res_list = main(version=version, mask_tag=mask_tag, config=config)
 tournament_dic = {
     "wc2023": -1,
     "wc2022": 0,
@@ -282,7 +374,7 @@ tournament_dic = {
     "wc2021": 3,
     "wc2019": 4,
 }
-tag_mapping_udf = F.udf(lambda x: tournament_dic[x], IntegerType())
+tag_mapping_udf = F.udf(lambda x: tournament_dic[x] if x in tournament_dic else 0, IntegerType())
 reduce(lambda x, y: x.union(y), res_list) \
     .groupBy('tournament') \
     .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
