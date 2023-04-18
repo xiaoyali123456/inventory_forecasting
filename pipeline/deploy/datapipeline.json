@@ -6,7 +6,7 @@
             "keyPair": "research-prod",
             "role": "sirius_universal_role_prod",
             "resourceRole": "sirius_universal_role_prod",
-            "maximumRetries": "1",
+            "maximumRetries": "0",
             "terminateAfter": "8 Hours",
             "region": "us-east-1",
             "securityGroupIds": "sg-aeeb4ad8",
@@ -42,7 +42,7 @@
         {
             "id": "Preprocess",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/run.sh",
+            "scriptUri": "#{myProjectFolder}/code/preprocess.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
@@ -57,7 +57,7 @@
             "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
-                "#{myProjectFolder}/code/forecasting"
+                "#{myProjectFolder}/code/forecasting/"
             ],
             "dependsOn": {
                 "ref": "Preprocess"
@@ -84,7 +84,7 @@
         {
             "id": "Postprocess",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
+            "scriptUri": "#{myProjectFolder}/code/postprocess.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"

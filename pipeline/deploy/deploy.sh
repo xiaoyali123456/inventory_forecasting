@@ -10,15 +10,12 @@ echo $DESTROY $START_DATE $CODE_ONLY
 ENV=prod
 REGION=us-east-1
 PIPELINE_UNIQUE_NAME=live-ads-inventory-forecasting
-PROJ_FOLDER=s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline
+S3_PIPELINE_DIR=s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline
 SNS_TOPIC=arn:aws:sns:us-east-1:253474845919:sirius-notification
 
 # deploy code
-local_folder=$(
-  cd $(dirname "$0")/../
-  pwd
-)
-aws s3 sync $local_folder $PROJ_FOLDER
+LOCAL_DIR=$(cd $(dirname "$0")/.. && pwd)
+aws s3 sync --exclude 'logs/*' --delete $LOCAL_DIR $S3_PIPELINE_DIR
 if [[ "$CODE_ONLY" == true ]]; then
   exit
 fi
@@ -43,7 +40,7 @@ fi
 # create new pipeline
 new_pipeline_id=$(
   aws datapipeline create-pipeline --name "$PIPELINE_UNIQUE_NAME" --unique-id "$PIPELINE_UNIQUE_NAME" \
-   --region $REGION $PROFILE --query pipelineId --output text
+    --region $REGION $PROFILE --query pipelineId --output text
 )
 aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE \
   --tags key=Owner,value=tao.xiong@hotstar.com key=CostCenter,value=India key=Product,value=Hotstar key=Team,value=ML \
@@ -51,10 +48,10 @@ aws datapipeline add-tags --pipeline-id "$new_pipeline_id" --region $REGION $PRO
 
 aws datapipeline put-pipeline-definition \
   --pipeline-id $new_pipeline_id \
-  --pipeline-definition "file://$local_folder/deploy/datapipeline.json" \
+  --pipeline-definition "file://$LOCAL_DIR/deploy/datapipeline.json" \
   --region $REGION $PROFILE \
   --parameter-values \
-  myProjectFolder=$PROJ_FOLDER \
+  myProjectFolder=$S3_PIPELINE_DIR \
   myStartDate=$START_DATE
 
 aws datapipeline activate-pipeline --pipeline-id "$new_pipeline_id" --region $REGION $PROFILE
