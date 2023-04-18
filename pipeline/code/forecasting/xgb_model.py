@@ -122,22 +122,25 @@ def load_labels(tournament):
     return df
 
 
-def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask_cols=[], mask_condition="", mask_rate=1, test_tournament="", sub_or_free=""):
-    tournaments_str = ",".join([f'"{tournament}"' for tournament in tournaments])
-    # print(tournaments_str)
+def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", mask_cols=[], mask_condition="", mask_rate=1, wc2019_test_tag=1):
     if test_tournament == "wc2019":
         if sorting:
-            sample_tag = configuration['wc2019_test_tag']
+            sample_tag = wc2019_test_tag
         else:
-            sample_tag = 3 - configuration['wc2019_test_tag']
+            sample_tag = 3 - wc2019_test_tag
+            # sample_tag = "1, 2"
     else:
         sample_tag = "1, 2"
-    new_feature_df = feature_df \
-        .where(f'date != "2022-08-24" and tournament in ({tournaments_str}) and sample_tag in (0, {sample_tag})') \
-        .cache()
-    # new_feature_df = feature_df \
-    #     .where(f'date != "2022-08-24" and tournament in ({tournaments_str})') \
-    #     .cache()
+    if sorting:
+        new_feature_df = feature_df \
+            .where(f'tournament = "{test_tournament}" and sample_tag in (0, {sample_tag})') \
+            .cache()
+    else:
+        new_feature_df = feature_df \
+            .where(f'tournament != "{test_tournament}" and sample_tag in (0, {sample_tag})') \
+            .cache()
+        if test_tournament == "wc2019":
+            new_feature_df = new_feature_df.union(feature_df.where(f'tournament = "{test_tournament}" and sample_tag in (0, {sample_tag})')).cache()
     if repeat_num_col != "":
         new_feature_df = new_feature_df\
             .withColumn(repeat_num_col, n_to_array(repeat_num_col))\
@@ -153,40 +156,6 @@ def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask
                 new_feature_df = new_feature_df \
                     .withColumn("empty_" + mask_col, mask_array(mask_col)) \
                     .withColumn(mask_col, F.expr(f'if({mask_condition} and rank_tmp <= {mask_rate}, empty_{mask_col}, {mask_col})'))
-        # if test_tournament == "wc2019":
-        #     if sorting:
-        #         new_feature_df = new_feature_df \
-        #             .where(f'sample_tag in (0, {sample_tag})') \
-        #             .cache()
-        #     else:
-        #         new_feature_df = new_feature_df \
-        #             .where(f'sample_tag in (0, {sample_tag}) or (sample_tag in ({3 - sample_tag}) and {mask_condition} and rank_tmp > {mask_rate})') \
-        #             .cache()
-        #     new_feature_df.orderBy('date', 'content_id').where('tournament="wc2019"').select('date', 'match_stage', 'sample_tag', 'if_contain_india_team_hot_vector').show(200, False)
-    if configuration['if_combine_model']:
-        sub_df = new_feature_df\
-            .withColumnRenamed('sub_tag', 'sub_free_tag_hot_vector') \
-            .withColumnRenamed(base_label_cols[5], combine_label_cols[2])
-        free_df = new_feature_df \
-            .withColumnRenamed('free_tag', 'sub_free_tag_hot_vector') \
-            .withColumnRenamed(base_label_cols[2], combine_label_cols[2])
-        if configuration['if_free_timer'] == "":
-            sub_df = sub_df\
-                .withColumnRenamed(base_label_cols[3], combine_label_cols[0])\
-                .withColumnRenamed(base_label_cols[4], combine_label_cols[1])
-            free_df = free_df\
-                .withColumnRenamed(base_label_cols[0], combine_label_cols[0]) \
-                .withColumnRenamed(base_label_cols[1], combine_label_cols[1])
-        else:
-            sub_df = sub_df.withColumn("free_timer_hot_vector", F.array(F.lit(1000)))
-        sub_df = sub_df.select(*selected_cols)
-        free_df = free_df.select(*selected_cols)
-        if sub_or_free == "":
-            new_feature_df = sub_df.union(free_df)
-        elif sub_or_free == "sub":
-            new_feature_df = sub_df
-        else:
-            new_feature_df = free_df
     if sorting:
         df = new_feature_df\
             .orderBy('date', 'content_id') \
@@ -253,7 +222,8 @@ def feature_processing(feature_df):
         .withColumn("sub_tag", F.array(F.lit(1))) \
         .withColumn("free_tag", F.array(F.lit(0))) \
         .withColumn("sub_free_tag_hots_num", F.lit(1)) \
-        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))
+        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))\
+        .where('date != "2022-08-24" and tournament != "ipl2019"')
 
 
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
@@ -286,20 +256,13 @@ configuration = {
     'tournament_list': "all",
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
+    # 'mask_tag': "mask_knock_off",
+    'predict_tournaments_candidate': ["wc2023"],
+    'mask_tag': "",
     # 'sample_weight': False,
     'sample_weight': True,
-    'test_tournaments': ["ac2022", "wc2022"],
-    'predict_tournaments': [],
-    # 'predict_tournaments': ["wc2023"],
-    'predict_tournaments_candidate': ["wc2023"],
-    # 'test_tournaments': ["wc2019", "ac2022", "wc2022"],
-    # 'test_tournaments': ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"],
-    # 'test_tournaments': ["wc2022"],
-    # 'test_tournaments': ["wc2019"],
     'unvalid_labels': ['active_frees_rate', 'active_subscribers_rate'],
     # 'unvalid_labels': [],
-    'wc2019_test_tag': 1,
-    # 'wc2019_test_tag': 2,
     # 'if_contains_language_and_platform': True,
     'if_contains_language_and_platform': False,
     'if_improve_ties': True,
@@ -317,14 +280,8 @@ configuration = {
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
-    # 'if_knock_off_rank': True,
-    'if_knock_off_rank': False,
     'if_make_match_stage_ranked': False,
     # 'if_make_match_stage_ranked': True,
-    # 'if_feature_weight': True,
-    'if_feature_weight': False,
-    # 'if_combine_model': True,
-    'if_combine_model': False,
     'end_tag': 0
 }
 match_stage_dic = {
@@ -340,41 +297,19 @@ hots_num_dic = {
     'match_type_hots': 3,
     'vod_type_hots': 2
 }
+knock_off_repeat_num = 1
+repeat_num_col = "knock_off_repeat_num"
+mask_condition = 'match_stage in ("final", "semi-final")'
+mask_cols = []
 
-tournament_list = ['sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023', 'wc2022', 'ac2022',
-                   'south_africa_tour_of_india2022', 'west_indies_tour_of_india2022', 'ipl2022',
-                   'england_tour_of_india2021', 'wc2021', 'ipl2021', 'australia_tour_of_india2020',
-                   'india_tour_of_new_zealand2020', 'ipl2020', 'west_indies_tour_of_india2019', 'wc2019']
 
-def load_dataset():
-    if configuration['tournament_list'] == "svod":
-        tournament_list = tournament_list[:-5]+["ipl2020"]
-    elif configuration['tournament_list'] == "t20":
-        tournament_list = ["wc2022", 'ac2022', 'ipl2022', 'wc2021']
+def load_train_and_prediction_dataset(config):
     base_label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
                        'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-    combine_label_cols = ['active_rate', 'watching_match_rate', "watch_time_per_match"]
-    if configuration['if_combine_model']:
-        label_cols = combine_label_cols
-        estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
-                                'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
-        large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
-        if configuration['if_free_timer'] != "":
-            label_cols = combine_label_cols[-1:]
+    if configuration['if_free_timer'] == "":
+        label_cols = base_label_cols
     else:
-        if configuration['if_free_timer'] == "":
-            label_cols = base_label_cols
-            estimated_label_cols = ['estimated_free_rate', 'estimated_free_watch_rate', 'estimated_free_watch_time',
-                                    'estimated_sub_rate', 'estimated_sub_watch_rate', 'estimated_sub_watch_time']
-            large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
-        else:
-            label_cols = ["watch_time_per_free_per_match_with_free_timer"]
-            estimated_label_cols = ['estimated_free_watch_time_with_free_timer']
-            large_vals = [5]
-    repeat_union = 0.05
-    knock_off_repeat_num = 1
-    repeat_num_col = "knock_off_repeat_num"
-    mask_condition = 'match_stage in ("final", "semi-final")'
+        label_cols = ["watch_time_per_free_per_match_with_free_timer"]
     path_suffix = "/all_features_hots_format" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
     feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
         .cache()
@@ -391,10 +326,6 @@ def load_dataset():
         one_hot_cols.remove('hostar_influence')
     if not configuration['if_teams']:
         multi_hot_cols.remove('teams')
-    if configuration['if_combine_model']:
-        one_hot_cols = ['sub_free_tag'] + one_hot_cols
-    if configuration['if_knock_off_rank']:
-        one_hot_cols = ['knock_rank'] + one_hot_cols
     if configuration['if_improve_ties']:
         feature_df = feature_df \
             .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
@@ -422,6 +353,7 @@ def load_dataset():
             one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
             mask_features.append(f'cross_features_{idx}')
             # feature_df.select(f"cross_features_{idx}_hots_num", f"cross_features_{idx}_hot_vector").show(20, False)
+    global mask_cols
     mask_cols = [col+"_hot_vector" for col in multi_hot_cols + mask_features]
     feature_cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols]
     if configuration['if_contains_language_and_platform']:
@@ -434,6 +366,7 @@ def load_dataset():
         predict_feature_df = predict_feature_df \
             .withColumn("free_timer_hot_vector", F.array(F.lit(1000))) \
             .withColumn("free_timer_hots_num", F.lit(1)) \
+            .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(1.0)) \
             .cache()
         feature_cols += ["free_timer_hot_vector"]
     if configuration['if_make_match_stage_ranked']:
@@ -445,95 +378,49 @@ def load_dataset():
             .withColumn("match_stage_hot_vector", order_match_stage_udf('match_stage')) \
             .withColumn("match_stage_hots_num", F.lit(1)) \
             .cache()
-    if configuration['model'] == "xgb":
-        tree_num_list = [n_estimators for n_estimators in range(1, 100, 4)]
-        max_depth_list = [max_depth for max_depth in range(1, 15, 2)]
-        learning_rate_list = [0.01, 0.05, 0.1, 0.2]
-    else:
-        tree_num_list = [n_estimators for n_estimators in range(50, 201, 4)]
-        max_depth_list = [max_depth for max_depth in range(10, 50, 2)]
-        learning_rate_list = [0.01]
-    if configuration['if_feature_weight']:
-        colsample_bynode = 0.8
-    else:
-        colsample_bynode = 1.0
-    print(colsample_bynode)
-    feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
-    feature_num = len(feature_cols)
-    # label = "total_inventory"
-    feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
-    selected_cols = ['date', 'content_id'] + feature_cols + label_cols
+    return feature_df, predict_feature_df, feature_cols, label_cols
 
 
-def main(task, test_tournaments, mask_tag="", wc2019_test_tag=1):
+def model_prediction(test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", wc2019_test_tag=1, config={}):
     res_dic = {}
-    best_parameter_dic = {}
     s_time = time.time()
-    train_error_list = []
     train_error_list2 = {}
-    test_error_list = []
     test_error_list2 = {}
-    configuration['test_tournaments'] = test_tournaments
-    configuration['wc2019_test_tag'] = wc2019_test_tag
-    if len(set(tournament_list).intersection(set(test_tournaments))) == 0:
-        configuration['predict_tournaments'] = test_tournaments
-    else:
-        configuration['predict_tournaments'] = []
-    # if configuration['predict_tournaments']:
-    #     configuration['test_tournaments'] = configuration['predict_tournaments']
-    # else:
-    #     # configuration['test_tournaments'] = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]
-    #     # configuration['wc2019_test_tag'] = 1
-    #     configuration['test_tournaments'] = ["wc2019"]
-    #     configuration['wc2019_test_tag'] = 2
+    feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
+    feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
+    labeled_tournaments = [item[0] for item in feature_df.select('tournament').distinct().collect()]
+    print(labeled_tournaments)
+    print(feature_cols)
+    print(feature_num_col_list)
     best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
                         'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
                         'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
                         'active_subscribers_rate': ['reg:squarederror', '37', '0.2', '9'],
                         'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
-                        'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3']}
-    idx = 0
-    for label in best_setting_dic:
-        best_setting_dic[label].append(estimated_label_cols[idx])
-        idx += 1
-    print(best_setting_dic)
-    for test_tournament in tournament_list + configuration['predict_tournaments']:
-        if test_tournament not in configuration['test_tournaments']:
-            continue
+                        'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3'],
+                        'watch_time_per_free_per_match_with_free_timer': ['reg:squarederror', '73', '0.05', '5']}
+    for test_tournament in test_tournaments:
         print(test_tournament)
         res_dic[test_tournament] = {}
-        if test_tournament == "wc2019":
-            sample_tag = configuration['wc2019_test_tag']
-        else:
-            sample_tag = 0
-        tournament_list_tmp = tournament_list.copy()
-        if test_tournament != "wc2019" and (test_tournament not in configuration['predict_tournaments']):
-            tournament_list_tmp.remove(test_tournament)
-        if test_tournament in configuration['predict_tournaments']:
+        if test_tournament not in labeled_tournaments:
             test_feature_df = predict_feature_df
         else:
             test_feature_df = feature_df
-        test_tournament_list = [test_tournament]
-        object_method = "reg:squarederror"
-        # object_method = "reg:logistic"
-        # object_method = "reg:pseudohubererror"
         if mask_tag == "":
-            train_df = load_dataset(tournament_list_tmp, feature_df, test_tournament=test_tournament)
-            test_df = load_dataset(test_tournament_list, test_feature_df, sorting=True, test_tournament=test_tournament, sub_or_free="free")
+            train_df = load_dataset(feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag)
+            test_df = load_dataset(test_feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag, sorting=True)
         else:
-            train_df = load_dataset(tournament_list_tmp, feature_df, repeat_num_col="knock_off_repeat_num",
-                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=int(knock_off_repeat_num/2), test_tournament=test_tournament)
-            test_df = load_dataset(test_tournament_list, test_feature_df, sorting=True,
-                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1, test_tournament=test_tournament)
-        # ## for data enrichment
-        # train_df = train_df.reindex(train_df.index.repeat(train_df[f"knock_off_repeat_num"]))
+            train_df = load_dataset(feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag,
+                                    repeat_num_col="knock_off_repeat_num",
+                                    mask_cols=mask_cols, mask_condition=mask_condition,
+                                    mask_rate=int(knock_off_repeat_num / 2))
+            test_df = load_dataset(feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag, sorting=True,
+                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1)
         print(len(train_df))
         print(len(test_df))
-        # print(test_df)
-        # ## for data enrichment
         multi_col_df = []
         for i in range(len(feature_cols)):
-            index = [feature_cols[i]+str(j) for j in range(feature_num_col_list[0][i])]
+            index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
             multi_col_df.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
         X_train = pd.concat(multi_col_df, axis=1)
         multi_col_df = []
@@ -549,7 +436,7 @@ def main(task, test_tournaments, mask_tag="", wc2019_test_tag=1):
                 continue
             print(label)
             # for prediction start
-            object_method, n_estimators, learning_rate, max_depth, col_name = best_setting_dic[label]
+            object_method, n_estimators, learning_rate, max_depth = best_setting_dic[label]
             n_estimators = int(n_estimators)
             learning_rate = float(learning_rate)
             max_depth = int(max_depth)
@@ -557,85 +444,36 @@ def main(task, test_tournaments, mask_tag="", wc2019_test_tag=1):
             if configuration['model'] == "xgb":
                 model = XGBRegressor(base_score=0.0, n_estimators=n_estimators, learning_rate=learning_rate,
                                      max_depth=max_depth, objective=object_method, colsample_bytree=1.0,
-                                     colsample_bylevel=1.0, colsample_bynode=colsample_bynode)
+                                     colsample_bylevel=1.0, colsample_bynode=1.0)
             else:
                 model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
             if configuration['sample_weight']:
-                model.fit(X_train, y_train, sample_weight=train_df[f"{label}_repeat_num"])
+                model.fit(X_train, y_train, sample_weight=train_df["sample_repeat_num"])
             else:
                 model.fit(X_train, y_train)
-            # for tree_idx in range(n_estimators)[:1]:
-            #     plot_tree(model, num_trees=tree_idx)
-            #     plt.savefig(f"{test_tournament}-{label}-{tree_idx}.png", dpi=600)
-            if task == "prediction_result_save":
-                y_pred = model.predict(X_test)
-                y_test = test_df[label]
-                prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
-                    .withColumn(col_name, F.expr(f'cast({col_name} as float)'))
-                save_data_frame(prediction_df, pipeline_base_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label}/sample_tag={sample_tag}")
-                error = metrics.mean_absolute_error(y_test, y_pred)
-                y_mean = y_test.mean()
-                print(error / y_mean)
-                res_dic[test_tournament][label] = error / y_mean
-            else:
-                y_pred = model.predict(X_train)
-                prediction_df = spark.createDataFrame(pd.concat([train_df[['date', 'content_id']], y_train, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_' + label, col_name]) \
-                    .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
-                    .withColumn('test_tournament', F.lit(test_tournament))\
-                    .withColumn('label', F.lit(label_cols.index(label)))
-                train_error_list.append(prediction_df)
-                error = metrics.mean_absolute_error(y_train, y_pred)
-                y_mean = y_train.mean()
-                train_error_list2[test_tournament].append(error / y_mean)
-                y_pred = model.predict(X_test)
-                y_test = test_df[label]
-                prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
-                    .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
-                    .withColumn('test_tournament', F.lit(test_tournament))\
-                    .withColumn('label', F.lit(label_cols.index(label)))
-                test_error_list.append(prediction_df)
-                error = metrics.mean_absolute_error(y_test, y_pred)
-                y_mean = y_test.mean()
-                test_error_list2[test_tournament].append(error / y_mean)
-                # res_dic[test_tournament][label] = error / y_mean
-                # ## for prediction end
-    if task != "prediction_result_save":
-        train_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[:len(label_cols)-len(configuration['unvalid_labels'])]]).orderBy('date', 'content_id').cache()
-        train_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[(len(label_cols)-len(configuration['unvalid_labels']))*(-1):]]).orderBy('date', 'content_id').cache()
-        test_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[:len(label_cols)-len(configuration['unvalid_labels'])]]).orderBy('date', 'content_id').cache()
-        test_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[(len(label_cols)-len(configuration['unvalid_labels']))*(-1):]]).orderBy('date', 'content_id').cache()
-        print(train_error_list2)
-        print(test_error_list2)
-        for tournament in test_error_list2:
-            print(tournament)
-            print(test_error_list2[tournament][0])
-            print(test_error_list2[tournament][1])
-            # print(test_error_list2[tournament][2])
-            print("")
-            print("")
-            print(test_error_list2[tournament][2])
-            print(test_error_list2[tournament][3])
-            # print(test_error_list2[tournament][4])
-            # print(test_error_list2[tournament][5])
-        # train_error_df.orderBy('date', 'content_id').show(2000)
-        # test_error_df.orderBy('date', 'content_id').show(2000)
-        # train_error_df2.orderBy('date', 'content_id').show(2000)
-        # test_error_df2.orderBy('date', 'content_id').show(2000)
-    else:
-        print(res_dic)
+            y_pred = model.predict(X_test)
+            y_test = test_df[label]
+            prediction_df = spark.createDataFrame(
+                pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
+                ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
+                .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
+            save_data_frame(prediction_df,
+                            pipeline_base_path + f"/xgb_prediction{mask_tag}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
+            error = metrics.mean_absolute_error(y_test, y_pred)
+            y_mean = y_test.mean()
+            print(error / y_mean)
+            res_dic[test_tournament][label] = error / y_mean
+    print(res_dic)
 
 
-# task = 'test_prediction'
-task = 'prediction_result_save'
-main(task=task,
-     test_tournaments=["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"],
-     mask_tag="_mask_knock_off", wc2019_test_tag=1)
-main(task=task,
-     test_tournaments=["wc2019"],
-     mask_tag="_mask_knock_off", wc2019_test_tag=2)
-main(task=task,
-     test_tournaments=["wc2023"],
-     mask_tag="_mask_knock_off")
-# main(task='prediction_result_save')
+def main(config={}):
+    feature_df, predict_feature_df, feature_cols, label_cols = load_train_and_prediction_dataset(config)
+    items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
+             (["wc2019"], 2),
+             (["wc2023"], 1)]
+    for item in items:
+        model_prediction(item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
+                         wc2019_test_tag=item[1], config={})
 
 
+main()

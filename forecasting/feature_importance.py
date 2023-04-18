@@ -787,7 +787,7 @@ else:
     items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
              ([], ["wc2019"], 2),
              (["wc2023"], [], 1)]
-    for item in items[-1:]:
+    for item in items[:1]:
         print(item)
         train_error_list = []
         train_error_list2 = {}

@@ -445,17 +445,18 @@ def main(spark, date, content_id, tournament_name, match_type,
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, 5)')) \
         .cache()
     feature_df = add_hots_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
-    base_path_suffix = "/all_features_hots_format_and_free_timer"
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={date}/contentid={content_id}")
+    base_path_suffix = "/all_features_hots_format"
+    # save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={date}/contentid={content_id}")
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
             print(col)
             feature_df = feature_df\
                 .withColumn(f"{col}_hots_num", F.lit(1))\
                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/content_id={content_id}")
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_free_timer_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")
     cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
-    df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/content_id={content_id}")\
+    df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")\
         .drop(*cols)
     df.orderBy('date', 'content_id').show(3000, False)
     return feature_df
@@ -470,7 +471,7 @@ def save_base_dataset(path_suffix):
         print(content)
         date = content[0]
         content_id = content[1]
-        save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/content_id={content_id}")
+        save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
 
 
 def generate_prediction_dataset(configuration):
@@ -571,9 +572,9 @@ multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
 
 # save_base_dataset("")
-# save_base_dataset("_and_simple_one_hot")
+save_base_dataset("_and_simple_one_hot")
 # save_base_dataset("_and_free_timer")
-# save_base_dataset("_and_free_timer_and_simple_one_hot")
+save_base_dataset("_and_free_timer_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)
@@ -659,6 +660,6 @@ configuraion = {
     "total_items": 1,
     "total_pages": 1
 }
-generate_prediction_dataset(configuration=configuraion["results"])
+# generate_prediction_dataset(configuration=configuraion["results"])
 
 
