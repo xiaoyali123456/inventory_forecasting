@@ -34,4 +34,6 @@ python3 -m pip install --user \
     wrapt==1.15.0 \
     xgboost==1.6.2 \
     yarl==1.8.2 \
-    zipp==3.15.0
+    zipp==3.15.0 \
+    certifi==2022.12.7 \
+    requests==2.28.2

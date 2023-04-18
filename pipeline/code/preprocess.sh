@@ -5,6 +5,7 @@ CODE=$2
 aws s3 sync $CODE .
 
 bash test/run.sh &
+sleep 3
 
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0"

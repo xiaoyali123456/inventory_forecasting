@@ -5,7 +5,7 @@ from subprocess import check_output
 
 SERVER_URL_ROOT = 'http://localhost:4321/'
 
-def main(date):
+def main(cd):
     req_lst = []
     i, tot = 1, 1
     while i <= tot:
@@ -19,7 +19,7 @@ def main(date):
         i += 1
     print(req_lst)
     tmp = '/tmp/tmp.json'
-    out = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd={date}/requests.json'
+    out = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd={cd}/requests.json'
     with open(tmp, 'w') as f:
         json.dump(req_lst, f)
     check_output(['aws', 's3', 'cp', tmp, out])
