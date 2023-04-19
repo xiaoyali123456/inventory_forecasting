@@ -33,10 +33,10 @@ def predict(df, holidays):
     return model, forecast
 
 def forecast(end):
-    df = spark.read.parquet(new_path)
-    holidays = spark.read.csv('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/', header=True).toPandas()
-    _, f = predict(df.rename(columns={'vv': 'y'}))
-    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}))
+    df = pd.read_parquet(new_path)
+    holidays = pd.read_csv('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v2_4.csv')
+    _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
+    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
     pd.concat([f.ds.rename('cd'), f.yhat.rename('DAU'), f2.yhat.rename('subs_DAU')], axis=1) \
         .to_parquet(f'{forecast_store}cd={end}/p0.parquet')
 
