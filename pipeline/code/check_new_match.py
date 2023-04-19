@@ -3,7 +3,6 @@ import sys
 
 if __name__ == '__main__':
     cd = sys.argv[1]
-    cd = '2023-04-18'
     store = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/cms_match/cd={cd}/'
     matches = spark.sql('''
     SELECT

@@ -1,36 +1,37 @@
+import sys
+from datetime import datetime, timedelta
+
+from prophet import Prophet
 import pandas as pd
+
 from common import *
 
-out = 'sub_vv_2.csv'
+store = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/truth/'
 AU_table = 'data_warehouse.watched_video_daily_aggregates_ist'
 
-try:
-    df = pd.read_csv(out)
-except:
-    df = pd.DataFrame({'ds':[], 'vv': [], 'sub_vv': []})
+def get_last_cd():
+    return str(spark.read.parquet(store).selectExpr('max(cd) as cd').head().cd)
 
-# for i in pd.date_range('2022-06-01', '2023-03-01'):
-for i in pd.date_range('2023-03-02', '2023-04-11'):
-    ds = str(i.date())
-    if ds not in set(df.ds):
-        print(ds)
-        sql = f'select dw_p_id from {AU_table} where cd = "{ds}"'
-        wv = spark.sql(sql)
-        sub_wv = spark.sql(sql + ' and lower(subscription_status) in ("active", "cancelled", "graceperiod")')
-        tmp = pd.DataFrame({
-            'ds': [ds],
-            'vv': [wv.distinct().count()],
-            'sub_vv': [sub_wv.distinct().count()],
+def dau(end):
+    # generate for [begin+1, end]
+    last = get_last_cd()
+    old = spark.read.parquet(f'{store}cd={last}')
+    new = spark.sql(f'select cd as ds, dw_p_id from {AU_table} where cd > "{last}" and cd <= "{end}"') \
+        .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
+        .groupby('ds').agg({
+            'vv': F.distinctCount('dw_p_id'),
+            'sub_vv': F.distinctCount('dw_p_id'),
         })
-        df = pd.concat([df, tmp])
-        if len(df) % 30 == 0:
-            df.to_csv(out, index=False)
+    old.union(new).repartition(1).write.parquet(f'{store}cd={end}')
 
-df.to_csv(out, index=False)
-!aws s3 cp sub_vv_2.csv s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/sub_vv_3.csv # type: ignore
+def forecast(end):
+    df = spark.read.parquet(new_path)
+    holidays = pd.read_csv('holidays_v2_3.csv')
 
-# out = 'sub_vv_2.csv'
-# df = pd.read_csv(out)
-# df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/')
-# df3 = pd.concat([df2, df])
-# df3.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/cd=2023-04-11/part0.parquet')
+if __name__ == '__main__':
+    rundate = sys.argv[1]
+    end = (datetime.fromisoformat(rundate) - timedelta(1)).date().isoformat()
+    new_path = f'{store}cd={end}'
+    if not s3.isfile(new_path):
+        dau(end)
+    forecast(end)
