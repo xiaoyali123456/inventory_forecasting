@@ -462,9 +462,9 @@ def model_prediction(test_tournaments, feature_df, predict_feature_df, feature_c
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
             if config == {}:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
             else:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/future_tournaments/{today}/{test_tournament}/{label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/future_tournaments/cd={today}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
             error = metrics.mean_absolute_error(y_test, y_pred)
             y_mean = y_test.mean()
             print(error / y_mean)

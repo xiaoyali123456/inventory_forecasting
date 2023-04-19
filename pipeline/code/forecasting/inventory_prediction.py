@@ -195,7 +195,7 @@ def main(version, mask_tag, config={}):
         test_tournaments = []
         for tournament in config['results']:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
-        parameter_path = f"future_tournaments/{today}/"
+        parameter_path = f"future_tournaments/cd={today}/"
     res_list = []
     for test_tournament in test_tournaments:
         test_feature_df = all_feature_df \
@@ -218,19 +218,19 @@ def main(version, mask_tag, config={}):
         if version in ["baseline_with_predicted_parameters"]:
             label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                           'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-            label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}{test_tournament}"
+            label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}tournament={test_tournament}"
             # print(first_match_date)
             new_test_label_df = test_df \
                 .withColumn('estimated_variables', F.lit(0)) \
-                .join(load_data_frame(spark, f"{label_path}/{label_cols[0]}")
+                .join(load_data_frame(spark, f"{label_path}/label={label_cols[0]}")
                     .drop('sample_tag', 'real_' + label_cols[0]), ['date', 'content_id']) \
-                .join(load_data_frame(spark, f"{label_path}/{label_cols[2]}")
+                .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
                     .drop('sample_tag', 'real_' + label_cols[2]), ['date', 'content_id']) \
-                .join(load_data_frame(spark, f"{label_path}/{label_cols[3]}")
+                .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
                     .drop('sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
                 .cache()
             label = 'watch_time_per_free_per_match_with_free_timer'
-            parameter_df = load_data_frame(spark, f"{label_path}/{label}") \
+            parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
                 .drop('sample_tag', 'real_' + label) \
                 .groupBy('date', 'content_id') \
                 .agg(F.collect_list('estimated_watch_time_per_free_per_match_with_free_timer').alias('estimated_watch_time_per_free_per_match')) \
@@ -272,9 +272,9 @@ def main(version, mask_tag, config={}):
                 for col in important_cols:
                     cols.remove(col)
                 final_cols = cols + important_cols
-                # print(final_cols)
+                print(final_cols)
                 res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-                save_data_frame(res_df, pipeline_base_path + f"/test_result_of_{test_tournament}_using_{version}{mask_tag}")
+                save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}test_tournament={test_tournament}")
                 res_list.append(res_df.withColumn('tournament', F.lit(test_tournament)))
         print("")
         print("")
