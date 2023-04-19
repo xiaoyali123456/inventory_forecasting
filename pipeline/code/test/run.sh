@@ -1,3 +1,5 @@
+set -exu
+
 cd $(dirname $0)
 python3 -m pip install --user -r requirements.txt
-uvicorn booking_api:app --reload --port 4321
+python3 -m uvicorn booking_api:app --reload --port 4321

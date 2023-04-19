@@ -12,7 +12,7 @@ AU_table = 'data_warehouse.watched_video_daily_aggregates_ist'
 def get_last_cd():
     return str(spark.read.parquet(DAU_store).selectExpr('max(cd) as cd').head().cd)
 
-def dau(end):
+def truth(end):
     # generate for [begin+1, end]
     last = get_last_cd()
     old = spark.read.parquet(f'{DAU_store}cd={last}')
@@ -45,5 +45,5 @@ if __name__ == '__main__':
     end = (datetime.fromisoformat(rundate) - timedelta(1)).date().isoformat()
     new_path = f'{DAU_store}cd={end}/'
     if not s3.isfile(new_path + '_SUCCESS'):
-        dau(end)
+        truth(end)
     forecast(end)
