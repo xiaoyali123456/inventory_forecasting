@@ -363,8 +363,8 @@ top_N_matches = 5
 # version = "baseline_with_feature_similarity"
 # version = "predicted_parameters_comparison"
 version = "baseline_with_predicted_parameters"
-# mask_tag = ""
-mask_tag = "mask_knock_off"
+mask_tag = ""
+# mask_tag = "mask_knock_off"
 # if_free_timer = False
 if_free_timer = True
 # predict_au = ""
@@ -372,8 +372,8 @@ predict_au = "avg_au"
 # predict_au = "avg_predicted_au"
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
-prediction_vod_str = ""
-# prediction_vod_str = "_svod"
+# prediction_vod_str = ""
+prediction_vod_str = "_svod"
 feature_weights_list = [
     [('languages_hot_vector', 0.38048658163972215), ('match_stage_hot_vector', 0.3793939397957266),
      ('teams_hot_vector', 0.22036647224640366), ('if_holiday_hot_vector', 0.016830258770679535),
@@ -401,7 +401,7 @@ predict_tournament = "wc2023"
 dau_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/"
 dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
 # dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
-# dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3_if_cwc_svod/cd=2023-04-11"
+svod_dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3_if_cwc_svod/cd=2023-04-11"
 # feature_weights = feature_weights_list[sub_version]
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
@@ -466,6 +466,15 @@ all_feature_df = all_feature_df.select(*common_cols)\
 #     .orderBy('tournament')\
 #     .show(50, False)
 
+# for test_tournament in tournament_list:
+test_tournament_list = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]
+if version in ['predicted_parameters_comparison']:
+    test_tournament_list = ["wc2019", "wc2022"]
+
+if prediction_vod_str != "":
+    test_tournament_list = ["wc2023"]
+    dau_prediction_path = svod_dau_prediction_path
+
 
 estimated_dau_df = all_feature_df\
     .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
@@ -505,14 +514,6 @@ res_list = []
 # df.orderBy('date', 'content_id').show(1000, False)
 # df.groupBy('tournament').agg(F.avg('total_inventory').alias('avg_inventory'), F.count('title')).orderBy('avg_inventory').show(1000, False)
 
-
-# for test_tournament in tournament_list:
-test_tournament_list = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]
-if version in ['predicted_parameters_comparison']:
-    test_tournament_list = ["wc2019", "wc2022"]
-
-if prediction_vod_str != "":
-    test_tournament_list = ["wc2023"]
 
 for test_tournament in test_tournament_list:
     # for test_tournament in ["ac2022", "wc2022"]:
