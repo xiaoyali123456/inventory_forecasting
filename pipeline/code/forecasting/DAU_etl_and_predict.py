@@ -22,7 +22,7 @@ def dau(end):
             'vv': F.distinctCount('dw_p_id'),
             'sub_vv': F.distinctCount('dw_p_id'),
         })
-    old.union(new).repartition(1).write.parquet(f'{DAU_store}cd={end}')
+    old.union(new).repartition(1).write.parquet(new_path)
 
 def predict(df, holidays):
     model = Prophet(holidays=holidays)
@@ -43,7 +43,7 @@ def forecast(end):
 if __name__ == '__main__':
     rundate = sys.argv[1]
     end = (datetime.fromisoformat(rundate) - timedelta(1)).date().isoformat()
-    new_path = f'{DAU_store}cd={end}'
-    if not s3.isfile(new_path):
+    new_path = f'{DAU_store}cd={end}/'
+    if not s3.isfile(new_path + '_SUCCESS'):
         dau(end)
     forecast(end)
