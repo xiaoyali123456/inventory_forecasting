@@ -4,7 +4,7 @@ DATE=$1
 CODE=$2
 aws s3 sync $CODE .
 
-bash test/run.sh &
+bash test/server.sh &
 sleep 3
 
 SPARK="spark-submit --deploy-mode client \

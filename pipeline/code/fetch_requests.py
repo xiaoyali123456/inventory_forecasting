@@ -20,8 +20,8 @@ def main(cd):
         tot = df.total_pages[0]
         i += 1
     out = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd={cd}/requests.json'
-    fs = s3fs.S3FileSystem()
-    with fs.open(out, 'w') as f:
+    s3 = s3fs.S3FileSystem()
+    with s3.open(out, 'w') as f:
         json.dump(req_lst, f)
 
 

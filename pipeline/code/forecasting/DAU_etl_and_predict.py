@@ -18,10 +18,10 @@ def truth(end):
     old = spark.read.parquet(f'{DAU_store}cd={last}')
     new = spark.sql(f'select cd as ds, dw_p_id from {AU_table} where cd > "{last}" and cd <= "{end}"') \
         .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
-        .groupby('ds').agg({
-            'vv': F.distinctCount('dw_p_id'),
-            'sub_vv': F.distinctCount('dw_p_id'),
-        })
+        .groupby('ds').agg(
+            F.countDistinct('dw_p_id').alias('vv'),
+            F.countDistinct('dw_p_id').alias('sub_vv')
+        )
     old.union(new).repartition(1).write.parquet(new_path)
 
 def predict(df, holidays):
