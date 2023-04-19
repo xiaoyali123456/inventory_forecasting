@@ -529,7 +529,7 @@ def generate_prediction_dataset(config):
         .cache()
     feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/prediction/all_features_hots_format"
-    today = str(datetime.date.today())
+    today = sys.argv[1]
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
@@ -558,11 +558,11 @@ generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
-active_user_num_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/"
+active_user_num_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
-dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
+dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',

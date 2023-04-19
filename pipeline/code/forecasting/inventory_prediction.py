@@ -145,7 +145,7 @@ configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
 drop_off_rate = 0.85
 
 predict_tournament = "wc2023"
-dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
+dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
 today = str(datetime.date.today())

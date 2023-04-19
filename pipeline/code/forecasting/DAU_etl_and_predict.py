@@ -1,36 +1,49 @@
+import sys
+from datetime import datetime, timedelta
+
 import pandas as pd
 from common import *
+from prophet import Prophet
 
-out = 'sub_vv_2.csv'
+DAU_store = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/'
+forecast_store = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/'
 AU_table = 'data_warehouse.watched_video_daily_aggregates_ist'
 
-try:
-    df = pd.read_csv(out)
-except:
-    df = pd.DataFrame({'ds':[], 'vv': [], 'sub_vv': []})
+def get_last_cd():
+    return str(spark.read.parquet(DAU_store).selectExpr('max(cd) as cd').head().cd)
 
-# for i in pd.date_range('2022-06-01', '2023-03-01'):
-for i in pd.date_range('2023-03-02', '2023-04-11'):
-    ds = str(i.date())
-    if ds not in set(df.ds):
-        print(ds)
-        sql = f'select dw_p_id from {AU_table} where cd = "{ds}"'
-        wv = spark.sql(sql)
-        sub_wv = spark.sql(sql + ' and lower(subscription_status) in ("active", "cancelled", "graceperiod")')
-        tmp = pd.DataFrame({
-            'ds': [ds],
-            'vv': [wv.distinct().count()],
-            'sub_vv': [sub_wv.distinct().count()],
+def dau(end):
+    # generate for [begin+1, end]
+    last = get_last_cd()
+    old = spark.read.parquet(f'{DAU_store}cd={last}')
+    new = spark.sql(f'select cd as ds, dw_p_id from {AU_table} where cd > "{last}" and cd <= "{end}"') \
+        .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
+        .groupby('ds').agg({
+            'vv': F.distinctCount('dw_p_id'),
+            'sub_vv': F.distinctCount('dw_p_id'),
         })
-        df = pd.concat([df, tmp])
-        if len(df) % 30 == 0:
-            df.to_csv(out, index=False)
+    old.union(new).repartition(1).write.parquet(new_path)
 
-df.to_csv(out, index=False)
-!aws s3 cp sub_vv_2.csv s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/sub_vv_3.csv # type: ignore
+def predict(df, holidays):
+    model = Prophet(holidays=holidays)
+    model.add_country_holidays(country_name='IN')
+    model.fit(df)
+    future = model.make_future_dataframe(periods=365)
+    forecast = model.predict(future)
+    return model, forecast
 
-# out = 'sub_vv_2.csv'
-# df = pd.read_csv(out)
-# df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/')
-# df3 = pd.concat([df2, df])
-# df3.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/cd=2023-04-11/part0.parquet')
+def forecast(end):
+    df = spark.read.parquet(new_path)
+    holidays = spark.read.csv('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/', header=True).toPandas()
+    _, f = predict(df.rename(columns={'vv': 'y'}))
+    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}))
+    pd.concat([f.ds.rename('cd'), f.yhat.rename('DAU'), f2.yhat.rename('subs_DAU')], axis=1) \
+        .to_parquet(f'{forecast_store}cd={end}/p0.parquet')
+
+if __name__ == '__main__':
+    rundate = sys.argv[1]
+    end = (datetime.fromisoformat(rundate) - timedelta(1)).date().isoformat()
+    new_path = f'{DAU_store}cd={end}/'
+    if not s3.isfile(new_path + '_SUCCESS'):
+        dau(end)
+    forecast(end)
