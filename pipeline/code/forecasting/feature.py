@@ -529,7 +529,7 @@ def generate_prediction_dataset(config):
         .cache()
     feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/prediction/all_features_hots_format"
-    today = str(datetime.date.today())
+    today = sys.argv[1]
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:

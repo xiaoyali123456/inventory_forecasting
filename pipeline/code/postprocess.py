@@ -9,5 +9,4 @@ if __name__ == '__main__':
             "version": 1,
         }
     )
-    print(r.status_code)
-
+    print('updated status:', r.status_code)
