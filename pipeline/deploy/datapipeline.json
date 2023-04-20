@@ -36,13 +36,13 @@
         {
             "id": "Ec2",
             "type": "Ec2Resource",
-            "imageId": "ami-06e46074ae430fba6",
+            "imageId": "ami-09c7e459c28f8afbd",
             "instanceType": "t2.micro"
         },
-                {
-            "id": "Ec2",
+        {
+            "id": "Ec3",
             "type": "Ec2Resource",
-            "imageId": "ami-06e46074ae430fba6",
+            "imageId": "ami-09c7e459c28f8afbd",
             "instanceType": "t2.micro"
         },
         {
@@ -98,14 +98,6 @@
             "dependsOn": {
                 "ref": "Sampling"
             },
-            "runsOn": {
-                "ref": "Ec2"
-            }
-        },
-        {
-            "id": "test2",
-            "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/test2.sh",
             "runsOn": {
                 "ref": "Ec2"
             }
