@@ -36,14 +36,8 @@
         {
             "id": "Ec2",
             "type": "Ec2Resource",
-            "imageId": "ami-09c7e459c28f8afbd",
-            "instanceType": "t2.micro"
-        },
-        {
-            "id": "Ec3",
-            "type": "Ec2Resource",
-            "imageId": "ami-09c7e459c28f8afbd",
-            "instanceType": "t2.micro"
+            "imageId": "ami-069aabeee6f53e7bf",
+            "instanceType": "t2.medium"
         },
         {
             "id": "Preprocess",
@@ -53,6 +47,9 @@
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
             ],
+            "dependsOn": {
+                "ref": "dummy"
+            },
             "runsOn": {
                 "ref": "Emr1"
             }

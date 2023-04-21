@@ -1,23 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# ## Mask Out Experiment of DAU Prophet
+# # Mask Out Experiment of DAU Prophet
 
-# In[76]:
+# In[1]:
 
 
 from prophet import Prophet
 import pandas as pd
 
 
-# In[171]:
+# In[2]:
 
 
 holidays = pd.read_csv('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v2_4.csv')
 df = spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/cd=2023-04-11/').toPandas()
 
 
-# In[25]:
+# ## Mask Recent Big Tournament
+
+# In[3]:
 
 
 mask_period = {
@@ -27,7 +29,7 @@ mask_period = {
 }
 
 
-# In[110]:
+# In[4]:
 
 
 masked_df = {
@@ -38,7 +40,7 @@ gt = {
 }
 
 
-# In[116]:
+# In[5]:
 
 
 def predict(df, future):
@@ -195,6 +197,112 @@ def plot2(k):
     df2.plot(x='ds', y=['sub_vv_train', 'sub_vv_gt', 'sub_vv_hat'], figsize=(30, 8), alpha=0.7, title=k, grid=True)
 for k in masked_df:
     plot2(k)
+
+
+# In[195]:
+
+
+def mape(k):
+    f = f_dc2[k].copy()
+    f.ds = f.ds.map(lambda x: x.date().isoformat())
+    merge = f.merge(gt[k], on='ds')
+    return ((merge.yhat-merge.sub_vv)/merge.sub_vv).abs().mean()
+
+for k in masked_df:
+    print(k, mape(k))
+
+
+# ## Original Error
+
+# In[6]:
+
+
+m, f = predict(df.rename(columns={'vv': 'y'}), df[['ds']])
+
+
+# In[16]:
+
+
+def mape(k):
+    f2 = f.copy()
+    f2.ds = f2.ds.map(lambda x: x.date().isoformat())
+    merge = f2.merge(gt[k], on='ds')
+    err = ((merge.yhat - merge.vv)/merge.vv).rename('err%')
+    print(pd.concat([merge[['yhat', 'vv']], err], axis=1))
+    return err.abs().mean()
+
+for k in masked_df:
+    print(k, mape(k))
+
+
+# In[14]:
+
+
+(8+11+10)/3 # original MAPE
+
+
+# In[13]:
+
+
+(14+19+11)/3 # MAPE on mask
+
+
+# # Add Regression Target
+
+# In[17]:
+
+
+def predict(df, future):
+    m = Prophet(holidays=holidays)
+    m.add_country_holidays(country_name='IN')
+    m.fit(df)
+    forecast = m.predict(future)
+    return m, forecast
+
+
+# In[37]:
+
+
+match_days = holidays[holidays.holiday.isin(['t20','odi','test'])].ds.drop_duplicates().map(lambda x: str(x.date()))
+match_days
+
+
+# In[38]:
+
+
+df.ds.isin(match_days).astype(int).sum() # smaller than expected
+
+
+# In[39]:
+
+
+df['is_match_day'] = df.ds.isin(match_days).astype(int)
+
+
+# In[56]:
+
+
+def predict(df, future):
+    m = Prophet(holidays=holidays)
+    m.add_country_holidays(country_name='IN')
+    # m.add_regressor('is_match_day')
+    m.fit(df)
+    forecast = m.predict(future)
+    return m, forecast
+
+m, f= predict(df.rename(columns={'sub_vv':'y'}), df[['ds', 'is_match_day']])
+
+
+# In[54]:
+
+
+m.plot(f);
+
+
+# In[53]:
+
+
+m.plot_components(f);
 
 
 # In[ ]:
