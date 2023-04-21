@@ -1,5 +1,5 @@
 import json
-from enum import Enum, auto
+from enum import Enum
 
 from fastapi import FastAPI, Query
 from typing_extensions import Annotated
@@ -26,13 +26,12 @@ example = 'example/requests.json'
 def get_by_status(
     status: str = None,
     page_number: Annotated[int, Query(alias='page-number')] = None,
-    page_size: Annotated[int, Query(alias='page-size')] = None,
+    page_size: Annotated[int, Query(alias='page-size')] = None
     ):
     print(locals())
     with open(example) as f: 
         return json.load(f)
 
-# TODO: what is ad_placement?
 @app.patch('/inventory/{inventory_id}/ad-placement/{ad_placement}/forecast-request')
 def update_req_status(
     inventory_id: str,

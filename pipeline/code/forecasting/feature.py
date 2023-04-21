@@ -8,12 +8,15 @@ from math import log
 import itertools
 import math
 import holidays
+import s3fs
+import json
 import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
+from common import load_requests
 
 storageLevel = StorageLevel.DISK_ONLY
 distribution_fun = "default"
@@ -474,7 +477,7 @@ def save_base_dataset(path_suffix):
         save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
 
 
-def generate_prediction_dataset(config):
+def generate_prediction_dataset(today, config):
     res = []
     cols = ['request_id', 'tournament_name', 'tournament', 'match_type', 'vod_type', 'venue_detail', 'free_timer',
             'content_id', 'match_stage', 'date', 'year', 'match_start_time', 'title', 'if_holiday', 'match_duration', 'break_duration']
@@ -529,7 +532,6 @@ def generate_prediction_dataset(config):
         .cache()
     feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/prediction/all_features_hots_format"
-    today = sys.argv[1]
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
@@ -579,87 +581,6 @@ additional_cols = ["languages", "platforms"]
 
 # print("argv", sys.argv)
 
-config = {
-    "results": [
-        {
-            "id": "123_586",
-            "tournamentId": 123,
-            "tournamentName": "World Cup",
-            "seasonId": 586,
-            "seasonName": "World Cup 2023",
-            "requestStatus": "INIT",
-            "tournamentType": "AVOD",
-            "svodFreeTimeDuration": 5,
-            "svodSubscriptionPlan": "free",
-            "sportType": "CRICKET",
-            "tournamentLocation": "India",
-            "matchDetails": [
-                {
-                    "matchId": 1235,
-                    "matchName": "",
-                    "tournamentCategory": "ODI",
-                    "estimatedMatchDuration": 420,
-                    "matchDate": "2023-10-14",
-                    "matchStartHour": 14,
-                    "matchType": "group",
-                    "teams": [
-                        {
-                            "name": "India",
-                            "tier": "tier1"
-                        },
-                        {
-                            "name": "Australia",
-                            "tier": "tier1"
-                        }
-                    ],
-                    "fixedBreak": 50,
-                    "averageBreakDuration": 45,
-                    "fixedAdPodsPerBreak": [
-                    ],
-                    "adhocBreak": 30,
-                    "adhocBreakDuration": 10,
-                    "publicHoliday": "false",
-                    "contentLanguage": "",
-                    "PlatformSuported": [
-                        "android",
-                        "IOS",
-                        "web"
-                    ]
-                }
-            ],
-            "customAudienes": [
-                {
-                    "uploadSource": "ap_tool",
-                    "segmentName": "AP_567",
-                    "customCohort": "C_14_1",
-                    "upload_date": "2023-02-26"
-                }
-            ],
-            "adPlacements": [
-                {
-                    "adPlacement": "MIDROLL",
-                    "version": 1,
-                    "forecastSize": 15236523
-                },
-                {
-                    "adPlacement": "PREROLL",
-                    "version": 2,
-                    "forecastSize": 551236265
-                }
-            ],
-            "tournamentStartDate": "2023-02-26",
-            "tournamentEndDate": "2023-04-26",
-            "userName": "Navin Kumar",
-            "emailId": "navin.kumar@hotstar.com",
-            "creationDate": "2021-04-08T06:08:45.717+00:00",
-            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
-            "error": ""
-        }
-    ],
-    "current_page": 1,
-    "total_items": 1,
-    "total_pages": 1
-}
-generate_prediction_dataset(config=config["results"])
-
-
+CD=sys.argv[1]
+config = load_requests(CD)
+generate_prediction_dataset(CD, config=config["results"])

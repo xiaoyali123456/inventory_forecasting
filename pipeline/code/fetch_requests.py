@@ -3,8 +3,7 @@ import sys
 
 import pandas as pd
 import s3fs
-
-SERVER_URL_ROOT = 'http://localhost:4321/'
+from common import REQUESTS_PATH_TEMPL, SERVER_URL_ROOT
 
 def main(cd):
     req_lst = []
@@ -19,9 +18,8 @@ def main(cd):
         req_lst += df.results.tolist()
         tot = df.total_pages[0]
         i += 1
-    out = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd={cd}/requests.json'
     s3 = s3fs.S3FileSystem()
-    with s3.open(out, 'w') as f:
+    with s3.open(REQUESTS_PATH_TEMPL % cd, 'w') as f:
         json.dump(req_lst, f)
 
 

@@ -1,5 +1,5 @@
 import requests
-from fetch_requests import SERVER_URL_ROOT
+from common import SERVER_URL_ROOT
 
 if __name__ == '__main__':
     r = requests.patch(
