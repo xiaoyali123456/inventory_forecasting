@@ -583,4 +583,4 @@ additional_cols = ["languages", "platforms"]
 
 DATE=sys.argv[1]
 config = load_requests(DATE)
-generate_prediction_dataset(DATE, config=config["results"])
+generate_prediction_dataset(DATE, config=config)

@@ -484,7 +484,7 @@ def main(config={}, free_time_tag=""):
                              wc2019_test_tag=item[1], config=config)
     else:
         test_tournaments = []
-        for tournament in config['results']:
+        for tournament in config:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         print(test_tournaments)
         model_prediction(test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)

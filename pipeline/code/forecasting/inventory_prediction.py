@@ -194,7 +194,7 @@ def main(version, mask_tag, config={}):
         parameter_path = ""
     else:
         test_tournaments = []
-        for tournament in config['results']:
+        for tournament in config:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         parameter_path = f"future_tournaments/cd={today}/"
     res_list = []
