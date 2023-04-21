@@ -100,7 +100,7 @@ def age(cohort):
 @F.udf(returnType=StringType())
 def device(cohort):
     if cohort is not None:
-        dc = {'A_15031263':'15-20K', 'A_94523754': '20-25K', 'A_40990869': '25-35K', 'A_21231588': '35K+'}
+        dc = {'A_15031263': '15-20K', 'A_94523754': '20-25K', 'A_40990869': '25-35K', 'A_21231588': '35K+'}
         for x in cohort.split('|'):
             if x in dc:
                 return dc[x]

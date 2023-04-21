@@ -3,14 +3,14 @@ import sys
 
 import pandas as pd
 import s3fs
-from common import REQUESTS_PATH_TEMPL, SERVER_URL_ROOT
+from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL
 
 def main(cd):
     req_lst = []
     i, tot = 1, 1
     size = 10
     while i <= tot:
-        df = pd.read_json(f'{SERVER_URL_ROOT}inventory/forecast-request?'
+        df = pd.read_json(f'{BOOKING_TOOL_URL}inventory/forecast-request?'
                         'status=INIT'
                         f'&page-number={i}'
                         f'&page-size={size}'

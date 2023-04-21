@@ -34,6 +34,7 @@ import matplotlib.pyplot as plt
 # sudo yum install graphviz
 storageLevel = StorageLevel.DISK_ONLY
 
+from common import *
 
 def check_s3_path_exist(s3_path: str) -> bool:
     if not s3_path.endswith("/"):
@@ -488,8 +489,8 @@ def main(config={}, free_time_tag=""):
         print(test_tournaments)
         model_prediction(test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
-CD=sys.argv[1]
-config = load_requests(CD)
+DATE=sys.argv[1]
+config = load_requests(DATE)
 # main()
 main(config=config)
 main(config=config, free_time_tag="_and_free_timer")

@@ -581,6 +581,6 @@ additional_cols = ["languages", "platforms"]
 
 # print("argv", sys.argv)
 
-CD=sys.argv[1]
-config = load_requests(CD)
-generate_prediction_dataset(CD, config=config["results"])
+DATE=sys.argv[1]
+config = load_requests(DATE)
+generate_prediction_dataset(DATE, config=config["results"])

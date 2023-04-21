@@ -4,7 +4,6 @@ set -ex
 if [[ -z $START_DATE || $START_DATE == "default" ]]; then
   START_DATE=$(date -I)
 fi
-START_DATE="2023-04-20"
 echo $DESTROY $START_DATE $CODE_ONLY
 
 # PROFILE="--profile $ENV" # comment out for debug

@@ -285,8 +285,8 @@ def main(version, mask_tag, config={}):
 version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "_mask_knock_off"
-CD=sys.argv[1]
-config = load_requests(CD)
+DATE=sys.argv[1]
+config = load_requests(DATE)
 res_list = main(version=version, mask_tag=mask_tag, config=config)
 tournament_dic = {
     "wc2023": -1,

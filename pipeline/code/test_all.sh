@@ -18,7 +18,7 @@ aws s3 sync $CODE .
 # $SPARK check_new_match.py $DATE
 
 # forecasting
-$SPARK forecasting/DAU_etl_and_predict.py $DATE
+$SPARK forecasting/active_user_etl_and_predict.py $DATE
 
 
 # kill $PID

@@ -47,9 +47,6 @@
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
             ],
-            "dependsOn": {
-                "ref": "dummy"
-            },
             "runsOn": {
                 "ref": "Emr1"
             }

@@ -1,9 +1,9 @@
 import requests
-from common import SERVER_URL_ROOT
+from common import BOOKING_TOOL_URL
 
 if __name__ == '__main__':
     r = requests.patch(
-        SERVER_URL_ROOT + 'inventory/123_586/ad-placement/MIDROLL/forecast-request',
+        BOOKING_TOOL_URL + 'inventory/123_586/ad-placement/MIDROLL/forecast-request',
         json = {
             "request_status": "SUCCESS",
             "version": 1,

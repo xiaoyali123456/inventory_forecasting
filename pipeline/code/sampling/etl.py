@@ -1,9 +1,11 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime
+import sys
 from common import *
 
-out_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
-playout_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/' # v3 time is IST
-watched_video_path = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
+INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
+PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/' # v3 time is IST
+WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
+WV_TABLE = 'data_lake.watched_video'
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -60,7 +62,7 @@ def preprocess_playout(df):
 def process(tournament, dt, playout):
     print('process', dt)
     print('begin', datetime.now())
-    out_table_path = f'{out_path}distribution_of_quarter_data/tournament={tournament}/cd={dt}/'
+    out_table_path = f'{INVENTORY_SAMPLING_PATH}distribution_of_quarter_data/tournament={tournament}/cd={dt}/'
     success_path = f'{out_table_path}_SUCCESS'
     if s3.isfile(success_path):
         return
@@ -69,13 +71,13 @@ def process(tournament, dt, playout):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
     playout2 = playout1.where('platform != "na"')
     playout3 = playout2.where('platform == "na"').drop('platform')
-    wt_path = f'{watched_video_path}cd={dt}/'
+    wt_path = f'{WV_S3_BACKUP}cd={dt}/'
     wt = spark.read.parquet(wt_path)
     # debug = True
     debug = False
     if debug:
         wt = spark.read.parquet('s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/cd=2022-11-05/part-00000-f1c86119-d4af-4f70-bec2-fabbc27ff391-c000.snappy.parquet')
-        out_table_path = f'{out_path}debug_out_table/'
+        out_table_path = f'{INVENTORY_SAMPLING_PATH}debug_out_table/'
     # TODO: use received_at if received_at < timestamp
     wt1 = wt[['dw_d_id', 'content_id', 'user_segments',
         # 'manufacturer', 'model', 'device', 'model_code',
@@ -110,16 +112,14 @@ def process(tournament, dt, playout):
         res.show()
         print(res.count())
 
-def sanity_check():
-    df=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2021/cd=2021-10-27/').toPandas()
-    df2=spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_wt/cohort_agg_quarter/tournament=wc2021/cd=2021-10-27/').toPandas()
-    print(df2.ad_time.sum()/df.ad_time.sum()) # 97.3%
-    print(df2.reach.sum()/df.reach.sum()) # 94.4%
 
-def main():
-    tournaments=['wc2022', 'wc2021']
-    for tour in tournaments:
-        pl = preprocess_playout(spark.read.parquet(playout_path + tour)).toPandas()
+def load_match_days(cd):
+    pass
+
+
+def main(cd):
+    for tour in FOCAL_TOURNAMENTS:
+        pl = preprocess_playout(spark.read.parquet(PLAYOUT_PATH + tour)).toPandas()
         pl['cd'] = pl.break_start.map(lambda x: str(x.date()))
         dates = sorted(set(pl.cd))
         for dt in dates:
@@ -130,4 +130,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    DATE = sys.argv[1]
+    main(DATE)
