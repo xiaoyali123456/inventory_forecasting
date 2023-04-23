@@ -142,7 +142,6 @@ predict_tournament = "wc2023"
 dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
-today = str(datetime.date.today())
 
 
 def load_dataset(config):
@@ -155,7 +154,7 @@ def load_dataset(config):
             .cache()
     else:
         base_path_suffix = "/prediction/all_features_hots_format_and_simple_one_hot"
-        predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={today}") \
+        predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}") \
             .cache()
     common_cols = list(set(all_feature_df.columns).intersection(set(predict_feature_df.columns)))
     all_feature_df = all_feature_df.select(*common_cols)\
@@ -189,7 +188,7 @@ def main(version, mask_tag, config={}):
         test_tournaments = []
         for tournament in config:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
-        parameter_path = f"future_tournaments/cd={today}/"
+        parameter_path = f"future_tournaments/cd={DATE}/"
     res_list = []
     for test_tournament in test_tournaments:
         test_feature_df = all_feature_df \

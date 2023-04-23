@@ -14,14 +14,9 @@ HOLIDAYS_FEATURE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventor
 
 # sampling
 INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
-PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/'
+PLAYOUT_PATH = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
 WV_TABLE = 'data_lake.watched_video'
-
-s3 = s3fs.S3FileSystem()
-def load_requests(cd):
-    with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
-        return json.load(fp)
 
 FOCAL_TOURNAMENTS = [
     "ipl",
@@ -38,6 +33,11 @@ FOCAL_TOURNAMENTS = [
     "new zealand tour of india",
     "australia tour of india",
 ]
+
+s3 = s3fs.S3FileSystem()
+def load_requests(cd):
+    with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
+        return json.load(fp)
 
 # importing will fail on pure python application
 try:

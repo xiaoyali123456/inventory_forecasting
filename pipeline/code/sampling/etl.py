@@ -106,16 +106,25 @@ def process(tournament, dt, playout):
         res.show()
         print(res.count())
 
+def match_filter(s):
+    if isinstance(s, str):
+        s = s.lower()
+        for t in FOCAL_TOURNAMENTS:
+            if t in s:
+                return True
+    return False
 
 def load_new_matches(cd):
     matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
     latest_cd  = str(spark.read.parquet(INVENTORY_SAMPLING_PATH) \
         .where('cd < "{cd}"').select('max(cd)').head().cd)
-    return matches.where(f'startdate > "{latest_cd}"')
+    matches2 = matches.where(f'startdate > "{latest_cd}"').toPandas()
+    return matches2[matches2.sportsseasonname.map(match_filter)] # TODO: this name is obscuse, rename it on refactoring
 
 
 def main(cd):
-    matches = load_match_days(cd)
+    matches = load_new_matches(cd)
+    for dt in matches.startdate:
     for tour in FOCAL_TOURNAMENTS:
         playout = preprocess_playout(spark.read.parquet(PLAYOUT_PATH + tour)).toPandas()
         playout['cd'] = playout.break_start.map(lambda x: str(x.date()))
