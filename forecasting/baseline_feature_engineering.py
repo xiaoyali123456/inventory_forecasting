@@ -278,6 +278,11 @@ def get_match_stage(tournament, date, rank):
             return "semi-final"
         else:
             return "group"
+    elif tournament == "ac2023":
+        if date <= "2023-09-15":
+            return "group"
+        else:
+            return "final"
     else:
         return "group"
 
@@ -549,6 +554,14 @@ tournament_dic = {
         'tournament_type': 'International',
         'match_type': 'ODI',
         'venue': 'India',
+        'gender_type': 'men',
+        'vod_type': 'avod'
+    },
+    'ac2023': {
+        'tournament_name': 'Asia Cup 2023',
+        'tournament_type': 'International',
+        'match_type': 'ODI',
+        'venue': 'pakistan',
         'gender_type': 'men',
         'vod_type': 'avod'
     }
@@ -859,9 +872,9 @@ def add_free_timer_features(feature_df):
     return res_df
 
 
-def generate_wc2013_dataset():
-    file_name = "cwc2023.csv"
-    tournament = "wc2023"
+def generate_prediction_dataset(tournament):
+    file_name = f"{tournament}.csv"
+    # tournament = "wc2023"
     parameter_list = ['total_frees_number', 'active_free_num', 'match_active_free_num', 'total_free_watch_time',
                         'total_subscribers_number', 'active_sub_num', 'match_active_sub_num', 'total_sub_watch_time',
                         'active_frees_rate', 'frees_watching_match_rate', 'watch_time_per_free_per_match',
@@ -874,6 +887,7 @@ def generate_wc2013_dataset():
         .withColumn('tournament', F.lit(tournament))\
         .withColumn('shortsummary', F.lit(tournament))\
         .withColumn('content_id', F.expr('cast(cast(100000+rank as int) as string)'))\
+        .withColumn('content_id', F.concat(F.col('tournament'), F.col('content_id')))\
         .withColumn('rank', F.expr('row_number() over (partition by date order by content_id desc)'))\
         .withColumn('match_start_time', F.expr('if(rank=1, "14:00:00", "09:00:00")')) \
         .withColumn('match_time', F.expr('if(match_start_time < "06:00:00", 0, '
@@ -902,6 +916,8 @@ def generate_wc2013_dataset():
         .drop(*cols)
     df.orderBy('date', 'content_id').show(3000, False)
 
+
+generate_prediction_dataset("ac2023")
 
 
 # feature_df = reduce(lambda x, y: x.union(y), [merge_sub_and_free_features(tournament) for tournament in tournament_dic])

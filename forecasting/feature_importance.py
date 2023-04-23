@@ -24,7 +24,7 @@ from sklearn import metrics, linear_model
 from sklearn.ensemble import RandomForestRegressor
 
 from xgboost import XGBRegressor, XGBClassifier
-from xgboost import plot_tree
+# from xgboost import plot_tree
 # import matplotlib.pyplot as plt
 # pip3 install xgboost==1.6.2
 # pip3 install matplotlib
@@ -420,13 +420,7 @@ configuration = {
     # 'sample_weight': False,
     'sample_weight': True,
     'test_tournaments': ["ac2022", "wc2022"],
-    'predict_tournaments': [],
-    # 'predict_tournaments': ["wc2023"],
-    'predict_tournaments_candidate': ["wc2023"],
-    # 'test_tournaments': ["wc2019", "ac2022", "wc2022"],
-    # 'test_tournaments': ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"],
-    # 'test_tournaments': ["wc2022"],
-    # 'test_tournaments': ["wc2019"],
+    'predict_tournaments': ["ac2023", "wc2023"],
     'unvalid_labels': ['active_frees_rate', 'active_subscribers_rate'],
     # 'unvalid_labels': [],
     'wc2019_test_tag': 1,
@@ -437,17 +431,19 @@ configuration = {
     # 'if_improve_ties': False,
     'if_simple_one_hot': "_and_simple_one_hot",
     # 'if_simple_one_hot': "",
-    'if_free_timer': "_and_free_timer",
-    # 'if_free_timer': "",
+    # 'if_free_timer': "_and_free_timer",
+    'if_free_timer': "",
     # 'if_hotstar_influence': False,
     'if_hotstar_influence': True,
     # 'if_teams': False,
     'if_teams': True,
     'if_cross_features': True,
     # 'if_cross_features': False,
-    # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
+    # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
+                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
+                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hot_vector', 'match_type_hots', 'tournament_type_hots'],
     #                    ['vod_type_hots', 'tournament_type_hots']],
@@ -528,23 +524,32 @@ feature_df = feature_processing(load_data_frame(spark, live_ads_inventory_foreca
     .join(match_num_df, 'date')\
     .cache()
 
+prediction_cols = load_data_frame(spark,
+                                  live_ads_inventory_forecasting_complete_feature_path + "/" + configuration['predict_tournaments'][0] + "/all_features_hots_format" + configuration['if_simple_one_hot']).columns
 predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
-                                              + "/all_features_hots_format" + configuration['if_simple_one_hot']) for tournament in configuration['predict_tournaments_candidate']])
+                                              + "/all_features_hots_format" + configuration['if_simple_one_hot']).select(*prediction_cols) for tournament in configuration['predict_tournaments']])
     .withColumn("rand", F.rand(seed=54321)))\
     .cache()
 
+if len(configuration['cross_features']) == 3:
+    prediction_vod_str += "_vod_cross"
+
+
 if configuration['prediction_free_timer'] < 1000:
     predict_feature_df = predict_feature_df\
+        .withColumn("vod_type_hots", F.array(F.lit(1)))\
         .withColumn("vod_type_hot_vector", F.array(F.lit(1)))\
         .cache()
-    prediction_vod_str = "_svod"
+    prediction_vod_str += "_svod"
 
+
+print(prediction_vod_str)
 # feature_df.where('knock_rank < 100').select('tournament', 'knock_rank', 'knock_rank_hot_vector', 'title').show(200, False)
 # feature_df.where('tournament="wc2019"').select('date', 'title', 'rand', 'sample_tag').orderBy('date').show(200, False)
 # feature_df.where('tournament="wc2019"').groupBy('match_stage', 'sample_tag', 'if_contain_india_team').count().orderBy('match_stage').show(200, False)
 # print(feature_df.count())
 # print(predict_feature_df.count())
-predict_feature_df.groupBy('tournament', 'vod_type').count().show()
+# predict_feature_df.groupBy('tournament', 'vod_type').count().show()
 # feature_df.groupBy('sample_tag').count().show()
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
@@ -665,7 +670,7 @@ if configuration['if_feature_weight']:
 else:
     colsample_bynode = 1.0
 
-print(colsample_bynode)
+# print(colsample_bynode)
 # one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'gender_type']
 # multi_hot_cols = ['teams', 'teams_tier']
 # additional_cols = ["languages", "platforms"]
@@ -689,6 +694,11 @@ for i in range(len(feature_cols)):
 
 selected_cols = ['date', 'content_id'] + feature_cols + label_cols
 error_dic = {}
+print(feature_cols)
+print(feature_num_cols)
+feature_df.where('tournament in ("wc2022")').select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
+predict_feature_df.select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
+
 
 if configuration['task'] == "rate_prediction":
     for test_tournament in tournament_list:
@@ -786,14 +796,15 @@ if configuration['task'] == "rate_prediction":
 else:
     items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
              ([], ["wc2019"], 2),
-             (["wc2023"], [], 1)]
-    for item in items[:1]:
+             (configuration['predict_tournaments'], [], 1)]
+    for item in items:
+        if configuration['prediction_free_timer'] < 1000 and item[0] == []:
+            continue
         print(item)
         train_error_list = []
         train_error_list2 = {}
         test_error_list = []
         test_error_list2 = {}
-        # configuration['predict_tournaments'] = ["wc2023"]
         configuration['predict_tournaments'] = item[0]
         if configuration['predict_tournaments']:
             configuration['test_tournaments'] = configuration['predict_tournaments']
@@ -876,13 +887,6 @@ else:
                                                             'active_subscribers_rate': ['reg:squarederror', '37', '0.2', '9'],
                                                             'subscribers_watching_match_rate': ['reg:squarederror', '45', '0.1', '13'],
                                                             'watch_time_per_subscriber_per_match': ['reg:squarederror', '69', '0.2', '1']}
-                                    best_setting_dic = {
-                                        'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
-                                        'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
-                                        'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
-                                        'active_subscribers_rate': ['reg:squarederror', '37', '0.2', '9'],
-                                        'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
-                                        'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3']}
                             else:
                                 if configuration['mask_tag'] == "":
                                     best_setting_dic = {'active_frees_rate': ['reg:squarederror', '37', '0.1', '11'],
@@ -911,6 +915,13 @@ else:
                                                         'subscribers_watching_match_rate': ['reg:squarederror', '57', '0.2', '3'],
                                                         'watch_time_per_subscriber_per_match': ['reg:squarederror', '97', '0.1', '7']
                                                         }
+                            best_setting_dic = {
+                                'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
+                                'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
+                                'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
+                                'active_subscribers_rate': ['reg:squarederror', '37', '0.2', '9'],
+                                'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
+                                'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3']}
                     else:
                         best_setting_dic = {'active_frees_rate': ['reg:squarederror', '57', '0.1', '3'],
                                               'frees_watching_match_rate': ['reg:squarederror', '21', '0.2', '13'],
@@ -1002,14 +1013,19 @@ else:
                 if configuration['task'] == "prediction_result_save":
                     y_pred = model.predict(X_test)
                     y_test = test_df[label]
-                    prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
+                    prediction_df = spark\
+                        .createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
                         .withColumn(col_name, F.expr(f'cast({col_name} as float)'))
+                    prediction_df.orderBy('date', 'content_id').show(10, False)
                     save_data_frame(prediction_df,
                                     live_ads_inventory_forecasting_root_path
                                     +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}/sample_tag={sample_tag}")
                     error = metrics.mean_absolute_error(y_test, y_pred)
                     y_mean = y_test.mean()
                     print(error / y_mean)
+                    if test_tournament not in error_dic:
+                        error_dic[test_tournament] = []
+                    error_dic[test_tournament].append((error, y_mean, test_num))
                     res_dic[test_tournament][label] = error / y_mean
                 else:
                     y_pred = model.predict(X_train)
@@ -1060,9 +1076,9 @@ else:
                 # print(test_error_list2[tournament][5])
             # train_error_df.orderBy('date', 'content_id').show(2000)
             print("")
-            test_error_df.orderBy('date', 'content_id').show(2000)
+            # test_error_df.orderBy('date', 'content_id').show(2000)
             # train_error_df2.orderBy('date', 'content_id').show(2000)
-            test_error_df2.orderBy('date', 'content_id').show(2000)
+            # test_error_df2.orderBy('date', 'content_id').show(2000)
         else:
             for tournament in res_dic:
                 print(tournament)
