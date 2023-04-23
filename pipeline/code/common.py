@@ -12,6 +12,12 @@ DAU_FORECAST_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_fo
 DAU_TABLE = 'data_warehouse.watched_video_daily_aggregates_ist'
 HOLIDAYS_FEATURE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v2_4.csv'
 
+# sampling
+INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
+PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/'
+WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
+WV_TABLE = 'data_lake.watched_video'
+
 s3 = s3fs.S3FileSystem()
 def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
@@ -22,15 +28,15 @@ FOCAL_TOURNAMENTS = [
     "world cup",
     "asia cup",
     "cricket world cup",
-    # "sri lanka tour of pakistan",
-    # "west indies tour india",
-    # "india tour of new zealand",
-    # "england tour of india",
-    # "west indies tour of india",
-    # "south africa tour of india",
-    # "sri lanka tour of india",
-    # "new zealand tour of india",
-    # "australia tour of india",
+    "sri lanka tour of pakistan",
+    "west indies tour india",
+    "india tour of new zealand",
+    "england tour of india",
+    "west indies tour of india",
+    "south africa tour of india",
+    "sri lanka tour of india",
+    "new zealand tour of india",
+    "australia tour of india",
 ]
 
 # importing will fail on pure python application

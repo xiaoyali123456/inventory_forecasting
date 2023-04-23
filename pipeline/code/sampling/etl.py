@@ -2,11 +2,6 @@ from datetime import datetime
 import sys
 from common import *
 
-INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
-PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v3/' # v3 time is IST
-WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
-WV_TABLE = 'data_lake.watched_video'
-
 @F.udf(returnType=StringType())
 def parse(segments):
     if segments is None:
@@ -22,9 +17,8 @@ def parse(segments):
     else:
         return None
     filtered = set()
-    equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588', # device price
-              'A_34365936', 'A_49094287', 'AP_107', 'AP_2AS', 'AP_2AT'] # sponsor custom cohort
-    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'SSAI::', 'FMD00', 'MMD00', 'P_']
+    equals = []
+    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
         match = False
@@ -113,18 +107,22 @@ def process(tournament, dt, playout):
         print(res.count())
 
 
-def load_match_days(cd):
-    pass
+def load_new_matches(cd):
+    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
+    latest_cd  = str(spark.read.parquet(INVENTORY_SAMPLING_PATH) \
+        .where('cd < "{cd}"').select('max(cd)').head().cd)
+    return matches.where(f'startdate > "{latest_cd}"')
 
 
 def main(cd):
+    matches = load_match_days(cd)
     for tour in FOCAL_TOURNAMENTS:
-        pl = preprocess_playout(spark.read.parquet(PLAYOUT_PATH + tour)).toPandas()
-        pl['cd'] = pl.break_start.map(lambda x: str(x.date()))
-        dates = sorted(set(pl.cd))
+        playout = preprocess_playout(spark.read.parquet(PLAYOUT_PATH + tour)).toPandas()
+        playout['cd'] = playout.break_start.map(lambda x: str(x.date()))
+        dates = sorted(set(playout.cd))
         for dt in dates:
             try:
-                process(tour, dt, pl[pl.cd == dt])
+                process(tour, dt, playout[playout.cd == dt])
             except:
                 print(dt, 'exception!')
 
@@ -132,3 +130,4 @@ def main(cd):
 if __name__ == '__main__':
     DATE = sys.argv[1]
     main(DATE)
+

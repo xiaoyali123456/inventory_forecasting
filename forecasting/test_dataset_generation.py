@@ -13,7 +13,6 @@ from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
-import psycopg2
 
 storageLevel = StorageLevel.DISK_ONLY
 distribution_fun = "default"
