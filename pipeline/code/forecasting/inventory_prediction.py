@@ -1,19 +1,12 @@
 import datetime
 import os
 import sys
-import time
-import pickle
 from functools import reduce
-from math import log
-import itertools
-import math
 import pyspark.sql.functions as F
-from pyspark.sql.window import Window
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
-from sklearn.metrics.pairwise import cosine_similarity
 from common import load_requests
 
 storageLevel = StorageLevel.DISK_ONLY

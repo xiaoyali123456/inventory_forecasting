@@ -2,28 +2,19 @@ import datetime
 import os
 import sys
 import time
-import pickle
 from functools import reduce
-from math import log
-import itertools
-import math
 import pyspark.sql.functions as F
-from pyspark.sql.window import Window
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 import pandas as pd
 
-from sklearn.datasets import load_boston
-from sklearn.model_selection import train_test_split
-from sklearn.inspection import permutation_importance
-from sklearn import metrics, linear_model
+
+from sklearn import metrics
 from sklearn.ensemble import RandomForestRegressor
 
-from xgboost import XGBRegressor, XGBClassifier
+from xgboost import XGBRegressor
 # from xgboost import plot_tree
 # import matplotlib.pyplot as plt
 # pip3 install --upgrade holidays
