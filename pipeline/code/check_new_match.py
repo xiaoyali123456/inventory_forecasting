@@ -3,7 +3,6 @@ import sys
 
 if __name__ == '__main__':
     cd = sys.argv[1]
-    store = f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/cms_match/cd={cd}/'
     matches = spark.sql('''
     SELECT
         contentid AS content_id,
@@ -29,4 +28,4 @@ if __name__ == '__main__':
         AND NOT highlight
     ORDER BY startdate DESC
     ''')
-    matches.repartition(1).write.mode('overwrite').parquet(store)
+    matches.repartition(1).write.mode('overwrite').parquet(NEW_MATCHES_PATH_TEMPL%cd)

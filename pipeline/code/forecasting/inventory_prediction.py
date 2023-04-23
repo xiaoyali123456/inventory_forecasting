@@ -14,6 +14,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
 from sklearn.metrics.pairwise import cosine_similarity
+from common import load_requests
 
 storageLevel = StorageLevel.DISK_ONLY
 
@@ -193,7 +194,7 @@ def main(version, mask_tag, config={}):
         parameter_path = ""
     else:
         test_tournaments = []
-        for tournament in config['results']:
+        for tournament in config:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         parameter_path = f"future_tournaments/cd={today}/"
     res_list = []
@@ -284,87 +285,8 @@ def main(version, mask_tag, config={}):
 version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "_mask_knock_off"
-config = {
-    "results": [
-        {
-            "id": "123_586",
-            "tournamentId": 123,
-            "tournamentName": "World Cup",
-            "seasonId": 586,
-            "seasonName": "World Cup 2023",
-            "requestStatus": "INIT",
-            "tournamentType": "AVOD",
-            "svodFreeTimeDuration": 5,
-            "svodSubscriptionPlan": "free",
-            "sportType": "CRICKET",
-            "tournamentLocation": "India",
-            "matchDetails": [
-                {
-                    "matchId": 1235,
-                    "matchName": "",
-                    "tournamentCategory": "ODI",
-                    "estimatedMatchDuration": 420,
-                    "matchDate": "2023-10-14",
-                    "matchStartHour": 14,
-                    "matchType": "group",
-                    "teams": [
-                        {
-                            "name": "India",
-                            "tier": "tier1"
-                        },
-                        {
-                            "name": "Australia",
-                            "tier": "tier1"
-                        }
-                    ],
-                    "fixedBreak": 50,
-                    "averageBreakDuration": 45,
-                    "fixedAdPodsPerBreak": [
-                    ],
-                    "adhocBreak": 30,
-                    "adhocBreakDuration": 10,
-                    "publicHoliday": "false",
-                    "contentLanguage": "",
-                    "PlatformSuported": [
-                        "android",
-                        "IOS",
-                        "web"
-                    ]
-                }
-            ],
-            "customAudienes": [
-                {
-                    "uploadSource": "ap_tool",
-                    "segmentName": "AP_567",
-                    "customCohort": "C_14_1",
-                    "upload_date": "2023-02-26"
-                }
-            ],
-            "adPlacements": [
-                {
-                    "adPlacement": "MIDROLL",
-                    "version": 1,
-                    "forecastSize": 15236523
-                },
-                {
-                    "adPlacement": "PREROLL",
-                    "version": 2,
-                    "forecastSize": 551236265
-                }
-            ],
-            "tournamentStartDate": "2023-02-26",
-            "tournamentEndDate": "2023-04-26",
-            "userName": "Navin Kumar",
-            "emailId": "navin.kumar@hotstar.com",
-            "creationDate": "2021-04-08T06:08:45.717+00:00",
-            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
-            "error": ""
-        }
-    ],
-    "current_page": 1,
-    "total_items": 1,
-    "total_pages": 1
-}
+DATE=sys.argv[1]
+config = load_requests(DATE)
 res_list = main(version=version, mask_tag=mask_tag, config=config)
 tournament_dic = {
     "wc2023": -1,

@@ -34,6 +34,7 @@ from xgboost import XGBRegressor, XGBClassifier
 # sudo yum install graphviz
 storageLevel = StorageLevel.DISK_ONLY
 
+from common import *
 
 def check_s3_path_exist(s3_path: str) -> bool:
     if not s3_path.endswith("/"):
@@ -483,93 +484,13 @@ def main(config={}, free_time_tag=""):
                              wc2019_test_tag=item[1], config=config)
     else:
         test_tournaments = []
-        for tournament in config['results']:
+        for tournament in config:
             test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         print(test_tournaments)
         model_prediction(test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
-
-config = {
-    "results": [
-        {
-            "id": "123_586",
-            "tournamentId": 123,
-            "tournamentName": "World Cup",
-            "seasonId": 586,
-            "seasonName": "World Cup 2023",
-            "requestStatus": "INIT",
-            "tournamentType": "AVOD",
-            "svodFreeTimeDuration": 5,
-            "svodSubscriptionPlan": "free",
-            "sportType": "CRICKET",
-            "tournamentLocation": "India",
-            "matchDetails": [
-                {
-                    "matchId": 1235,
-                    "matchName": "",
-                    "tournamentCategory": "ODI",
-                    "estimatedMatchDuration": 420,
-                    "matchDate": "2023-10-14",
-                    "matchStartHour": 14,
-                    "matchType": "group",
-                    "teams": [
-                        {
-                            "name": "India",
-                            "tier": "tier1"
-                        },
-                        {
-                            "name": "Australia",
-                            "tier": "tier1"
-                        }
-                    ],
-                    "fixedBreak": 50,
-                    "averageBreakDuration": 45,
-                    "fixedAdPodsPerBreak": [
-                    ],
-                    "adhocBreak": 30,
-                    "adhocBreakDuration": 10,
-                    "publicHoliday": "false",
-                    "contentLanguage": "",
-                    "PlatformSuported": [
-                        "android",
-                        "IOS",
-                        "web"
-                    ]
-                }
-            ],
-            "customAudienes": [
-                {
-                    "uploadSource": "ap_tool",
-                    "segmentName": "AP_567",
-                    "customCohort": "C_14_1",
-                    "upload_date": "2023-02-26"
-                }
-            ],
-            "adPlacements": [
-                {
-                    "adPlacement": "MIDROLL",
-                    "version": 1,
-                    "forecastSize": 15236523
-                },
-                {
-                    "adPlacement": "PREROLL",
-                    "version": 2,
-                    "forecastSize": 551236265
-                }
-            ],
-            "tournamentStartDate": "2023-02-26",
-            "tournamentEndDate": "2023-04-26",
-            "userName": "Navin Kumar",
-            "emailId": "navin.kumar@hotstar.com",
-            "creationDate": "2021-04-08T06:08:45.717+00:00",
-            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
-            "error": ""
-        }
-    ],
-    "current_page": 1,
-    "total_items": 1,
-    "total_pages": 1
-}
+DATE=sys.argv[1]
+config = load_requests(DATE)
 # main()
 main(config=config)
 main(config=config, free_time_tag="_and_free_timer")

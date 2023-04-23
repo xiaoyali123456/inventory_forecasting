@@ -21,7 +21,7 @@
             "id": "DefaultSchedule",
             "type": "Schedule",
             "period": "1 day",
-            "startDateTime": "#{myStartDate}T02:30:00"
+            "startDateTime": "#{myStartDate}T02:00:00"
         },
         {
             "id": "Emr1",
@@ -29,15 +29,15 @@
             "applications": "spark",
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
             "coreInstanceCount": "1",
-            "coreInstanceType": "m4.large",
+            "coreInstanceType": "m5.xlarge",
             "masterInstanceType": "m4.large",
             "releaseLabel": "emr-5.31.0"
         },
         {
             "id": "Ec2",
             "type": "Ec2Resource",
-            "imageId": "ami-06e46074ae430fba6",
-            "instanceType": "t2.micro"
+            "imageId": "ami-069aabeee6f53e7bf",
+            "instanceType": "t2.medium"
         },
         {
             "id": "Preprocess",
@@ -54,10 +54,10 @@
         {
             "id": "Forecasting",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/forecasting/run.sh",
+            "scriptUri": "#{myProjectFolder}/code/forecast.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
-                "#{myProjectFolder}/code/forecasting/"
+                "#{myProjectFolder}/code/"
             ],
             "dependsOn": {
                 "ref": "Preprocess"
@@ -69,10 +69,10 @@
         {
             "id": "Sampling",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/sampling/run.sh",
+            "scriptUri": "#{myProjectFolder}/code/sampling.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
-                "#{myProjectFolder}/code/sampling/"
+                "#{myProjectFolder}/code/"
             ],
             "dependsOn": {
                 "ref": "Forecasting"

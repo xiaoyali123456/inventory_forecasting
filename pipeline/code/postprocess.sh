@@ -2,8 +2,9 @@ set -exu
 DATE=$1
 CODE=$2
 aws s3 sync $CODE .
-# debug begin
-bash test/run.sh &
-sleep 3
-# debug end
+
+bash booking/install.sh
+bash booking/server.sh &
+sleep 5
+
 python3 postprocess.py $DATE
