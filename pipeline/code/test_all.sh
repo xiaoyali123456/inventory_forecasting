@@ -1,6 +1,6 @@
 set -exu
 
-DATE="2023-04-18"
+DATE="2023-04-20"
 CODE="s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/"
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \

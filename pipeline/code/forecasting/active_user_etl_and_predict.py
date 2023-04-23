@@ -5,13 +5,10 @@ import pandas as pd
 from prophet import Prophet
 from common import *
 
-def get_last_cd(end):
-    df = spark.read.parquet(DAU_TRUTH_PATH).where('cd < "{end}"')
-    return str(df.selectExpr('max(cd) as cd').head().cd)
 
 # generate for [begin+1, end]
 def truth(end):
-    last = get_last_cd(end)
+    last = get_last_cd(DAU_TRUTH_PATH, end)
     old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
     new = spark.sql(f'select cd as ds, dw_p_id from {DAU_TABLE} where cd > "{last}" and cd <= "{end}"') \
         .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \

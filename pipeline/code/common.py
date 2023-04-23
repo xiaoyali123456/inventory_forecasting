@@ -13,7 +13,7 @@ DAU_TABLE = 'data_warehouse.watched_video_daily_aggregates_ist'
 HOLIDAYS_FEATURE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v2_4.csv'
 
 # sampling
-INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/'
+INVENTORY_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/inventory/'
 PLAYOUT_PATH = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
 WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
 WV_TABLE = 'data_lake.watched_video'
@@ -38,6 +38,16 @@ s3 = s3fs.S3FileSystem()
 def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
         return json.load(fp)
+
+def get_last_cd(path, end=None, n=1):
+    # df = spark.read.parquet(path)
+    # if end is not None:
+    #     df = df.where('cd < "{end}"')
+    # return str(df.selectExpr('max(cd) as cd').head().cd)
+    lst = sorted([x.split('=')[-1] for x in s3.ls(path)])
+    if end is not None:
+        lst = [x fox in lst if x < end]
+    return lst[-n:] if n > 1 else lst[-1]
 
 # importing will fail on pure python application
 try:

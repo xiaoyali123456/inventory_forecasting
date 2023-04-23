@@ -165,7 +165,7 @@ def load_dataset(config):
         .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
         .distinct()\
         .where(f'estimated_free_num > 0 and estimated_sub_num > 0')\
-        .union(load_data_frame(spark, dau_prediction_path)
+        .union(load_data_frame(spark, f'{dau_prediction_path}cd={DATE}/')
                .withColumn('estimated_free_num', F.expr('DAU - subs_DAU'))
                .selectExpr('cd as date', 'estimated_free_num', 'subs_DAU as estimated_sub_num')
                .join(predict_feature_df.select('date', 'tournament').distinct(), 'date')

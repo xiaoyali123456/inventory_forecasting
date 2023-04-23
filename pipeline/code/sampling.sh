@@ -10,3 +10,4 @@ SPARK="spark-submit --deploy-mode client \
     --py-files common.py"
 
 $SPARK sampling/etl.py $DATE
+$SPARK sampling/ewma.py $DATE
