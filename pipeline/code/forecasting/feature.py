@@ -87,7 +87,7 @@ def add_hots_features(feature_df, type="train", root_path=""):
     print("multi hots feature simple processed done!")
     df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots_simple").cache()
     df.show()
-    for col in multi_hot_cols:
+    for col in multi_hot_cols[1:]:
         print(col)
         df = df\
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
