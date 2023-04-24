@@ -10,11 +10,10 @@ def main(cd):
     i, tot = 1, 1
     size = 10
     while i <= tot:
-        df = pd.read_json(f'{BOOKING_TOOL_URL}inventory/forecast-request?'
-                        'status=INIT'
-                        f'&page-number={i}'
-                        f'&page-size={size}'
-                        )
+        url = (f'{BOOKING_TOOL_URL}inventory/forecast-request?status=INIT'
+               f'&page-number={i}'
+               f'&page-size={size}')
+        df = pd.read_json(url)
         req_lst += df.results.tolist()
         tot = df.total_pages[0]
         i += 1

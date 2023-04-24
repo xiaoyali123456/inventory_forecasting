@@ -1,15 +1,13 @@
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
-import pyspark.sql.functions as F
-from pyspark.sql.types import StringType
+import sys
+from functools import reduce
+from common import *
 
-def load_inventory():
-    path = [
-        's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/inventory_v2/distribution_of_quarter_data/tournament=wc2022',
-    ]
-    df = spark.read.parquet(*path)
-    return df
+def load_inventory(cd):
+    last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n=30)
+    lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
+    return reduce(lambda x,y: x.union(y), lst)
 
 @F.udf(returnType=StringType())
 def nccs(cohort):
@@ -107,11 +105,11 @@ def device(cohort):
     return ''
 
 
-def augment(df, time_cols):
-    filter = spark.read.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecastingmatch_data/wc2022/') \
-        .selectExpr('date as cd', 'content_id')
+def augment(df, group_cols, DATE):
+    filter = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % DATE) \
+        .selectExpr('startdate as cd', 'content_id')
     return df.join(filter, ['cd', 'content_id']).groupby(
-        *time_cols,
+        *group_cols,
         'country', 'language', 'platform', 'city', 'state',
         nccs('cohort').alias('nccs'), 
         device('cohort').alias('device'),
@@ -120,54 +118,21 @@ def augment(df, time_cols):
     ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).toPandas()
 
 
-def moving_avg(df, time_cols, lambda_=0.8):
-    debug=True
-    if debug:
-        df = piv
-        lambda_=0.8
-        time_cols=['cd', 'content_id']
-        piv.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/piv.parquet')
-
+def moving_avg(df, group_cols, target, lambda_=0.8):
     cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
-    # df2 = df.fillna('').groupby(time_cols+cohort_cols).sum().reset_index() # XXX: critical for groupby None
     df2 = df.fillna('')
-    df2['ad_time_ratio'] = df2.ad_time / df2.groupby(time_cols).ad_time.transform('sum')
-    if debug:
-        df2.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/df2.parquet')
-    df3 = df2.pivot(time_cols, cohort_cols, 'ad_time_ratio').fillna(0)
+    df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
+    df3 = df2.pivot(group_cols, cohort_cols, target+'_ratio').fillna(0)
     fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
-    df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in tqdm(df3.columns)], axis=1).shift(1)
+    df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in df3.columns], axis=1).shift(1)
     df4.columns.names = cohort_cols
-    tail = lambda x: x[10:].sum().sum()
-    for attention in cohort_cols:
-        gt = df3.groupby(level=attention, axis=1).sum()
-        pr = df4.groupby(level=attention, axis=1).sum()
-        err = pr - gt
-        # we may need no fillna since pandas.sum defaultly dropna
-        invy = df2.pivot_table('ad_time', time_cols, attention, aggfunc=sum).fillna(0)
-        invy_err = invy * err
-        print(attention,
-            'inventory', tail(invy),
-            'err', tail(invy_err.abs())/tail(invy),
-            'sign_err', tail(invy_err))
-    if True:
-        df5 = df2.pivot(time_cols, cohort_cols, 'ad_time')
-        raw_err = (df4 - df3) * df5
-        print('raw_err', tail(raw_err.abs()) / tail(invy))
-        for attention in cohort_cols:
-            gt = df3.groupby(level=attention, axis=1).sum()
-            pr = df4.groupby(level=attention, axis=1).sum()
-            top_cols = gt.sum().nlargest(10).index
-            t = pd.concat([gt[top_cols], pr[top_cols]], axis=1)
-            new_cols = t.columns.tolist()
-            for i in range(len(new_cols) // 2, len(new_cols)):
-                new_cols[i] += '_Pr'
-            t.columns = new_cols
-            print(t.reset_index())
-    return pd.concat([gt, pr], axis=1)
+    return df4.iloc[-1].rename(target)[len(group_cols):].reset_index()
 
 if __name__ == '__main__':
-    iv = load_inventory()
-    piv = augment(iv, ['cd', 'content_id'])
-    df = moving_avg(piv)
-    df.to_csv('ewma.csv')
+    DATE = sys.argv[1]
+    iv = load_inventory(DATE)
+    piv = augment(iv, ['cd', 'content_id'], DATE)
+    df = moving_avg(piv, ['cd'], target='ad_time')
+    df.to_paquert(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    df2 = moving_avg(piv, ['cd'], target='reach')
+    df2.to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')

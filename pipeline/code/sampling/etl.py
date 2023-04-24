@@ -19,7 +19,7 @@ def parse(segments):
     else:
         return None
     filtered = set()
-    equals = []
+    equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588'] # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
