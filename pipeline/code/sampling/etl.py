@@ -44,21 +44,20 @@ def parse(segments):
 
 @F.udf(returnType=TimestampType())
 def parseTimestamp(date:str, ts: str):
-    return pd.Timestamp(date + ' ' + ts).tz_convert('asia/kolkata')
-
+    return pd.Timestamp(date + ' ' + ts, tz='asia/kolkata')
 
 def preprocess_playout(df):
-    return df.selectExpr(
-        '`Content ID` as content_id',
-        'trim(lower(`Playout ID`)) as playout_id',
-        'trim(lower(Language)) as language',
-        'trim(lower(Tenant)) as country',
-        'explode(split(trim(lower(Platform)), "\\\\|")) as platform',
-        'to_utc_timestamp(to_timestamp(concat(`Start Date`, " ", `Start Time`), "yyyy hh:mm:ss aa"), "IST") as break_start',
-        'to_utc_timestamp(to_timestamp(concat(`Start Date`, " ", `Start Time`), "yyyy hh:mm:ss aa"), "IST") as break_end',
-    ).where(
-        'break_start is not null and break_end is not null'
-    )
+    return df.withColumn('break_start', parseTimestamp('Start Date', 'Start Time')) \
+        .withColumn('break_end', parseTimestamp('End Date', 'End Time')) \
+        .selectExpr(
+            '`Content ID` as content_id',
+            'trim(lower(`Playout ID`)) as playout_id',
+            'trim(lower(Language)) as language',
+            'trim(lower(Tenant)) as country',
+            'explode(split(trim(lower(Platform)), "\\\\|")) as platform',
+            'break_start',
+            'break_end',
+        ).where('break_start is not null and break_end is not null')
 
 def process(dt, playout):
     print('process', dt)
