@@ -30,7 +30,17 @@
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
             "coreInstanceCount": "1",
             "coreInstanceType": "m5.xlarge",
-            "masterInstanceType": "m4.large",
+            "masterInstanceType": "m5.xlarge",
+            "releaseLabel": "emr-5.31.0"
+        },
+        {
+            "id": "Emr2",
+            "type": "EmrCluster",
+            "applications": "spark",
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
+            "coreInstanceCount": "8",
+            "coreInstanceType": "m5.xlarge",
+            "masterInstanceType": "m5.xlarge",
             "releaseLabel": "emr-5.31.0"
         },
         {
@@ -78,7 +88,7 @@
                 "ref": "Forecasting"
             },
             "runsOn": {
-                "ref": "Emr1"
+                "ref": "Emr2"
             }
         },
         {

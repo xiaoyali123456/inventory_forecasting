@@ -22,7 +22,7 @@ sleep 5
 
 # $SPARK forecasting/feature.py $DATE
 # $SPARK forecasting/xgb_model.py $DATE
- $SPARK forecasting/inventory_prediction.py $DATE
+$SPARK forecasting/inventory_prediction.py $DATE
 
 #$SPARK sampling/ewma.py $DATE
 
