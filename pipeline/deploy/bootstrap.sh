@@ -29,6 +29,7 @@ python3 -m pip install --user \
     idna==3.4 \
     importlib-metadata==6.4.1 \
     jmespath==1.0.1 \
+    joblib==1.2.0 \
     kiwisolver==1.4.4 \
     korean-lunar-calendar==0.3.1 \
     LunarCalendar==0.0.9 \
@@ -49,10 +50,12 @@ python3 -m pip install --user \
     PyYAML==6.0 \
     requests==2.28.2 \
     s3fs==2023.1.0 \
+    scikit-learn==1.0.2 \
     scipy==1.7.3 \
     six==1.16.0 \
     sniffio==1.3.0 \
     starlette==0.26.1 \
+    threadpoolctl==3.1.0 \
     tqdm==4.65.0 \
     typing_extensions==4.5.0 \
     urllib3==1.26.15 \
