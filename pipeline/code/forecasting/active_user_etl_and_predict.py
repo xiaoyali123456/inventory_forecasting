@@ -1,5 +1,4 @@
 import sys
-from datetime import datetime, timedelta
 
 import pandas as pd
 from prophet import Prophet
