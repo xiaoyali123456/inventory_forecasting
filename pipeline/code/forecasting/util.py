@@ -16,6 +16,7 @@ from xgboost import XGBRegressor
 from common import load_requests
 
 storageLevel = StorageLevel.DISK_ONLY
+spark.sparkContext.setLogLevel('WARN')
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
