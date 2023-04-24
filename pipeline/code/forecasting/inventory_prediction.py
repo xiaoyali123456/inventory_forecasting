@@ -27,24 +27,13 @@ def free_timer_wt(wt_list):
         return (1 - jio_rate) * wt_list[0] + jio_rate * wt_list[1]
 
 
-free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
-
-
-configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
-drop_off_rate = 0.85
-
-predict_tournament = "wc2023"
-sub_pid_did_rate = 0.94
-free_pid_did_rate = 1.02
-
-
 def load_dataset(config):
     path_suffix = "/all_features_hots_format_and_simple_one_hot"
     all_feature_df = load_data_frame(spark, pipeline_base_path + path_suffix) \
         .withColumn('tag', F.lit(1)) \
         .cache()
     if config == {}:
-        predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{predict_tournament}/all_features_hots_format") \
+        predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{default_predict_tournament}/all_features_hots_format") \
             .cache()
     else:
         base_path_suffix = "/prediction/all_features_hots_format_and_simple_one_hot"
@@ -125,7 +114,7 @@ def main(mask_tag, config={}):
         new_test_label_df = new_test_label_df \
             .join(parameter_df, ['date', 'content_id']) \
             .cache()
-        for configuration in configurations[1:2]:
+        for configuration in duration_configurations[1:2]:
             total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
             res_df = new_test_label_df \
                 .withColumn('real_avg_concurrency', F.expr(
@@ -165,6 +154,9 @@ def main(mask_tag, config={}):
         print("")
         print("")
     return res_list
+
+
+free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
 
 
 mask_tag = ""

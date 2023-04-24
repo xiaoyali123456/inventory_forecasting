@@ -93,3 +93,11 @@ xgb_configuration = {
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
     'end_tag': 0
 }
+
+
+duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
+drop_off_rate = 0.85
+
+default_predict_tournament = "wc2023"
+sub_pid_did_rate = 0.94
+free_pid_did_rate = 1.02
