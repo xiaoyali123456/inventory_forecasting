@@ -84,6 +84,7 @@ def add_hots_features(feature_df, type="train", root_path=""):
         df = df\
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
     save_data_frame(df, root_path + "/baseline_features_with_all_features_multi_hots")
+    print("multi hots feature processed done!")
     df = load_data_frame(spark, root_path + "/baseline_features_with_all_features_multi_hots")
     for col in one_hot_cols:
         print(col)
@@ -118,6 +119,7 @@ def add_hots_features(feature_df, type="train", root_path=""):
         df = df.withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}")))
     df.groupBy('tournament').count().orderBy('tournament').show()
     save_data_frame(df, root_path + "/baseline_features_with_all_features_hots")
+    print("all hots feature processed done!")
     return df
 
 

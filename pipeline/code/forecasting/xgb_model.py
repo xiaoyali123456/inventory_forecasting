@@ -128,7 +128,7 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
         label_cols = base_label_cols
     else:
         label_cols = ["watch_time_per_free_per_match_with_free_timer"]
-    path_suffix = "/prediction/all_features_hots_format" + if_free_timer + xgb_configuration['if_simple_one_hot']
+    path_suffix = "/all_features_hots_format" + if_free_timer + xgb_configuration['if_simple_one_hot']
     feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
         .cache()
     if config == {}:
