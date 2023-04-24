@@ -2,7 +2,17 @@ from path import *
 from util import *
 from config import *
 
+
+def generate_hot_vector(hots, hots_num):
+    res = [0 for i in range(hots_num)]
+    for hot in hots:
+        if hot >= 0:
+            res[hot] += 1
+    return res
+
+
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
+
 
 def simple_title(title):
     title = title.strip().lower()
@@ -92,7 +102,7 @@ def add_hots_features(feature_df, type="train", root_path=""):
         print(col)
         df.select(f"{col}_hots", f"{col}_hots_num").show(20, False)
         df = df\
-            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf2(f"{col}_hots", f"{col}_hots_num"))
+            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
         df.show()
     print(df.count())
     save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots")

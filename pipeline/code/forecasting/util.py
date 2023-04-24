@@ -101,11 +101,3 @@ def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool
     df.unpersist()
 
 
-def generate_hot_vector(hots, hots_num):
-    res = [0 for i in range(hots_num)]
-    for hot in hots:
-        if hot >= 0:
-            res[hot] += 1
-    return res
-
-
