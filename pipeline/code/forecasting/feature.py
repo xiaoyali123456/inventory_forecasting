@@ -48,13 +48,15 @@ def add_hots_features(feature_df, type="train", root_path=""):
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
         .cache()
     df.groupBy('tournament').count().orderBy('tournament').show()
-    save_data_frame(df, root_path + "/base_features")
+    # save_data_frame(df, root_path + "/base_features")
+    print(df.count())
     for col in multi_hot_cols:
         print(col)
         df2 = df\
             .select('tournament', 'rank', f"{col}")\
             .withColumn(f"{col}_list", F.split(F.col(col), " vs "))\
-            .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))
+            .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))\
+            .cache()
         if type == "train":
             col_df = df2 \
                 .select(f"{col}_item") \
@@ -80,6 +82,7 @@ def add_hots_features(feature_df, type="train", root_path=""):
                   .groupBy('tournament', 'rank')
                   .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'rank']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
+        print(df.count())
     for col in multi_hot_cols:
         print(col)
         df = df\
