@@ -30,19 +30,18 @@ def free_timer_wt(wt_list):
 def load_dataset(config):
     path_suffix = "/all_features_hots_format_and_simple_one_hot"
     all_feature_df = load_data_frame(spark, pipeline_base_path + path_suffix) \
-        .withColumn('tag', F.lit(1)) \
+        .withColumn('request_id', F.lit("0")) \
         .cache()
     if config == {}:
         predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{default_predict_tournament}/all_features_hots_format") \
             .cache()
     else:
-        base_path_suffix = "/prediction/all_features_hots_format_and_simple_one_hot"
+        base_path_suffix = f"/prediction{path_suffix}"
         predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}") \
             .cache()
     common_cols = list(set(all_feature_df.columns).intersection(set(predict_feature_df.columns)))
     all_feature_df = all_feature_df.select(*common_cols)\
         .union(predict_feature_df.select(*common_cols))\
-        .withColumn('tag', F.lit(1))\
         .cache()
     estimated_dau_df = all_feature_df\
         .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
@@ -76,7 +75,7 @@ def main(mask_tag, config={}):
     for test_tournament in test_tournaments:
         test_feature_df = all_feature_df \
             .where(f"tournament='{test_tournament}'") \
-            .selectExpr('content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
+            .selectExpr('request_id', 'content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
                         'total_frees_number', 'active_frees_rate as real_active_frees_rate',
                         'frees_watching_match_rate as real_frees_watching_match_rate',
                         'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
@@ -149,7 +148,8 @@ def main(mask_tag, config={}):
             final_cols = cols + important_cols
             print(final_cols)
             res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-            save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}test_tournament={test_tournament}")
+            res_df.show(20, False)
+            save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}", partition_col='request_id')
             res_list.append(res_df.withColumn('tournament', F.lit(test_tournament)))
         print("")
         print("")

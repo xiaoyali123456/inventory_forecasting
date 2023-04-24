@@ -72,11 +72,14 @@ def load_hive_table(spark: SparkSession, table: str, date: str = None) -> DataFr
         return spark.sql(f'select * from {table} where cd = "{date}"')
 
 
-def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',') -> None:
+def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',', partition_col = '') -> None:
     def save_data_frame_internal(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False,
                                  delimiter: str = ',') -> None:
         if fmt == 'parquet':
-            df.write.mode('overwrite').parquet(path)
+            if partition_col == "":
+                df.write.mode('overwrite').parquet(path)
+            else:
+                df.write.partitionBy(partition_col).mode('overwrite').parquet(path)
         elif fmt == 'parquet2':
             df.write.mode('overwrite').parquet(path, compression='gzip')
         elif fmt == 'parquet3':

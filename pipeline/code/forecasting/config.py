@@ -90,7 +90,8 @@ xgb_configuration = {
     # 'if_cross_features': False,
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
+                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
+                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
     'end_tag': 0
 }
 
