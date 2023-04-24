@@ -1,97 +1,6 @@
-import datetime
-import os
-import sys
-from functools import reduce
-import pyspark.sql.functions as F
-from pyspark.shell import spark
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import *
-from pyspark.storagelevel import StorageLevel
-from common import load_requests
-
-storageLevel = StorageLevel.DISK_ONLY
-
-
-def check_s3_path_exist(s3_path: str) -> bool:
-    if not s3_path.endswith("/"):
-        s3_path += "/"
-    return os.system(f"aws s3 ls {s3_path}_SUCCESS") == 0
-
-
-def check_s3_folder_exist(s3_path: str) -> bool:
-    if not s3_path.endswith("/"):
-        s3_path += "/"
-    return os.system(f"aws s3 ls {s3_path}") == 0
-
-
-def get_date_list(date: str, days: int) -> list:
-    dt = datetime.datetime.strptime(date, '%Y-%m-%d')
-    if -1 <= days <= 1:
-        return [date]
-    elif days > 1:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(0, days)]
-    else:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
-
-
-def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ','
-                    ) -> DataFrame:
-    if fmt == 'parquet':
-        return spark.read.parquet(path)
-    elif fmt == 'orc':
-        return spark.read.orc(path)
-    elif fmt == 'jsond':
-        return spark.read.json(path)
-    elif fmt == 'csv':
-        return spark.read.option('header', header).option('delimiter', delimiter).csv(path)
-    else:
-        print("the format is not supported")
-        return DataFrame(None, None)
-
-
-def hive_spark(name: str) -> SparkSession:
-    return SparkSession.builder \
-        .appName(name) \
-        .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
-        .config("spark.kryoserializer.buffer.max", "128m") \
-        .enableHiveSupport() \
-        .getOrCreate()
-
-
-def load_hive_table(spark: SparkSession, table: str, date: str = None) -> DataFrame:
-    if date is None:
-        return spark.sql(f'select * from {table}')
-    else:
-        return spark.sql(f'select * from {table} where cd = "{date}"')
-
-
-def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',') -> None:
-    def save_data_frame_internal(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False,
-                                 delimiter: str = ',') -> None:
-        if fmt == 'parquet':
-            df.write.mode('overwrite').parquet(path)
-        elif fmt == 'parquet2':
-            df.write.mode('overwrite').parquet(path, compression='gzip')
-        elif fmt == 'parquet3':
-            df.write.mode('overwrite').parquet(path, compression='uncompressed')
-        elif fmt == 'orc':
-            df.write.mode('overwrite').orc(path)
-        elif fmt == 'csv':
-            df.coalesce(1).write.option('header', header).option('delimiter', delimiter).mode('overwrite').csv(path)
-        elif fmt == 'csv_zip':
-            df.write.option('header', header).option('delimiter', delimiter).option("compression", "gzip").mode(
-                'overwrite').csv(path)
-        else:
-            print("the format is not supported")
-    df.persist(storageLevel)
-    try:
-        save_data_frame_internal(df, path, fmt, header, delimiter)
-    except Exception:
-        try:
-            save_data_frame_internal(df, path, 'parquet2', header, delimiter)
-        except Exception:
-            save_data_frame_internal(df, path, 'parquet3', header, delimiter)
-    df.unpersist()
+from .path import *
+from .util import *
+from .config import *
 
 
 def load_labels(tournament, feature_df):
@@ -121,25 +30,10 @@ def free_timer_wt(wt_list):
 free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
 
 
-concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
-ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"
-match_meta_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/match_meta"
-live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
-play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
-watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
-viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
-live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
-pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
-
-# total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 325.0, 55.0, 80.0
-# total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 210.0, 85.0, 30.0
-# total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = 210.0, 45.0, 55.0
 configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
-# drop_off_rate = 0.8
 drop_off_rate = 0.85
 
 predict_tournament = "wc2023"
-dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
 
@@ -179,7 +73,7 @@ def load_dataset(config):
     return all_feature_df, estimated_dau_df
 
 
-def main(version, mask_tag, config={}):
+def main(mask_tag, config={}):
     all_feature_df, estimated_dau_df = load_dataset(config)
     if config == {}:
         test_tournaments = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]
@@ -208,80 +102,79 @@ def main(version, mask_tag, config={}):
         test_df = test_label_df \
             .join(estimated_dau_df, 'tournament') \
             .cache()
-        if version in ["baseline_with_predicted_parameters"]:
-            label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
-                          'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-            label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}tournament={test_tournament}"
-            # print(first_match_date)
-            new_test_label_df = test_df \
-                .withColumn('estimated_variables', F.lit(0)) \
-                .join(load_data_frame(spark, f"{label_path}/label={label_cols[0]}")
-                    .drop('sample_tag', 'real_' + label_cols[0]), ['date', 'content_id']) \
-                .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
-                    .drop('sample_tag', 'real_' + label_cols[2]), ['date', 'content_id']) \
-                .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
-                    .drop('sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
+        label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
+                      'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
+        label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}tournament={test_tournament}"
+        # print(first_match_date)
+        new_test_label_df = test_df \
+            .withColumn('estimated_variables', F.lit(0)) \
+            .join(load_data_frame(spark, f"{label_path}/label={label_cols[0]}")
+                .drop('sample_tag', 'real_' + label_cols[0]), ['date', 'content_id']) \
+            .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
+                .drop('sample_tag', 'real_' + label_cols[2]), ['date', 'content_id']) \
+            .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
+                .drop('sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
+            .cache()
+        label = 'watch_time_per_free_per_match_with_free_timer'
+        parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
+            .drop('sample_tag', 'real_' + label) \
+            .groupBy('date', 'content_id') \
+            .agg(F.collect_list('estimated_watch_time_per_free_per_match_with_free_timer').alias('estimated_watch_time_per_free_per_match')) \
+            .withColumn('estimated_watch_time_per_free_per_match', free_timer_wt_udf('estimated_watch_time_per_free_per_match')) \
+            .cache()
+        new_test_label_df = new_test_label_df \
+            .join(parameter_df, ['date', 'content_id']) \
+            .cache()
+        for configuration in configurations[1:2]:
+            total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
+            res_df = new_test_label_df \
+                .withColumn('real_avg_concurrency', F.expr(
+                f'(total_frees_number * real_frees_watching_match_rate * real_watch_time_per_free_per_match '
+                f'+ total_subscribers_number * real_subscribers_watching_match_rate * real_watch_time_per_subscriber_per_match)'
+                f'/{total_match_duration_in_minutes}')) \
+                .withColumn('estimated_avg_concurrency', F.expr(
+                f'(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
+                f'+ estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
+                .withColumn('estimated_inventory', F.expr(
+                f'estimated_avg_concurrency * {drop_off_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)')) \
+                .withColumn('estimated_reach', F.expr(
+                f"(estimated_free_num * estimated_frees_watching_match_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_subscribers_watching_match_rate / {sub_pid_did_rate})")) \
+                .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
+                .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
+                .withColumn('avg_concurrency_bias',
+                            F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
+                .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach')) \
+                .withColumn('reach_bias_abs', F.expr('abs(reach_bias)')) \
+                .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+                .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
+                .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
+                .where('total_inventory > 0') \
+                .drop('teams') \
                 .cache()
-            label = 'watch_time_per_free_per_match_with_free_timer'
-            parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
-                .drop('sample_tag', 'real_' + label) \
-                .groupBy('date', 'content_id') \
-                .agg(F.collect_list('estimated_watch_time_per_free_per_match_with_free_timer').alias('estimated_watch_time_per_free_per_match')) \
-                .withColumn('estimated_watch_time_per_free_per_match', free_timer_wt_udf('estimated_watch_time_per_free_per_match')) \
-                .cache()
-            new_test_label_df = new_test_label_df \
-                .join(parameter_df, ['date', 'content_id']) \
-                .cache()
-            for configuration in configurations[1:2]:
-                total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
-                res_df = new_test_label_df \
-                    .withColumn('real_avg_concurrency', F.expr(
-                    f'(total_frees_number * real_frees_watching_match_rate * real_watch_time_per_free_per_match '
-                    f'+ total_subscribers_number * real_subscribers_watching_match_rate * real_watch_time_per_subscriber_per_match)'
-                    f'/{total_match_duration_in_minutes}')) \
-                    .withColumn('estimated_avg_concurrency', F.expr(
-                    f'(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
-                    f'+ estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
-                    .withColumn('estimated_inventory', F.expr(
-                    f'estimated_avg_concurrency * {drop_off_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)')) \
-                    .withColumn('estimated_reach', F.expr(
-                    f"(estimated_free_num * estimated_frees_watching_match_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_subscribers_watching_match_rate / {sub_pid_did_rate})")) \
-                    .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
-                    .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
-                    .withColumn('avg_concurrency_bias',
-                                F.expr('(estimated_avg_concurrency - real_avg_concurrency) / real_avg_concurrency')) \
-                    .withColumn('reach_bias', F.expr('(estimated_reach - total_did_reach) / total_did_reach')) \
-                    .withColumn('reach_bias_abs', F.expr('abs(reach_bias)')) \
-                    .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-                    .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
-                    .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
-                    .where('total_inventory > 0') \
-                    .drop('teams') \
-                    .cache()
-                cols = res_df.columns
-                important_cols = ["real_avg_concurrency", "estimated_avg_concurrency", "avg_concurrency_bias",
-                                  "total_did_reach", 'estimated_reach', "reach_bias",
-                                  "total_inventory", "estimated_inventory", "inventory_bias", 'inventory_bias_abs']
-                for col in important_cols:
-                    cols.remove(col)
-                final_cols = cols + important_cols
-                print(final_cols)
-                res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-                save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}test_tournament={test_tournament}")
-                res_list.append(res_df.withColumn('tournament', F.lit(test_tournament)))
+            cols = res_df.columns
+            important_cols = ["real_avg_concurrency", "estimated_avg_concurrency", "avg_concurrency_bias",
+                              "total_did_reach", 'estimated_reach', "reach_bias",
+                              "total_inventory", "estimated_inventory", "inventory_bias", 'inventory_bias_abs']
+            for col in important_cols:
+                cols.remove(col)
+            final_cols = cols + important_cols
+            print(final_cols)
+            res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
+            save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}test_tournament={test_tournament}")
+            res_list.append(res_df.withColumn('tournament', F.lit(test_tournament)))
         print("")
         print("")
     return res_list
 
 
-version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "_mask_knock_off"
 DATE=sys.argv[1]
 config = load_requests(DATE)
-res_list = main(version=version, mask_tag=mask_tag, config=config)
+res_list = main(mask_tag=mask_tag, config=config)
 tournament_dic = {
-    "wc2023": -1,
+    "wc2023": -2,
+    "ac2023": -1,
     "wc2022": 0,
     "ac2022": 1,
     "ipl2022": 2,

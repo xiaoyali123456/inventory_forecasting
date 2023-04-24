@@ -1,145 +1,9 @@
-import datetime
-import os
-import sys
-import holidays
-import pyspark.sql.functions as F
-from pyspark.shell import spark
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import *
-from pyspark.storagelevel import StorageLevel
-from common import load_requests
-
-storageLevel = StorageLevel.DISK_ONLY
-distribution_fun = "default"
-# distribution_fun = "gaussian"
-valid_creative_dic = {}
-
-
-def check_s3_path_exist(s3_path: str) -> bool:
-    if not s3_path.endswith("/"):
-        s3_path += "/"
-    return os.system(f"aws s3 ls {s3_path}_SUCCESS") == 0
-
-
-def check_s3_path_exist_simple(s3_path: str) -> bool:
-    if not s3_path.endswith("/"):
-        s3_path += "/"
-    return os.system(f"aws s3 ls {s3_path}") == 0
-
-
-def get_date_list(date: str, days: int) -> list:
-    dt = datetime.datetime.strptime(date, '%Y-%m-%d')
-    if -1 <= days <= 1:
-        return [date]
-    elif days > 1:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(0, days)]
-    else:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
-
-
-def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ','
-                    ) -> DataFrame:
-    if fmt == 'parquet':
-        return spark.read.parquet(path)
-    elif fmt == 'orc':
-        return spark.read.orc(path)
-    elif fmt == 'jsond':
-        return spark.read.json(path)
-    elif fmt == 'csv':
-        return spark.read.option('header', header).option('delimiter', delimiter).csv(path)
-    else:
-        print("the format is not supported")
-        return DataFrame(None, None)
-
-
-def hive_spark(name: str) -> SparkSession:
-    return SparkSession.builder \
-        .appName(name) \
-        .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
-        .config("spark.kryoserializer.buffer.max", "128m") \
-        .enableHiveSupport() \
-        .getOrCreate()
-
-
-def load_hive_table(spark: SparkSession, table: str, date: str = None) -> DataFrame:
-    if date is None:
-        return spark.sql(f'select * from {table}')
-    else:
-        return spark.sql(f'select * from {table} where cd = "{date}"')
-
-
-def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',') -> None:
-    def save_data_frame_internal(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False,
-                                 delimiter: str = ',') -> None:
-        if fmt == 'parquet':
-            df.write.mode('overwrite').parquet(path)
-        elif fmt == 'parquet2':
-            df.write.mode('overwrite').parquet(path, compression='gzip')
-        elif fmt == 'parquet3':
-            df.write.mode('overwrite').parquet(path, compression='uncompressed')
-        elif fmt == 'orc':
-            df.write.mode('overwrite').orc(path)
-        elif fmt == 'csv':
-            df.coalesce(1).write.option('header', header).option('delimiter', delimiter).mode('overwrite').csv(path)
-        elif fmt == 'csv_zip':
-            df.write.option('header', header).option('delimiter', delimiter).option("compression", "gzip").mode(
-                'overwrite').csv(path)
-        else:
-            print("the format is not supported")
-    df.persist(storageLevel)
-    try:
-        save_data_frame_internal(df, path, fmt, header, delimiter)
-    except Exception:
-        try:
-            save_data_frame_internal(df, path, 'parquet2', header, delimiter)
-        except Exception:
-            save_data_frame_internal(df, path, 'parquet3', header, delimiter)
-    df.unpersist()
-
-
-def check_title_valid(title, *args):
-    for arg in args:
-        if title.find(arg) > -1:
-            return 0
-    if title.find(' vs ') == -1:
-        return 0
-    return 1
-
-
-def calculate_sub_num_on_target_date(sub_df, user_meta_df, target_date):
-    sub_df = sub_df\
-        .where(f'sub_start_time <= "{target_date}" and sub_end_time >= "{target_date}"')\
-        .select('hid')\
-        .distinct()\
-        .join(user_meta_df, 'hid')
-    return sub_df.select('dw_p_id').distinct()
-
-
-def get_match_start_time(content_id, rank, match_start_time, tournament):
-    if match_start_time:
-        return match_start_time
-    else:
-        if content_id == "1540019005":
-            return "13:30:00"
-        elif tournament == "england_tour_of_india2021":
-            if content_id <= "1540005181" or content_id >= "1540005202":
-                return "08:00:00"
-            else:
-                return "13:00:00"
-        else:
-            if rank == 1:
-                return "19:00:00"
-            else:
-                return "15:00:00"
+from .path import *
+from .util import *
+from .config import *
 
 
 def simple_title(title):
-    unvalid_mapping = {
-        "sl": "sri lanka",
-        "eng": "england",
-        "ire": "ireland",
-        "dc.": "dc"
-    }
     title = title.strip().lower()
     if title.find(": ") > -1:
         title = title.split(": ")[-1]
@@ -147,32 +11,13 @@ def simple_title(title):
         title = title.split(", ")[0]
     teams = sorted(title.split(" vs "))
     for i in range(len(teams)):
-        if teams[i] in unvalid_mapping:
-            teams[i] = unvalid_mapping[teams[i]]
+        if teams[i] in unvalid_team_mapping:
+            teams[i] = unvalid_team_mapping[teams[i]]
     return teams[0] + " vs " + teams[1]
 
 
 def get_continents(teams, tournament_type):
     teams = teams.split(" vs ")
-    continent_dic = {'australia': 'OC',
-                    'england': 'EU',
-                    'india': 'AS',
-                    'new zealand': 'OC',
-                    'pakistan': 'AS',
-                    'south africa': 'AF',
-                    'sri lanka': 'AS',
-                    'afghanistan': 'AS',
-                    'bangladesh': 'AS',
-                    'west indies': 'NA',
-                    'zimbabwe': 'AF',
-                    'hong kong': 'AS',
-                    'ireland': 'EU',
-                    'namibia': 'AF',
-                    'netherlands': 'EU',
-                    'oman': 'AS',
-                    'papua new guinea': 'OC',
-                    'scotland': 'EU',
-                    'uae': 'AS'}
     if tournament_type == "national":
         return "AS vs AS"
     elif teams[0] in continent_dic and teams[1] in continent_dic:
@@ -183,110 +28,17 @@ def get_continents(teams, tournament_type):
 
 def get_teams_tier(teams):
     teams = teams.split(" vs ")
-    tiers_dic = {'australia': 'tier1',
-                 'england': 'tier1',
-                 'india': 'tier1',
-                 'new zealand': 'tier1',
-                 'pakistan': 'tier1',
-                 'south africa': 'tier1',
-                 'sri lanka': 'tier1',
-                 'afghanistan': 'tier2',
-                 'bangladesh': 'tier2',
-                 'west indies': 'tier2',
-                 'zimbabwe': 'tier2',
-                 'hong kong': 'tier3',
-                 'ireland': 'tier3',
-                 'namibia': 'tier3',
-                 'netherlands': 'tier3',
-                 'oman': 'tier3',
-                 'papua new guinea': 'tier3',
-                 'scotland': 'tier3',
-                 'uae': 'tier3',
-                 "csk": "tier1",
-                 "mi": "tier1",
-                 "rcb": "tier1",
-                 "dc": "tier2",
-                 "gt": "tier2",
-                 "kkr": "tier2",
-                 "kxip": "tier2",
-                 "lsg": "tier2",
-                 "pbks": "tier2",
-                 "rr": "tier2",
-                 "srh": "tier2"
-                 }
     if teams[0] in tiers_dic and teams[1] in tiers_dic:
         return f"{tiers_dic[teams[0]]} vs {tiers_dic[teams[1]]}"
     else:
         return ""
 
 
-def get_match_stage(tournament, date, rank):
-    if tournament == "ipl2019":
-        if date >= "2019-05-12":
-            return "final"
-        elif date >= "2019-05-07":
-            return "semi-final"
-        else:
-            return "group"
-    elif tournament == "wc2019":
-        if date >= "2019-07-14":
-            return "final"
-        elif date >= "2019-07-09":
-            return "semi-final"
-        else:
-            return "group"
-    elif tournament == "ipl2020":
-        if date >= "2020-11-10":
-            return "final"
-        elif date >= "2020-11-05":
-            return "semi-final"
-        else:
-            return "group"
-    elif tournament == "ipl2021":
-        if date >= "2021-10-15":
-            return "final"
-        elif date >= "2021-10-10":
-            return "semi-final"
-        else:
-            return "group"
-    elif tournament == "wc2021" or tournament == "wc2022":
-        if rank <= 12:
-            return "qualifier"
-        elif rank <= 42:
-            return "group"
-        elif rank <= 44:
-            return "semi-final"
-        else:
-            return "final"
-    elif tournament == "ipl2022":
-        if date >= "2022-05-29":
-            return "final"
-        elif date >= "2022-05-24":
-            return "semi-final"
-        else:
-            return "group"
-    elif tournament == "ac2022":
-        if date <= "2022-08-24":
-            return "qualifier"
-        elif date <= "2022-09-09":
-            return "group"
-        else:
-            return "final"
-    elif tournament == "wc2023":
-        if date >= "2023-11-26":
-            return "final"
-        elif date >= "2023-11-21":
-            return "semi-final"
-        else:
-            return "group"
-    else:
-        return "group"
-
-
 def generate_hot_vector(hots, hots_num):
     res = [0 for i in range(hots_num)]
     for hot in hots:
-        res[hot] += 1
+        if hot >= 0:
+            res[hot] += 1
     return res
 
 
@@ -322,7 +74,8 @@ def add_hots_features(feature_df, type="train", root_path=""):
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
-                  .join(col_df, f"{col}_item")
+                  .join(col_df, f"{col}_item", 'left')
+                  .fillna(-1, [f'{col}_hots'])
                   .groupBy('tournament', 'rank')
                   .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'rank']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
@@ -353,7 +106,8 @@ def add_hots_features(feature_df, type="train", root_path=""):
         if unvalid_num > 0:
             print(unvalid_num)
         df = df\
-            .join(col_df, col)\
+            .join(col_df, col, 'left') \
+            .fillna(-1, [f'{col}_hots']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
     for col in one_hot_cols:
         print(col)
@@ -540,22 +294,10 @@ def generate_prediction_dataset(today, config):
     return feature_df
 
 
-check_title_valid_udf = F.udf(check_title_valid, IntegerType())
-get_match_start_time_udf = F.udf(get_match_start_time, StringType())
 strip_udf = F.udf(lambda x: x.strip(), StringType())
 simple_title_udf = F.udf(simple_title, StringType())
 get_teams_tier_udf = F.udf(get_teams_tier, StringType())
 get_continents_udf = F.udf(get_continents, StringType())
-get_match_stage_udf = F.udf(get_match_stage, StringType())
-generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
-
-play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
-watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
-active_user_num_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
-live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
-live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
-pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
-dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
