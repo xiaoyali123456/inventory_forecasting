@@ -1,6 +1,6 @@
 set -exu
 
-DATE="2023-04-19"
+DATE="2023-04-24"
 CODE="s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/"
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
@@ -21,4 +21,7 @@ aws s3 sync $CODE .
 
 # $SPARK forecasting/feature.py $DATE
 # $SPARK forecasting/xgb_model.py $DATE # TODO: line 325: 'Path does not exist: s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/prediction/all_features_hots_format_and_simple_one_hot/cd=2023-04-21;'
-$SPARK forecasting/inventory_prediction.py $DATE
+# $SPARK forecasting/inventory_prediction.py $DATE
+
+$SPARK sampling/ewma.py $DATE
+
