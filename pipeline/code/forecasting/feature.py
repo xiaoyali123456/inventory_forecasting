@@ -86,10 +86,11 @@ def add_hots_features(feature_df, type="train", root_path=""):
     for col in multi_hot_cols:
         print(col)
         df = df\
-            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
+            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num")).cache()
+    print(df.count())
     save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots")
     print("multi hots feature processed done!")
-    df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots")
+    df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots").cache()
     for col in one_hot_cols:
         print(col)
         if type == "train":
