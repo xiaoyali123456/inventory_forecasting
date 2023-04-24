@@ -83,12 +83,13 @@ def add_hots_features(feature_df, type="train", root_path=""):
                   .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'rank']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
         print(df.count())
-    save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots_simple")
+    save_data_frame(df.withColumn('test_array', F.array(F.col('tournament'))), root_path + "/base_features_with_all_features_multi_hots_simple")
     print("multi hots feature simple processed done!")
     df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots_simple").cache()
     df.show()
-    for col in multi_hot_cols[1:]:
+    for col in multi_hot_cols:
         print(col)
+        df.select(f"{col}_hots", f"{col}_hots_num").show(20, False)
         df = df\
             .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
         df.show()
