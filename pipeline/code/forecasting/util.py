@@ -109,5 +109,3 @@ def generate_hot_vector(hots, hots_num):
     return res
 
 
-generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
-

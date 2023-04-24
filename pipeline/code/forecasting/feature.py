@@ -2,6 +2,7 @@ from path import *
 from util import *
 from config import *
 
+generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 
 def simple_title(title):
     title = title.strip().lower()
