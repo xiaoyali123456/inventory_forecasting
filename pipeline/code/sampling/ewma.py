@@ -122,11 +122,11 @@ def moving_avg(df, group_cols, target, lambda_=0.8):
     cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     df2 = df.fillna('')
     df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
-    df3 = df2.pivot(group_cols, cohort_cols, target+'_ratio').fillna(0)
+    df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
     fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
     df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in df3.columns], axis=1).shift(1)
     df4.columns.names = cohort_cols
-    return df4.iloc[-1].rename(target)[len(group_cols):].reset_index()
+    return df4.iloc[-1].rename(target).reset_index()
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
