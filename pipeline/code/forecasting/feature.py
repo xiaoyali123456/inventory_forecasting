@@ -69,9 +69,9 @@ def add_hots_features(feature_df, type="train", root_path=""):
         col_num = col_df.count()
         # print(col_num)
         col_num_dic[col] = col_num
-        unvalid_num = df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count()
-        if unvalid_num > 0:
-            print(unvalid_num)
+        # unvalid_num = df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count()
+        # if unvalid_num > 0:
+        #     print(unvalid_num)
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
@@ -104,9 +104,9 @@ def add_hots_features(feature_df, type="train", root_path=""):
         col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
         # print(col_num)
         col_num_dic[col] = col_num
-        unvalid_num = df.join(col_df, col, 'left').where(f"{col}_hots is null").count()
-        if unvalid_num > 0:
-            print(unvalid_num)
+        # unvalid_num = df.join(col_df, col, 'left').where(f"{col}_hots is null").count()
+        # if unvalid_num > 0:
+        #     print(unvalid_num)
         df = df\
             .join(col_df, col, 'left') \
             .fillna(-1, [f'{col}_hots']) \
