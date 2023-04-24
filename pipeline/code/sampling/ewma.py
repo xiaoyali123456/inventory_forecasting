@@ -4,8 +4,8 @@ import sys
 from functools import reduce
 from common import *
 
-def load_inventory(cd):
-    last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n=30)
+def load_inventory(cd, n=30):
+    last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)
     lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
     return reduce(lambda x,y: x.union(y), lst)
 
@@ -133,6 +133,6 @@ if __name__ == '__main__':
     iv = load_inventory(DATE)
     piv = augment(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(piv, ['cd'], target='ad_time')
-    df.to_paquert(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    df.to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
     df2 = moving_avg(piv, ['cd'], target='reach')
     df2.to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
