@@ -9,8 +9,8 @@ SPARK="spark-submit --deploy-mode client \
 aws s3 sync $(dirname $0) $CODE
 aws s3 sync $CODE .
 
-# bash booking/server.sh &
-# sleep 5
+bash booking/server.sh &
+sleep 5
 
 # preprocess
 # python3 fetch_requests.py $DATE
@@ -19,9 +19,9 @@ aws s3 sync $CODE .
 # forecasting
 # $SPARK forecasting/active_user_etl_and_predict.py $DATE
 
-# $SPARK forecasting/feature.py $DATE
-# $SPARK forecasting/xgb_model.py $DATE # TODO: line 325: 'Path does not exist: s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/prediction/all_features_hots_format_and_simple_one_hot/cd=2023-04-21;'
-# $SPARK forecasting/inventory_prediction.py $DATE
+ $SPARK forecasting/feature.py $DATE
+ $SPARK forecasting/xgb_model.py $DATE # TODO: line 325: 'Path does not exist: s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/prediction/all_features_hots_format_and_simple_one_hot/cd=2023-04-21;'
+ $SPARK forecasting/inventory_prediction.py $DATE
 
-$SPARK sampling/ewma.py $DATE
+#$SPARK sampling/ewma.py $DATE
 
