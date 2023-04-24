@@ -46,7 +46,7 @@ def get_last_cd(path, end=None, n=1):
     # return str(df.selectExpr('max(cd) as cd').head().cd)
     lst = sorted([x.split('=')[-1] for x in s3.ls(path)])
     if end is not None:
-        lst = [x fox in lst if x < end]
+        lst = [x for x in lst if x < end]
     return lst[-n:] if n > 1 else lst[-1]
 
 # importing will fail on pure python application

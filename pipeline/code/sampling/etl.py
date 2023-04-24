@@ -1,6 +1,8 @@
 from datetime import datetime
 import sys
 from common import *
+import pandas as pd
+from pyspark.sql.types import TimestampType
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -39,6 +41,11 @@ def parse(segments):
         if match:
             filtered.add(t)
     return '|'.join(sorted(filtered))
+
+@F.udf(returnType=TimestampType())
+def parseTimestamp(date:str, ts: str):
+    return pd.Timestamp(date + ' ' + ts).tz_convert('asia/kolkata')
+
 
 def preprocess_playout(df):
     return df.selectExpr(
@@ -111,7 +118,9 @@ def load_new_matches(cd):
 def main(cd):
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
-        playout = preprocess_playout(spark.read.csv(PLAYOUT_PATH + dt, header=True))
+        content_ids = matches[matches.startdate == dt].content_id.tolist()
+        playout = preprocess_playout(spark.read.csv(PLAYOUT_PATH + dt, header=True)) \
+            .where(F.col('content_id').isin(content_ids))
         process(dt, playout)
 
 if __name__ == '__main__':
