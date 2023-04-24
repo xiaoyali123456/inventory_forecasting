@@ -100,6 +100,15 @@ def feature_processing(feature_df):
         .where('date != "2022-08-24" and tournament != "ipl2019"')
 
 
+def generate_hot_vector(hots, hots_num):
+    res = [0 for i in range(hots_num)]
+    for hot in hots:
+        if hot >= 0:
+            res[hot] += 1
+    return res
+
+
+generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
 mask_array = F.udf(lambda l: [0 for i in l], ArrayType(IntegerType()))
 enumerate_tiers_udf = F.udf(enumerate_tiers, ArrayType(IntegerType()))
