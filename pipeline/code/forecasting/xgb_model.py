@@ -1,6 +1,6 @@
-from .path import *
-from .util import *
-from .config import *
+from path import *
+from util import *
+from config import *
 
 
 def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", mask_cols=[], mask_condition="", mask_rate=1, wc2019_test_tag=1):

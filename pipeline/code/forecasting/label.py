@@ -1,6 +1,6 @@
-from .path import *
-from .util import *
-from .config import *
+from path import *
+from util import *
+from config import *
 
 
 def get_break_list(playout_df, filter, tournament):
