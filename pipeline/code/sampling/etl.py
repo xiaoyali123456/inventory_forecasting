@@ -73,7 +73,8 @@ def process(dt, playout):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
     playout2 = playout1.where('platform != "na"')
     playout3 = playout2.where('platform == "na"').drop('platform')
-    wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"')
+    wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
+        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
     # TODO: use received_at if received_at < timestamp
     wt1 = wt[['dw_d_id', 'content_id', 'user_segments',
         F.expr('lower(language) as language'),
