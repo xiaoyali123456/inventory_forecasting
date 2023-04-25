@@ -65,6 +65,5 @@ try:
         .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
         .enableHiveSupport() \
         .getOrCreate()
-    spark.sparkContext.setLogLevel('WARN')
 except ImportError:
-     pass
+    pass
