@@ -2,7 +2,6 @@ DATE=$1
 CODE=$2
 aws s3 sync $CODE .
 
-bash booking/install.sh
 bash booking/server.sh &
 
 SPARK="spark-submit --deploy-mode client \
