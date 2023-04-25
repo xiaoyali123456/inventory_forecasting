@@ -614,7 +614,7 @@ if configuration['if_free_timer'] != "":
     predict_feature_df = predict_feature_df \
         .withColumn("free_timer_hot_vector", F.array(F.lit(configuration['prediction_free_timer']))) \
         .withColumn("free_timer_hots_num", F.lit(1)) \
-        .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(1.0))\
+        .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(5.0))\
         .cache()
     feature_cols += ["free_timer_hot_vector"]
 else:

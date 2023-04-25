@@ -92,6 +92,8 @@ xgb_configuration = {
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
+    'prediction_svod_tag': "",
+    'default_svod_free_timer': 5,
     'end_tag': 0
 }
 

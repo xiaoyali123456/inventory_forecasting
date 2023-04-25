@@ -61,7 +61,7 @@ def load_dataset(config):
     return all_feature_df, estimated_dau_df
 
 
-def main(mask_tag, config={}):
+def inventory_forecasting(mask_tag, config):
     all_feature_df, estimated_dau_df = load_dataset(config)
     if config == {}:
         test_tournaments = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022", "wc2023"]
@@ -92,7 +92,7 @@ def main(mask_tag, config={}):
             .cache()
         label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                       'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
-        label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}tournament={test_tournament}"
+        label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/{parameter_path}tournament={test_tournament}"
         # print(first_match_date)
         new_test_label_df = test_df \
             .withColumn('estimated_variables', F.lit(0)) \
@@ -149,11 +149,42 @@ def main(mask_tag, config={}):
             print(final_cols)
             res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
             res_df.show(20, False)
-            save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}", partition_col='request_id')
+            save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/{parameter_path}", partition_col='request_id')
             res_list.append(res_df.withColumn('tournament', F.lit(test_tournament)))
         print("")
         print("")
     return res_list
+
+
+def main(mask_tag, DATE, prediction_svod_tag, config={})
+    xgb_configuration['prediction_svod_tag'] = prediction_svod_tag
+    res_list = inventory_forecasting(mask_tag=mask_tag, config=config)
+    tournament_dic = {
+        "wc2023": -2,
+        "ac2023": -1,
+        "wc2022": 0,
+        "ac2022": 1,
+        "ipl2022": 2,
+        "wc2021": 3,
+        "wc2019": 4,
+    }
+    tag_mapping_udf = F.udf(lambda x: tournament_dic[x] if x in tournament_dic else 0, IntegerType())
+    reduce(lambda x, y: x.union(y), res_list) \
+        .groupBy('tournament') \
+        .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
+             F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
+             F.sum('total_inventory').alias('total_inventory'),
+             F.sum('estimated_inventory').alias('estimated_inventory'),
+             F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
+             F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
+             F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
+             F.count('content_id')) \
+        .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+        .withColumn('total_match_error', F.expr('sum_inventory_abs_error / total_inventory')) \
+        .withColumn('tag', tag_mapping_udf('tournament')) \
+        .orderBy('tag') \
+        .drop('tag') \
+        .show(100, False)
 
 
 free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
@@ -163,32 +194,6 @@ mask_tag = ""
 # mask_tag = "_mask_knock_off"
 DATE=sys.argv[1]
 config = load_requests(DATE)
-res_list = main(mask_tag=mask_tag, config=config)
-tournament_dic = {
-    "wc2023": -2,
-    "ac2023": -1,
-    "wc2022": 0,
-    "ac2022": 1,
-    "ipl2022": 2,
-    "wc2021": 3,
-    "wc2019": 4,
-}
-tag_mapping_udf = F.udf(lambda x: tournament_dic[x] if x in tournament_dic else 0, IntegerType())
-reduce(lambda x, y: x.union(y), res_list) \
-    .groupBy('tournament') \
-    .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
-         F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
-         F.sum('total_inventory').alias('total_inventory'),
-         F.sum('estimated_inventory').alias('estimated_inventory'),
-         F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
-         F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
-         F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
-         F.count('content_id')) \
-    .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-    .withColumn('total_match_error', F.expr('sum_inventory_abs_error / total_inventory')) \
-    .withColumn('tag', tag_mapping_udf('tournament')) \
-    .orderBy('tag')\
-    .drop('tag')\
-    .show(100, False)
-
+main(mask_tag, DATE, "", configconfig)
+main(mask_tag, DATE, "_svod", configconfig)
 

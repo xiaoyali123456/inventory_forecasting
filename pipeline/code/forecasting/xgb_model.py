@@ -143,11 +143,18 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
     if config == {}:
         predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
                                                       + "/all_features_hots_format" + xgb_configuration['if_simple_one_hot']) for tournament in xgb_configuration['predict_tournaments_candidate']])\
-            .withColumn("rand", F.rand(seed=54321)))\
+                                                .withColumn("rand", F.rand(seed=54321))) \
+            .withColumn('free_timer', F.lit(1000))\
             .cache()
     else:
         base_path_suffix = "/prediction/all_features_hots_format" + if_free_timer + xgb_configuration['if_simple_one_hot']
-        predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}").withColumn("rand", F.rand(seed=54321))) \
+        predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}")
+                                                .withColumn("rand", F.rand(seed=54321))) \
+            .cache()
+    if configuration['prediction_svod_tag'] != "":
+        predict_feature_df = predict_feature_df \
+            .withColumn("vod_type_hots", F.array(F.lit(1))) \
+            .withColumn("vod_type_hot_vector", F.array(F.lit(1))) \
             .cache()
     one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
                     'match_type', 'tournament_name', 'hostar_influence',
@@ -196,11 +203,15 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
             .withColumn("free_timer_hots_num", F.lit(1)) \
             .cache()
         predict_feature_df = predict_feature_df \
-            .withColumn("free_timer_hot_vector", F.array(F.lit(1000))) \
+            .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
             .withColumn("free_timer_hots_num", F.lit(1)) \
             .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(1.0)) \
             .cache()
         feature_cols += ["free_timer_hot_vector"]
+    if xgb_configuration['prediction_svod_tag'] != "":
+        predict_feature_df = predict_feature_df \
+            .withColumn("free_timer_hot_vector", F.array(F.lit(xgb_configuration['default_svod_free_timer'])))\
+            .cache()
     return feature_df, predict_feature_df, feature_cols, label_cols
 
 
@@ -278,9 +289,9 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
             if config == {}:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
             else:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}/future_tournaments/cd={DATE}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
             error = metrics.mean_absolute_error(y_test, y_pred)
             y_mean = y_test.mean()
             print(error / y_mean)
@@ -308,5 +319,10 @@ def main(DATE, config={}, free_time_tag=""):
 DATE=sys.argv[1]
 config = load_requests(DATE)
 # main()
+xgb_configuration['prediction_svod_tag'] = ''
+main(DATE, config=config)
+main(DATE, config=config, free_time_tag="_and_free_timer")
+
+xgb_configuration['prediction_svod_tag'] = '_svod'
 main(DATE, config=config)
 main(DATE, config=config, free_time_tag="_and_free_timer")
