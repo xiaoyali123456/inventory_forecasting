@@ -19,7 +19,6 @@ aws s3 sync --exclude 'logs/*' --delete $LOCAL_DIR $S3_PIPELINE_DIR
 if [[ "$CODE_ONLY" == true ]]; then
   exit
 fi
-exit
 
 # find pipeline
 res=$(

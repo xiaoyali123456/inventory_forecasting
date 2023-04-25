@@ -46,6 +46,7 @@ def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
         return json.load(fp)
 
+# end is exclusive
 def get_last_cd(path, end=None, n=1):
     # df = spark.read.parquet(path)
     # if end is not None:
@@ -58,13 +59,12 @@ def get_last_cd(path, end=None, n=1):
 
 # importing will fail on pure python application
 try:
-    import pyspark.sql.functions as F
     from pyspark.sql import SparkSession
-    from pyspark.sql.types import StringType
     spark = SparkSession.builder \
         .config("spark.sql.hive.convertMetastoreParquet", "false") \
         .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
         .enableHiveSupport() \
         .getOrCreate()
+    spark.sparkContext.setLogLevel('WARN')
 except ImportError:
      pass

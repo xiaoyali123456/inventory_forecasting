@@ -4,6 +4,8 @@ import sys
 from functools import reduce
 import pyspark.sql.functions as F
 from pyspark.sql.types import StringType
+from pyspark.sql.window import Window
+
 from common import *
 
 def load_inventory(cd, n=30):
@@ -117,24 +119,26 @@ def augment(df, group_cols, DATE):
         device('cohort').alias('device'),
         gender('cohort').alias('gender'),
         age('cohort').alias('age'),
-    ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).toPandas()
+    ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
 
 
 def moving_avg(df, group_cols, target, lambda_=0.8):
     cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
-    df2 = df.fillna('')
-    df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
-    df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
-    fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
-    df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in df3.columns], axis=1).shift(1)
-    df4.columns.names = cohort_cols
-    return df4.iloc[-1].rename(target).reset_index()
+    df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
+    df3 = df.join(df2, group_cols).withColumn(target, df2.target/df2.gsum)
+    df4 = df3.withColumn(target, F.col(target) * F.pow(
+        F.lit(lambda_),
+        F.row_number().over(
+            Window.partitionBy(group_cols).orderBy(group_cols, desc=True))
+        )
+    )
+    return df4.groupby(cohort_cols).agg(F.sum(target).alias(target))
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
     iv = load_inventory(DATE)
     piv = augment(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(piv, ['cd'], target='ad_time')
-    df.to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    df.write.parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}')
     df2 = moving_avg(piv, ['cd'], target='reach')
-    df2.to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    df2.write.parquet(f'{REACH_SAMPLING_PATH}cd={DATE}')
