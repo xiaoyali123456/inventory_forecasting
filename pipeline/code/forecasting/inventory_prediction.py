@@ -156,7 +156,7 @@ def inventory_forecasting(mask_tag, config):
     return res_list
 
 
-def main(mask_tag, DATE, prediction_svod_tag, config={})
+def main(mask_tag, prediction_svod_tag, config={})
     xgb_configuration['prediction_svod_tag'] = prediction_svod_tag
     res_list = inventory_forecasting(mask_tag=mask_tag, config=config)
     tournament_dic = {
@@ -194,6 +194,6 @@ mask_tag = ""
 # mask_tag = "_mask_knock_off"
 DATE=sys.argv[1]
 config = load_requests(DATE)
-main(mask_tag, DATE, "", configconfig)
-main(mask_tag, DATE, "_svod", configconfig)
+main(mask_tag, "", configconfig)
+main(mask_tag, "_svod", configconfig)
 
