@@ -78,12 +78,12 @@ def inventory_forecasting(mask_tag, config):
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
-    test_df.select('date', 'content_id').show()
+    # test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
-        .fillna(-1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
+        .fillna(1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
         .cache()
-    test_df.select('date', 'content_id').show()
+    # test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
         .cache()
@@ -102,7 +102,7 @@ def inventory_forecasting(mask_tag, config):
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
             .drop('tournament', 'sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
         .cache()
-    print(new_test_label_df.count())
+    # print(new_test_label_df.count())
     label = 'watch_time_per_free_per_match_with_free_timer'
     parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
         .groupBy('date', 'content_id') \
