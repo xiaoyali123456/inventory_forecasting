@@ -1,5 +1,3 @@
-import pandas as pd
-import numpy as np
 import sys
 from functools import reduce
 import pyspark.sql.functions as F
@@ -122,14 +120,17 @@ def augment(df, group_cols, DATE):
     ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
 
 
+# mean error: 0.8%, but max cohort:2.7% vs 3.3%
 def moving_avg(df, group_cols, target, lambda_=0.8):
     cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
-    df3 = df.join(df2, group_cols).withColumn(target, df2.target/df2.gsum)
-    df4 = df3.withColumn(target, F.col(target) * F.pow(
-        F.lit(lambda_),
-        F.row_number().over(
-            Window.partitionBy(group_cols).orderBy(group_cols, desc=True))
+    df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
+    group_cols = [F.col(x).desc() for x in group_cols]
+    df4 = df3.withColumn(target, F.col(target) * F.lit(lambda_) * F.pow(
+            F.lit(1-lambda_),
+            F.row_number().over(
+                Window.partitionBy(cohort_cols).orderBy(group_cols)
+            )-F.lit(1)
         )
     )
     return df4.groupby(cohort_cols).agg(F.sum(target).alias(target))
@@ -139,6 +140,6 @@ if __name__ == '__main__':
     iv = load_inventory(DATE)
     piv = augment(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(piv, ['cd'], target='ad_time')
-    df.write.parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}')
+    df.repartition(1).write.parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}')
     df2 = moving_avg(piv, ['cd'], target='reach')
-    df2.write.parquet(f'{REACH_SAMPLING_PATH}cd={DATE}')
+    df2.repartition(1).write.parquet(f'{REACH_SAMPLING_PATH}cd={DATE}')

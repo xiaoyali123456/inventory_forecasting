@@ -23,7 +23,7 @@ sudo python3 -m pip install \
     frozenlist==1.3.3 \
     fsspec==2023.1.0 \
     h11==0.14.0 \
-    hijri-converter==2.3.0.post1 \
+    hijri-converter==2.3.1 \
     holidays==0.23 \
     idna==3.4 \
     importlib-metadata==6.6.0 \
@@ -36,7 +36,7 @@ sudo python3 -m pip install \
     multidict==6.0.4 \
     numpy==1.21.4 \
     packaging==23.1 \
-    pandas==1.3.5 \
+    pandas==1.2.5 \
     Pillow==9.5.0 \
     prophet==1.1.2 \
     pyarrow==11.0.0 \
