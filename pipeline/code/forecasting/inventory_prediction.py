@@ -25,7 +25,8 @@ def load_dataset(config):
         .withColumn('request_id', F.lit("0")) \
         .cache()
     if config == {}:
-        predict_feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{default_predict_tournament}/all_features_hots_format") \
+        predict_feature_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{predict_tournament}/all_features_hots_format")
+                                                              for predict_tournament in xgb_configuration['predict_tournaments_candidate']]) \
             .withColumn('request_id', F.lit("0")) \
             .cache()
     else:
@@ -50,7 +51,7 @@ def load_dataset(config):
                .selectExpr('tournament', 'estimated_free_num', 'estimated_sub_num'))\
         .cache()
     print(estimated_dau_df.count())
-    estimated_dau_df.orderBy('tournament').show(20, False)
+    # estimated_dau_df.orderBy('tournament').show(20, False)
     return all_feature_df, estimated_dau_df
 
 
@@ -65,6 +66,7 @@ def inventory_forecasting(mask_tag, config):
         parameter_path = f"future_tournaments/cd={DATE}/"
         partition_col = "request_id"
     res_list = []
+    print(all_feature_df.count())
     test_df = all_feature_df \
         .where(f"request_id {filter_str} '0'") \
         .selectExpr('request_id', 'content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
@@ -75,8 +77,10 @@ def inventory_forecasting(mask_tag, config):
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
+    print(test_df.count())
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
+        .fillna(-1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
         .cache()
     test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
@@ -103,6 +107,7 @@ def inventory_forecasting(mask_tag, config):
     new_test_label_df = new_test_label_df \
         .join(parameter_df, ['date', 'content_id']) \
         .cache()
+    print(new_test_label_df.count())
     for configuration in duration_configurations[1:2]:
         total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
         res_df = new_test_label_df \
