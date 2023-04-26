@@ -34,6 +34,7 @@ def load_dataset(config):
         predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}") \
             .cache()
     common_cols = list(set(all_feature_df.columns).intersection(set(predict_feature_df.columns)))
+    print(common_cols)
     all_feature_df = all_feature_df.select(*common_cols)\
         .union(predict_feature_df.select(*common_cols))\
         .cache()
@@ -77,10 +78,12 @@ def inventory_forecasting(mask_tag, config):
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
+    test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
         .fillna(-1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
         .cache()
+    test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
         .cache()
