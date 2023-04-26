@@ -370,14 +370,14 @@ if_free_timer = True
 # predict_au = ""
 predict_au = "avg_au"
 # predict_au = "avg_predicted_au"
-# if_use_predict_au_to_predict_inventory = True
-if_use_predict_au_to_predict_inventory = False
+if_use_predict_au_to_predict_inventory = True
+# if_use_predict_au_to_predict_inventory = False
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
-# prediction_vod_str = ""
-prediction_vod_str = "_svod"
-reach_improve = True
-# reach_improve = False
+prediction_vod_str = ""
+# prediction_vod_str = "_svod"
+# reach_improve = True
+reach_improve = False
 # use_vod_cross = ""
 use_vod_cross = "_vod_cross"
 feature_weights_list = []
@@ -387,6 +387,8 @@ predict_tournaments = ["ac2023", "wc2023"]
 dau_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/"
 # dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
 dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
+masked_tournament_for_au = "ac2022"
+masked_dau_prediction_path = f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/masked/mask={masked_tournament_for_au}/cd=2023-04-11/p0.parquet"
 svod_dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3_if_cwc_svod/cd=2023-04-11"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
@@ -467,6 +469,9 @@ if prediction_vod_str != "":
 if reach_improve:
     test_tournament_list = predict_tournaments
 
+if masked_tournament_for_au != "":
+    test_tournament_list = [masked_tournament_for_au]
+    dau_prediction_path = masked_dau_prediction_path
 
 filter = "\", \"".join(predict_tournaments)
 if not if_use_predict_au_to_predict_inventory:
