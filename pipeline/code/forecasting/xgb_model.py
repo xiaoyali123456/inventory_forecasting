@@ -297,7 +297,7 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
             if config == {}:
                 save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/previous_tournaments/label={label}/tournament={test_tournament}/sample_tag={wc2019_test_tag}")
             else:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/label={label}", partition_col='request_id')
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/label={label}")
             error = metrics.mean_absolute_error(y_test, y_pred)
             y_mean = y_test.mean()
             print(error / y_mean)

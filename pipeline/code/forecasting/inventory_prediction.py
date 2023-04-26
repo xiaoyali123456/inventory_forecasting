@@ -98,6 +98,7 @@ def inventory_forecasting(mask_tag, config):
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
             .drop('tournament', 'sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
         .cache()
+    print(new_test_label_df.count())
     label = 'watch_time_per_free_per_match_with_free_timer'
     parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
         .groupBy('date', 'content_id') \
