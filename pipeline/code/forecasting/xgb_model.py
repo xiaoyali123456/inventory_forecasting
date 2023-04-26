@@ -151,7 +151,7 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
         predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}")
                                                 .withColumn("rand", F.rand(seed=54321))) \
             .cache()
-    if configuration['prediction_svod_tag'] != "":
+    if xgb_configuration['prediction_svod_tag'] != "":
         predict_feature_df = predict_feature_df \
             .withColumn("vod_type_hots", F.array(F.lit(1))) \
             .withColumn("vod_type_hot_vector", F.array(F.lit(1))) \
