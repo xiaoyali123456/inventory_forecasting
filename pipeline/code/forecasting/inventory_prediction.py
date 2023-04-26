@@ -88,20 +88,20 @@ def inventory_forecasting(mask_tag, config):
     new_test_label_df = test_df \
         .withColumn('estimated_variables', F.lit(0)) \
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[0]}")
-            .drop('tournament', 'sample_tag', 'real_' + label_cols[0]), ['request_id', 'date', 'content_id']) \
+            .drop('tournament', 'sample_tag', 'real_' + label_cols[0]), ['date', 'content_id']) \
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
-            .drop('tournament', 'sample_tag', 'real_' + label_cols[2]), ['request_id', 'date', 'content_id']) \
+            .drop('tournament', 'sample_tag', 'real_' + label_cols[2]), ['date', 'content_id']) \
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
-            .drop('tournament', 'sample_tag', 'real_' + label_cols[3]), ['request_id', 'date', 'content_id']) \
+            .drop('tournament', 'sample_tag', 'real_' + label_cols[3]), ['date', 'content_id']) \
         .cache()
     label = 'watch_time_per_free_per_match_with_free_timer'
     parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
-        .groupBy('request_id', 'date', 'content_id') \
+        .groupBy('date', 'content_id') \
         .agg(F.collect_list('estimated_watch_time_per_free_per_match_with_free_timer').alias('estimated_watch_time_per_free_per_match')) \
         .withColumn('estimated_watch_time_per_free_per_match', free_timer_wt_udf('estimated_watch_time_per_free_per_match')) \
         .cache()
     new_test_label_df = new_test_label_df \
-        .join(parameter_df, ['request_id', 'date', 'content_id']) \
+        .join(parameter_df, ['date', 'content_id']) \
         .cache()
     for configuration in duration_configurations[1:2]:
         total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration

@@ -291,7 +291,7 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
             y_pred = model.predict(X_test)
             y_test = test_df[label]
             prediction_df = spark.createDataFrame(
-                pd.concat([test_df[['request_id', 'date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
+                pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
             if config == {}:
