@@ -4,7 +4,6 @@ import pandas as pd
 from prophet import Prophet
 from common import *
 
-
 # generate for [begin+1, end]
 def truth(end):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check

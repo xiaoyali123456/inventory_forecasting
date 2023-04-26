@@ -1,9 +1,7 @@
 from datetime import datetime
 import sys
-from common import *
 import pandas as pd
-import pyspark.sql.functions as F
-from pyspark.sql.types import StringType, TimestampType
+from common import *
 
 @F.udf(returnType=StringType())
 def parse(segments):

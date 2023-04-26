@@ -120,6 +120,7 @@ def augment(df, group_cols, DATE):
     ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
 
 
+# mean error: 0.8%, but max cohort:2.7% vs 3.3%
 def moving_avg(df, group_cols, target, lambda_=0.8):
     cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
