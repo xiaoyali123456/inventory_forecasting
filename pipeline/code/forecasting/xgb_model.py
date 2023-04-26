@@ -13,9 +13,14 @@ def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", 
     else:
         sample_tag = "1, 2"
     if sorting:
-        new_feature_df = feature_df \
-            .where(f'tournament = "{test_tournament}" and sample_tag in (0, {sample_tag})') \
-            .cache()
+        if test_tournament == "":
+            new_feature_df = feature_df \
+                .where(f'sample_tag in (0, {sample_tag})') \
+                .cache()
+        else:
+            new_feature_df = feature_df \
+                .where(f'tournament = "{test_tournament}" and sample_tag in (0, {sample_tag})') \
+                .cache()
     else:
         new_feature_df = feature_df \
             .where(f'tournament != "{test_tournament}" and sample_tag in (0, {sample_tag})') \
@@ -145,6 +150,7 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
                                                       + "/all_features_hots_format" + xgb_configuration['if_simple_one_hot']) for tournament in xgb_configuration['predict_tournaments_candidate']])\
                                                 .withColumn("rand", F.rand(seed=54321))) \
             .withColumn('free_timer', F.lit(1000))\
+            .withColumn('request_id', F.lit("0"))\
             .cache()
     else:
         base_path_suffix = "/prediction/all_features_hots_format" + if_free_timer + xgb_configuration['if_simple_one_hot']
@@ -285,13 +291,13 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
             y_pred = model.predict(X_test)
             y_test = test_df[label]
             prediction_df = spark.createDataFrame(
-                pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
+                pd.concat([test_df[['request_id', 'date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
             if config == {}:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/previous_tournaments/label={label}/tournament={test_tournament}/sample_tag={wc2019_test_tag}")
             else:
-                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/tournament={test_tournament}/label={label}/sample_tag={wc2019_test_tag}")
+                save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/label={label}", partition_col='request_id')
             error = metrics.mean_absolute_error(y_test, y_pred)
             y_mean = y_test.mean()
             print(error / y_mean)
@@ -309,9 +315,9 @@ def main(DATE, config={}, free_time_tag=""):
             model_prediction(DATE, item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
                              wc2019_test_tag=item[1], config=config)
     else:
-        test_tournaments = []
-        for tournament in config:
-            test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
+        test_tournaments = [""]
+        # for tournament in config:
+        #     test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         print(test_tournaments)
         model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
