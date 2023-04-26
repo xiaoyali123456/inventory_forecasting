@@ -26,7 +26,8 @@ def predict(df, holidays):
     return model, forecast
 
 def forecast(end):
-    df = pd.read_parquet(new_path)
+    # df = pd.read_parquet(new_path) # need delay for read data
+    df = spark.read.parquet(new_path).toPandas()
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
