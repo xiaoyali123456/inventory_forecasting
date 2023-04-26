@@ -20,7 +20,7 @@ sleep 5
 # forecasting
 # $SPARK forecasting/active_user_etl_and_predict.py $DATE
 
- $SPARK forecasting/feature.py $DATE
+# $SPARK forecasting/feature.py $DATE
  $SPARK forecasting/xgb_model.py $DATE
  $SPARK forecasting/inventory_prediction.py $DATE
 
