@@ -7,7 +7,7 @@ def load_labels():
     df = load_data_frame(spark, pipeline_base_path + f"/label/inventory")
     # date, content_id, title,
     # total_inventory, total_pid_reach, total_did_reach
-    return df.select('date', 'content_id', 'total_inventory', 'total_pid_reach', 'total_did_reach')
+    return df.select('content_id', 'total_inventory', 'total_pid_reach', 'total_did_reach')
 
 
 def free_timer_wt(wt_list):
@@ -69,7 +69,7 @@ def inventory_forecasting(mask_tag, config):
     print(all_feature_df.count())
     test_df = all_feature_df \
         .where(f"request_id {filter_str} '0'") \
-        .selectExpr('request_id', 'content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
+        .selectExpr('request_id', 'date', 'content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
                     'total_frees_number', 'active_frees_rate as real_active_frees_rate',
                     'frees_watching_match_rate as real_frees_watching_match_rate',
                     'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
