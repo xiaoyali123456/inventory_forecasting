@@ -54,13 +54,15 @@ def predict(df, future):
 # In[ ]:
 
 
-f_dc = {}
+f_vv_dc = {}
 for k in masked_df:
-    _, f_dc[k] = predict(masked_df[k].rename(columns={'vv': 'y'}), df[['ds']])
+    _, f_vv_dc[k] = predict(masked_df[k].rename(columns={'vv': 'y'}), df[['ds']])
 
+f_sub_vv_dc = {}
+for k in masked_df:
+    _, f_sub_vv_dc[k] = predict(masked_df[k].rename(columns={'sub_vv': 'y'}), df[['ds']])
 
 # In[164]:
-
 
 def plot(k='wc2022'):
     x = masked_df[k]
@@ -68,7 +70,7 @@ def plot(k='wc2022'):
     df2 = df.copy()
     df2.loc[x.index, 'vv_train'] = df.loc[x.index].vv
     df2.loc[y.index, 'vv_gt'] = df.loc[y.index].vv
-    df2['vv_hat'] = f_dc[k].yhat
+    df2['vv_hat'] = f_vv_dc[k].yhat
     df2.plot(x='ds', y=['vv_train', 'vv_gt', 'vv_hat'], figsize=(30, 8), alpha=0.7, title=k, grid=True)
 
 
@@ -83,21 +85,22 @@ for k in masked_df:
 
 
 import pickle
-with open('../data/forecast_mask_dc.pkl', 'wb') as fp:
-    pickle.dump(f_dc, fp)
+all_dc = {'f_vv': f_vv_dc, 'f_sub_vv': f_sub_vv_dc}
+with open('v2.pkl', 'wb') as fp:
+    pickle.dump(all_dc, fp)
 
 
 # In[132]:
 
 
-get_ipython().system('aws s3 cp ../data/forecast_mask_dc.pkl s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/archive/DAU_forecast_mask/v1.pkl')
+get_ipython().system('aws s3 cp v2.pkl s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/archive/DAU_forecast_mask/v2.pkl')
 
 
 # In[150]:
 
 
 def mape(k):
-    f = f_dc[k].copy()
+    f = f_vv_dc[k].copy()
     f.ds = f.ds.map(lambda x: x.date().isoformat())
     merge = f.merge(gt[k], on='ds')
     return ((merge.yhat-merge.vv)/merge.vv).abs().mean()
@@ -110,7 +113,7 @@ for k in masked_df:
 
 
 def mape2(k):
-    f = f_dc[k].copy()
+    f = f_vv_dc[k].copy()
     f.ds = f.ds.map(lambda x: x.date().isoformat())
     merge = f.merge(gt[k], on='ds')
     return abs(merge.yhat.sum()-merge.vv.sum())/merge.vv.sum()
@@ -123,7 +126,7 @@ for k in masked_df:
 
 
 k = 'wc2022'
-f = f_dc[k].copy()
+f = f_vv_dc[k].copy()
 f.ds = f.ds.map(lambda x: x.date().isoformat())
 merge = f.merge(gt[k], on='ds')
 pd.concat([merge[['ds', 'yhat', 'vv']], (merge.yhat-merge.vv)/merge.vv], axis=1)
@@ -306,7 +309,17 @@ m.plot_components(f);
 
 
 # In[ ]:
+import pickle
+import os
+pkl = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/archive/DAU_forecast_mask/v1.pkl'
+os.system(f'aws s3 cp {pkl} /tmp')
+with open('/tmp/v2.pkl', 'rb') as fp:
+    all_dc = pickle.load(fp)
 
+for mask in all_dc['f_vv']:
+    f = all_dc['f_vv'][mask]
+    pd.concat([f.ds.rename('cd'), f.yhat.rename('DAU'), all_dc['f_sub_vv'][mask].yhat.rename('subs_DAU')], axis=1) \
+        .to_parquet(f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/masked/mask={mask}/cd=2023-04-11/p0.parquet')
 
-
+test = pd.read_parquet(f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/masked/mask={mask}/cd=2023-04-11/p0.parquet')
 
