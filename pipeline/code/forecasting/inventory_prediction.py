@@ -77,7 +77,6 @@ def inventory_forecasting(mask_tag, config):
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
-    print(test_df.count())
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
         .fillna(-1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
@@ -85,6 +84,8 @@ def inventory_forecasting(mask_tag, config):
     test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
         .cache()
+    print(test_df.count())
+    test_df.select('date', 'content_id').show()
     label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                   'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
     label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/{parameter_path}"
