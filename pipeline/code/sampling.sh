@@ -8,6 +8,6 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
     --py-files common.py"
 
-$SPARK sampling/etl.py $DATE # pandas module not found bug
+$SPARK sampling/etl.py $DATE
 $SPARK sampling/ewma.py $DATE
 $SPARK sampling/combine.py $DATE
