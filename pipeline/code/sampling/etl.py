@@ -110,17 +110,22 @@ def match_filter(s):
 
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
+    # last_cd = '2022-12-01' # debug
     matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
     return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
 
 def main(cd):
+    # cd = '2023-05-01'
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
-        playout = preprocess_playout(spark.read.csv(PLAYOUT_PATH + dt, header=True)) \
-            .where(F.col('content_id').isin(content_ids))
-        process(dt, playout)
+        try:
+            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True)
+            playout = preprocess_playout(raw_playout).where(F.col('content_id').isin(content_ids))
+            process(dt, playout)
+        except:
+            print(dt, 'playout not available')
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
