@@ -139,13 +139,13 @@ def moving_avg(df, time_cols, lambda_=0.8):
     df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in tqdm(df3.columns)], axis=1).shift(1)
     df4.columns.names = cohort_cols
     tail = lambda x: x[10:].sum().sum()
+    invy = df2.groupby(time_cols).ad_time.sum()
     for attention in cohort_cols:
         gt = df3.groupby(level=attention, axis=1).sum()
         pr = df4.groupby(level=attention, axis=1).sum()
         err = pr - gt
         # we may need no fillna since pandas.sum defaultly dropna
-        invy = df2.pivot_table('ad_time', time_cols, attention, aggfunc=sum).fillna(0)
-        invy_err = invy * err
+        invy_err = err.mul(invy, axis=0)
         print(attention,
             'inventory', tail(invy),
             'err', tail(invy_err.abs())/tail(invy),
