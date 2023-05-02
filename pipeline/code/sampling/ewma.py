@@ -138,3 +138,12 @@ if __name__ == '__main__':
     df.to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
     df2 = moving_avg(piv, ['cd'], target='reach')
     df2.to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
+
+
+piv.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/piv_v2.parquet')
+cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
+df2 = piv.fillna('')
+group_cols=['cd']
+target = 'ad_time'
+df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
+piv.to_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/df2_v2.parquet')

@@ -19,7 +19,7 @@ df4.columns.names = cohort_cols
 invy = df2.groupby(time_cols)['ad_time'].sum()
 raw_err = (df4 - df3).mul(invy, axis=0)
 
-tail = lambda x: x[10:].sum().sum()
+tail = lambda x: x[15:].sum().sum() # 10 -> 15, less error
 print('raw_err', tail(raw_err.abs()) / tail(invy)) # 34%
 
 # print error
