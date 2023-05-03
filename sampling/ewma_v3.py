@@ -11,9 +11,13 @@ df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/df2.pa
 
 cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
 df3 = df2.pivot_table(index=time_cols, columns=cohort_cols, values='ad_time_ratio').fillna(0)
-fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
-df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in tqdm(df3.columns)], axis=1).shift(1)
-df4.columns.names = cohort_cols
+
+# This is slow, use the below native method
+# fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the sum
+# df4 = pd.concat([fun.accumulate(df3[x], dtype=object) for x in tqdm(df3.columns)], axis=1).shift(1)
+# df4.columns.names = cohort_cols
+
+df4 = df3.ewm(alpha=1-lambda_, adjust=False).mean().shift(1)
 
 # df3.sort_values(df3.index[-1], axis=1).iloc[:, -1] # view the largest column
 invy = df2.groupby(time_cols)['ad_time'].sum()
