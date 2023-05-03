@@ -17,7 +17,7 @@ fun = np.frompyfunc(lambda x,y: lambda_ * x + (1-lambda_) * y, 2, 1) # x is the 
 df3 = pd.concat([fun.accumulate(df2[x], dtype=object) for x in df2.columns], axis=1).shift(1)
 df4 = df2.ewm(alpha=1-lambda_, adjust=False).mean()
 
-# Spark method
+# Spark method: TODO: messy up
 sdf = spark.createDataFrame(df)
 sdf2 = sdf.withColumn('v', F.col('v') * F.lit(1-lambda_) * F.pow(
         F.lit(lambda_),
