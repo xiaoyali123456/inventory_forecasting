@@ -48,3 +48,26 @@ for attention in cohort_cols:
         new_cols[i] += '_Pr'
     t.columns = new_cols
     print(t.reset_index())
+
+# In[2] Parameter selection
+time_cols = ['cd']
+invy = df2.groupby(time_cols)['ad_time'].sum()
+tail = lambda x: x[15:].sum().sum()
+for alpha in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+    df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
+    raw_err = (df4 - df3).mul(invy, axis=0)
+    print('alpha', alpha, 'raw_err', tail(raw_err.abs()) / tail(invy))
+
+# best parameter
+alpha=0.6
+df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
+for attention in cohort_cols:
+    gt = df3.groupby(level=attention, axis=1).sum()
+    pr = df4.groupby(level=attention, axis=1).sum()
+    err = pr - gt
+    invy_err = err.mul(invy, axis=0)
+    print(attention,
+        'inventory', tail(invy),
+        'err', tail(invy_err.abs())/tail(invy),
+        'sign_err', tail(invy_err))
+
