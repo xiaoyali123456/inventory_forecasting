@@ -604,6 +604,8 @@ else:
     output_folder = ""
 
 print(output_folder)
+match_reach_list = []
+tournament_reach_list = []
 for tournament in tournament_list:
     # if tournament not in ["wc2019", "south_africa_tour_of_india2022", "ac2022", "wc2022"]:
     #     continue
@@ -773,7 +775,21 @@ for tournament in tournament_list:
             .orderBy('date', 'content_id')
     # res_df.show(200, False)
     save_data_frame(res_df, live_ads_inventory_forecasting_root_path + output_folder + f"/final_test_dataset/{data_source}_of_{tournament}")
-    # res_df.groupBy('shortsummary').sum('total_inventory').show(200, False)
+    res_df.groupBy('shortsummary').sum('total_inventory').show(200, False)
     res_df.show(200, False)
     spark.catalog.clearCache()
+#     match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")\
+#         .withColumn('tournament', F.lit(tournament))\
+#         .selectExpr('tournament', 'content_id', 'total_did_reach as match_reach')
+#     tournament_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + output_folder + f"/final_test_dataset/{data_source}_of_{tournament}") \
+#         .selectExpr('tournament', 'match_num', 'total_did_reach as total_reach')
+#     match_reach_list.append(match_df)
+#     tournament_reach_list.append(tournament_df)
+#
+# res_df = reduce(lambda x, y: x.union(y), [df for df in match_reach_list])\
+#     .join(reduce(lambda x, y: x.union(y), [df for df in tournament_reach_list]), 'tournament')\
+#     .where('match_reach > 0')\
+#     .withColumn('reach_rate', F.expr('match_reach/total_reach'))
+# save_data_frame(res_df, live_ads_inventory_forecasting_root_path + output_folder + f"/final_test_dataset/all")
+# res_df.orderBy('tournament').show(2000, False)
 

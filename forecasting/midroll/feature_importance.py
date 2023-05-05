@@ -433,6 +433,7 @@ configuration = {
     # 'if_simple_one_hot': "",
     # 'if_free_timer': "_and_free_timer",
     'if_free_timer': "",
+    'if_reach_rate': True,
     # 'if_hotstar_influence': False,
     'if_hotstar_influence': True,
     # 'if_teams': False,
@@ -497,6 +498,10 @@ if configuration['if_combine_model']:
     large_vals = [0.1, 0.2, 5, 0.4, 0.5, 50]
     if configuration['if_free_timer'] != "":
         label_cols = combine_label_cols[-1:]
+elif configuration['if_reach_rate']:
+    label_cols = ['reach_rate']
+    estimated_label_cols = ['estimated_reach_rate']
+    large_vals = [0.1]
 else:
     if configuration['if_free_timer'] == "":
         label_cols = base_label_cols
@@ -617,34 +622,6 @@ if configuration['if_free_timer'] != "":
         .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(5.0))\
         .cache()
     feature_cols += ["free_timer_hot_vector"]
-else:
-    if not configuration['if_combine_model']:
-        feature_df = feature_df \
-            .withColumn(f"{label_cols[0]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[0]} - {large_vals[0]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[0]}_repeat_num",
-                        F.expr(f'if({label_cols[0]}_repeat_num > 0, {label_cols[0]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[1]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[1]} - {large_vals[1]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[1]}_repeat_num",
-                        F.expr(f'if({label_cols[1]}_repeat_num > 0, {label_cols[1]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[2]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[2]} - {large_vals[2]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[2]}_repeat_num",
-                        F.expr(f'if({label_cols[2]}_repeat_num > 0, {label_cols[2]}_repeat_num, 1)'))\
-            .withColumn(f"{label_cols[3]}_repeat_num",
-                    F.expr(f'1 + cast(({label_cols[3]} - {large_vals[3]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[3]}_repeat_num",
-                        F.expr(f'if({label_cols[3]}_repeat_num > 0, {label_cols[3]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[4]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[4]} - {large_vals[4]})/{repeat_union} as int)')) \
-            .withColumn(f"{label_cols[4]}_repeat_num",
-                        F.expr(f'if({label_cols[4]}_repeat_num > 0, {label_cols[4]}_repeat_num, 1)')) \
-            .withColumn(f"{label_cols[5]}_repeat_num",
-                        F.expr(f'1 + cast(({label_cols[5]} - {large_vals[5]})/{repeat_union * 5} as int)')) \
-            .withColumn(f"{label_cols[5]}_repeat_num",
-                        F.expr(f'if({label_cols[5]}_repeat_num > 0, {label_cols[5]}_repeat_num, 1)'))\
-            .cache()
 
 if configuration['if_make_match_stage_ranked']:
     feature_df = feature_df \
