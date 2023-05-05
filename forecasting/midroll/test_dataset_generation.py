@@ -162,6 +162,7 @@ def get_break_list(playout_df, filter):
 
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
 avg_value_udf = F.udf(avg_value, LongType())
+max_value_udf = F.udf(lambda *args: max(args), LongType())
 strip_udf = F.udf(lambda x: x.strip(), StringType())
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
@@ -592,10 +593,20 @@ def calculate_break_statistics(playout_df):
 #     .orderBy('date', 'content_id')\
 #     .show(200, False)
 
+output_level = "tournament"
+if output_level == "tournament":
+    aggr_cols = ["tournament"]
+    unit_col = 'content_id'
+    output_folder = "/tournament_level"
+else:
+    aggr_cols = ['date', 'content_id']
+    unit_col = 'valid_duration'
+    output_folder = ""
 
+print(output_folder)
 for tournament in tournament_list:
-    if tournament != "ipl2020":
-        continue
+    # if tournament not in ["wc2019", "south_africa_tour_of_india2022", "ac2022", "wc2022"]:
+    #     continue
     print(tournament)
     # if tournament == "wc2019":
     #     save_wc2019_playout_data(tournament)
@@ -607,6 +618,10 @@ for tournament in tournament_list:
     # calculate_break_statistics(playout_df)
     # continue
     match_df, valid_dates, complete_valid_dates = get_match_data(tournament)
+    if valid_dates[0][0] < "2022-03-26":
+        filter_list = [1]
+    else:
+        filter_list = [1, 2, 3]
     if valid_dates[0][0] < "2023-01-01":
         data_source = "watched_video_sampled"
         rate = 4
@@ -662,6 +677,7 @@ for tournament in tournament_list:
         print(f"save watch video for {tournament} done!")
     else:
         watch_video_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path+f"/backup/{data_source}_of_{tournament}")\
+            .withColumn('tournament', F.lit(tournament)) \
             .cache()
         print(f"load watch video for {tournament} done!")
     # watch_video_df\
@@ -670,13 +686,9 @@ for tournament in tournament_list:
     #         F.countDistinct("dw_d_id").alias('total_did_reach'), F.sum('watch_time'))\
     #     .orderBy('content_id')\
     #     .show(1000, False)
-    if valid_dates[0][0] < "2022-03-26":
-        filter_list = [1]
-    else:
-        filter_list = [1, 2, 3]
     for filter in filter_list:
         print(f"filter={filter}")
-        get_break_list(playout_df, filter)
+        # get_break_list(playout_df, filter)
         final_playout_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/break_start_time_data_{filter}_of_{tournament}") \
             .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
             .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
@@ -700,46 +712,68 @@ for tournament in tournament_list:
             # total_concurrency_df.orderBy('date', 'content_id').show(200)
         elif data_source == "watched_video" or data_source == "watched_video_sampled":
             total_inventory_df = watch_video_df\
-                .join(F.broadcast(final_playout_df), ['content_id'])\
+                .join(F.broadcast(final_playout_df), ['content_id']) \
+                .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", '
+                       '"1540019005", "1540019014", "1540019017","1540016333")') \
+                .where('date != "2022-08-24"') \
                 .where('(start_timestamp_int < start_time_int and end_timestamp_int > start_time_int) or (start_timestamp_int >= start_time_int and start_timestamp_int < end_time_int)')\
                 .withColumn('valid_duration', F.expr('if(start_timestamp_int < start_time_int, '
                                                      'if(end_timestamp_int < end_time_int, end_timestamp_int - start_time_int, end_time_int - start_time_int), '
                                                      'if(end_timestamp_int < end_time_int, end_timestamp_int - start_timestamp_int, end_time_int - start_timestamp_int))'))\
                 .withColumn('valid_duration', F.expr('cast(valid_duration as bigint)'))\
-                .groupBy('date', 'content_id')\
+                .groupBy(aggr_cols)\
                 .agg(F.sum('valid_duration').alias('total_duration'),
+                     F.countDistinct(unit_col).alias('match_num'),
                      F.countDistinct("dw_p_id").alias('total_pid_reach'),
                      F.countDistinct("dw_d_id").alias('total_did_reach'))\
                 .withColumn('total_inventory', F.expr(f'cast((total_duration / 10 * {rate}) as bigint)')) \
                 .withColumn('total_pid_reach', F.expr(f'cast((total_pid_reach * {rate}) as bigint)'))\
                 .withColumn('total_did_reach', F.expr(f'cast((total_did_reach * {rate}) as bigint)'))\
                 .cache()
-            save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+            save_data_frame(total_inventory_df, live_ads_inventory_forecasting_root_path + output_folder + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
             # total_inventory_df.where('total_inventory < 0').show()
-            total_inventory_df.orderBy('content_id').show()
+            total_inventory_df.orderBy(aggr_cols).show()
     col_list = []
     inventory_cols = ['total_inventory'+str(filter) for filter in filter_list]
     pid_reach_cols = ['total_pid_reach'+str(filter) for filter in filter_list]
     did_reach_cols = ['total_did_reach'+str(filter) for filter in filter_list]
+    match_num_cols = ['match_num'+str(filter) for filter in filter_list]
     for filter in filter_list:
         col_list.append('total_inventory'+str(filter))
+        col_list.append('match_num'+str(filter))
         col_list.append('total_pid_reach'+str(filter))
         col_list.append('total_did_reach'+str(filter))
-    res_df = match_df.join(reduce(lambda x, y: x.join(y, ['date', 'content_id'], 'left'),
-        [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
-                        .withColumnRenamed('total_inventory', 'total_inventory'+str(filter))
-                        .withColumnRenamed('total_pid_reach', 'total_pid_reach'+str(filter))
-                        .withColumnRenamed('total_did_reach', 'total_did_reach'+str(filter)).drop('total_duration') for filter in filter_list]),
-                  ['date', 'content_id'], 'left')\
-        .fillna(-1, col_list)\
-        .withColumn('total_inventory', avg_value_udf(*inventory_cols))\
-        .withColumn('total_pid_reach', avg_value_udf(*pid_reach_cols))\
-        .withColumn('total_did_reach', avg_value_udf(*did_reach_cols))\
-        .drop(*col_list)\
-        .orderBy('date', 'content_id')
+    if output_level == "tournament":
+        res_df = reduce(lambda x, y: x.join(y, aggr_cols, 'left'),
+            [load_data_frame(spark, live_ads_inventory_forecasting_root_path + output_folder + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+                            .withColumnRenamed('total_inventory', 'total_inventory'+str(filter))
+                            .withColumnRenamed('match_num', 'match_num'+str(filter))
+                            .withColumnRenamed('total_pid_reach', 'total_pid_reach'+str(filter))
+                            .withColumnRenamed('total_did_reach', 'total_did_reach'+str(filter)).drop('total_duration') for filter in filter_list])\
+            .fillna(-1, col_list)\
+            .withColumn('total_inventory', max_value_udf(*inventory_cols))\
+            .withColumn('match_num', max_value_udf(*match_num_cols))\
+            .withColumn('total_pid_reach', max_value_udf(*pid_reach_cols))\
+            .withColumn('total_did_reach', max_value_udf(*did_reach_cols))\
+            .drop(*col_list)
+    else:
+        res_df = match_df.join(reduce(lambda x, y: x.join(y, aggr_cols, 'left'),
+                                      [load_data_frame(spark,
+                                                       live_ads_inventory_forecasting_root_path + output_folder + f"/test_dataset/{data_source}_{filter}_of_{tournament}")
+                                      .withColumnRenamed('total_inventory', 'total_inventory' + str(filter))
+                                      .withColumnRenamed('total_pid_reach', 'total_pid_reach' + str(filter))
+                                      .withColumnRenamed('total_did_reach', 'total_did_reach' + str(filter)).drop(
+                                          'total_duration') for filter in filter_list]),
+                               aggr_cols, 'left') \
+            .fillna(-1, col_list) \
+            .withColumn('total_inventory', avg_value_udf(*inventory_cols)) \
+            .withColumn('total_pid_reach', avg_value_udf(*pid_reach_cols)) \
+            .withColumn('total_did_reach', avg_value_udf(*did_reach_cols)) \
+            .drop(*col_list) \
+            .orderBy('date', 'content_id')
     # res_df.show(200, False)
-    save_data_frame(res_df, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")
-    res_df.groupBy('shortsummary').sum('total_inventory').show(200, False)
+    save_data_frame(res_df, live_ads_inventory_forecasting_root_path + output_folder + f"/final_test_dataset/{data_source}_of_{tournament}")
+    # res_df.groupBy('shortsummary').sum('total_inventory').show(200, False)
     res_df.show(200, False)
     spark.catalog.clearCache()
 
