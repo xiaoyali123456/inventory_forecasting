@@ -1,6 +1,23 @@
-Machine learning solution for inventory forecasting in live ads
+# Machine learning solution for inventory forecasting in live ads
 
-# Storage Path Convention
+## Introduction
+
+* Forecast the inventory for mid-roll advertisements in LIVE sports.
+* [PRD](https://docs.google.com/document/d/1_zpanzORHCbvobC9Xb8zRjq9ra4wcyhM1G9xsuCw23w/edit#heading=h.gjdgxs)
+* [WIKI](https://hotstar.atlassian.net/wiki/spaces/HP2/pages/3742568242/Live+Inventory+Forecasting)
+
+## Code Hierarchy
+
+```
+├── pipeline # code folder in production, others are for experiments
+├── data
+├── density
+├── forecasting
+├── sampling
+└── readme.md
+```
+
+## Storage Path Convention
 
 1. All functions should use CD passed from datapipeline as `current date` for the tasks.
     - Under this rule, the latest source data usually will be on $(CD - 1 Day).
