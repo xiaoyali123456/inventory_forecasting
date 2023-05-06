@@ -16,7 +16,6 @@ df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/tmp/df2_v2
 df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
 df4 = df3.ewm(alpha=0.2, adjust=False).mean().shift(1, fill_value=1/df3.shape[1]) # uniform prior
 
-
 tail = lambda x: x[29:].sum().sum()
 print('raw_err', tail(raw_err.abs()) / tail(invy))
 

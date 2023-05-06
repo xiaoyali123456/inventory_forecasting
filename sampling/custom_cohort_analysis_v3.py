@@ -74,3 +74,5 @@ def process(dt, use_backup=False):
 for dt in pd.date_range('2022-11-08', '2022-11-10'):
     process(str(dt.date()), use_backup=True)
 
+for dt in ['2023-03-22', '2023-02-27']:
+    process(dt, use_backup=False)
