@@ -4,6 +4,8 @@ import pandas as pd
 from prophet import Prophet
 from common import *
 
+# XXX: due to historical reason, `AU` in this project means `VV`
+# TODO: we should consider whether we should refactor this
 # generate for [begin+1, end]
 def truth(end):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
@@ -37,6 +39,7 @@ def forecast(end):
 if __name__ == '__main__':
     rundate = sys.argv[1]
     new_path = f'{DAU_TRUTH_PATH}cd={rundate}/'
+    # TODO: pass new_path to the function instead of global variable
     if not s3.isfile(new_path + '_SUCCESS'):
         truth(rundate)
     forecast(rundate)
