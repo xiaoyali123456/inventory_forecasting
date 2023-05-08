@@ -46,7 +46,7 @@
                     ]
                 }
             ],
-            "customAudienes": [
+            "customAudiences": [
                 {
                     "uploadSource": "ap_tool",
                     "segmentName": "AP_567",
