@@ -207,10 +207,10 @@ def main(mask_tag, config={}):
 
 free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
 
-
-mask_tag = ""
-# mask_tag = "_mask_knock_off"
-DATE=sys.argv[1]
-config = load_requests(DATE)
-main(mask_tag, config)
+if __name__ == '__main__':
+    mask_tag = ""
+    # mask_tag = "_mask_knock_off"
+    DATE=sys.argv[1]
+    config = load_requests(DATE)
+    main(mask_tag, config)
 

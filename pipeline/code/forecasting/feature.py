@@ -3,17 +3,6 @@ from util import *
 from config import *
 
 
-def generate_hot_vector(hots, hots_num):
-    res = [0 for i in range(hots_num)]
-    for hot in hots:
-        if hot >= 0:
-            res[hot] += 1
-    return res
-
-
-generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
-
-
 def simple_title(title):
     title = title.strip().lower()
     if title.find(": ") > -1:
@@ -22,8 +11,8 @@ def simple_title(title):
         title = title.split(", ")[0]
     teams = sorted(title.split(" vs "))
     for i in range(len(teams)):
-        if teams[i] in unvalid_team_mapping:
-            teams[i] = unvalid_team_mapping[teams[i]]
+        if teams[i] in invalid_team_mapping:
+            teams[i] = invalid_team_mapping[teams[i]]
     return teams[0] + " vs " + teams[1]
 
 
@@ -53,7 +42,7 @@ def generate_hot_vector(hots, hots_num):
     return res
 
 
-def add_hots_features(feature_df, type="train", root_path=""):
+def add_categorical_features(feature_df, type="train", root_path=""):
     col_num_dic = {}
     df = feature_df\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
@@ -273,7 +262,7 @@ def generate_prediction_dataset(today, config):
             break_duration = float(match['fixedBreak'] * match['averageBreakDuration'] + match['adhocBreak'] * match['adhocBreakDuration'])
             res.append((request_id, tournament_name, tournament, match_type, vod_type, venue_detail, free_timer,
                         content_id, match_stage, date, year, match_start_time, title, if_holiday, match_duration, break_duration))
-    prediction_df = spark.createDataFrame(res, cols) \
+    feature_df = spark.createDataFrame(res, cols) \
         .withColumn('total_frees_number', F.lit(-1)) \
         .withColumn('total_subscribers_number', F.lit(-1)) \
         .withColumn('active_frees_rate', F.lit(-1.0)) \
@@ -299,7 +288,7 @@ def generate_prediction_dataset(today, config):
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, free_timer)')) \
         .cache()
-    feature_df = add_hots_features(prediction_df, type="test", root_path=pipeline_base_path + f"/dataset")
+    feature_df = add_categorical_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/prediction/all_features_hots_format"
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
@@ -322,6 +311,7 @@ strip_udf = F.udf(lambda x: x.strip(), StringType())
 simple_title_udf = F.udf(simple_title, StringType())
 get_teams_tier_udf = F.udf(get_teams_tier, StringType())
 get_continents_udf = F.udf(get_continents, StringType())
+generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
@@ -338,6 +328,7 @@ additional_cols = ["languages", "platforms"]
 
 # print("argv", sys.argv)
 
-DATE=sys.argv[1]
-config = load_requests(DATE)
-generate_prediction_dataset(DATE, config=config)
+if __name__ == '__main__':
+    DATE=sys.argv[1]
+    config = load_requests(DATE)
+    generate_prediction_dataset(DATE, config=config)

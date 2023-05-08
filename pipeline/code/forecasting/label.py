@@ -127,7 +127,7 @@ def main(spark, date, content_id, tournament_name):
     rate = 1
     wd_path = watch_video_path
     timestamp_col = "ts_occurred_ms"
-    if not check_s3_path_exist(live_ads_inventory_forecasting_root_path+f"/label/{data_source}/tournament={tournament}/contentid={content_id}"):
+    if not check_s3_path_exist(pipeline_base_path+f"/label/{data_source}/tournament={tournament}/contentid={content_id}"):
         watch_video_df = load_data_frame(spark, f"{wd_path}/cd={date}")\
             .withColumn("timestamp", F.expr(f'if(timestamp is null and {timestamp_col} is not null, '
                                f'from_unixtime({timestamp_col}/1000), timestamp)'))\
@@ -185,137 +185,10 @@ def main(spark, date, content_id, tournament_name):
 
 
 def save_base_dataset():
-    tournament_dic = {
-        'sri_lanka_tour_of_india2023': {
-            'tournament_name': 'Sri Lanka Tour of India 2023',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'new_zealand_tour_of_india2023': {
-            'tournament_name': 'New Zealand Tour of India 2023',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'wc2022': {
-            'tournament_name': 'World Cup 2022',
-            'tournament_type': 'International',
-            'match_type': 'T20',
-            'venue': 'Australia',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'ac2022': {
-            'tournament_name': 'Asia Cup 2022',
-            'tournament_type': 'International',
-            'match_type': 'T20',
-            'venue': 'United Arab Emirates',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'south_africa_tour_of_india2022': {
-            'tournament_name': 'South Africa Tour of India 2022',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'west_indies_tour_of_india2022': {
-            'tournament_name': 'West Indies Tour of India 2022',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'ipl2022': {
-            'tournament_name': 'IPL 2022',
-            'tournament_type': 'National',
-            'match_type': 'T20',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'england_tour_of_india2021': {
-            'tournament_name': 'England Tour of India 2021',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'wc2021': {
-            'tournament_name': 'World Cup 2021',
-            'tournament_type': 'International',
-            'match_type': 'T20',
-            'venue': 'United Arab Emirates',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'ipl2021': {
-            'tournament_name': 'IPL 2021',
-            'tournament_type': 'National',
-            'match_type': 'T20',
-            'venue': 'India, United Arab Emirates',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'australia_tour_of_india2020': {
-            'tournament_name': 'Australia Tour of India 2020',
-            'tournament_type': 'Tour',
-            'match_type': 'ODI',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'avod'
-        },
-        'india_tour_of_new_zealand2020': {
-            'tournament_name': 'India Tour of New Zealand 2020',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'New Zealand',
-            'gender_type': 'men',
-            'vod_type': 'avod'
-        },
-        'ipl2020': {
-            'tournament_name': 'IPL 2020',
-            'tournament_type': 'National',
-            'match_type': 'T20',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'svod'
-        },
-        'west_indies_tour_of_india2019': {
-            'tournament_name': 'West Indies Tour India 2019',
-            'tournament_type': 'Tour',
-            'match_type': '',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'avod'},
-        'wc2019': {
-            'tournament_name': 'World Cup 2019',
-            'tournament_type': 'International',
-            'match_type': 'ODI',
-            'venue': 'England',
-            'gender_type': 'men',
-            'vod_type': 'avod'
-        },
-        'ipl2019': {
-            'tournament_name': 'IPL 2019',
-            'tournament_type': 'National',
-            'match_type': 'T20',
-            'venue': 'India',
-            'gender_type': 'men',
-            'vod_type': 'avod'
-        }
-    }
-    tournament_list = [tournament for tournament in tournament_dic]
-    tournament_list.remove('ipl2019')
+    tournament_list = ['sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023', 'wc2022', 'ac2022',
+                       'south_africa_tour_of_india2022', 'west_indies_tour_of_india2022', 'ipl2022',
+                       'england_tour_of_india2021', 'wc2021', 'ipl2021', 'australia_tour_of_india2020',
+                       'india_tour_of_new_zealand2020', 'ipl2020', 'west_indies_tour_of_india2019', 'wc2019']
     for tournament in tournament_list:
         print(tournament)
         data_source = "watched_video_sampled"
@@ -332,6 +205,7 @@ def save_base_dataset():
 
 strip_udf = F.udf(lambda x: x.strip(), StringType())
 
-
-save_base_dataset()
-# main(spark, date, content_id, tournament_name)
+if __name__ == '__main__':
+    # save_base_dataset()
+    date, content_id, tournament_name = sys.argv[1], sys.argv[2], sys.argv[3]
+    main(spark, date, content_id, tournament_name)

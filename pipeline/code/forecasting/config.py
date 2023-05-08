@@ -54,7 +54,7 @@ tiers_dic = {
 }
 
 
-unvalid_team_mapping = {
+invalid_team_mapping = {
         "sl": "sri lanka",
         "eng": "england",
         "ire": "ireland",

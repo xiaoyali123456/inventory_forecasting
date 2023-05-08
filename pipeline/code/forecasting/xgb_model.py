@@ -322,13 +322,13 @@ def main(DATE, config={}, free_time_tag=""):
         model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
 
-DATE=sys.argv[1]
-config = load_requests(DATE)
-# main()
-xgb_configuration['prediction_svod_tag'] = ''
-main(DATE, config=config)
-main(DATE, config=config, free_time_tag="_and_free_timer")
-
-xgb_configuration['prediction_svod_tag'] = '_svod'
-main(DATE, config=config)
-main(DATE, config=config, free_time_tag="_and_free_timer")
+if __name__ == '__main__':
+    DATE = sys.argv[1]
+    config = load_requests(DATE)
+    # main()
+    xgb_configuration['prediction_svod_tag'] = ''
+    main(DATE, config=config)
+    main(DATE, config=config, free_time_tag="_and_free_timer")
+    xgb_configuration['prediction_svod_tag'] = '_svod'
+    main(DATE, config=config)
+    main(DATE, config=config, free_time_tag="_and_free_timer")

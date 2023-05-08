@@ -187,6 +187,24 @@ def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask
             new_feature_df = sub_df
         else:
             new_feature_df = free_df
+    if configuration['if_reach_rate']:
+        reach_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all")\
+            .select('content_id', 'reach_rate', 'match_num') \
+            .cache()
+        # print(new_feature_df.count())
+        new_feature_df = new_feature_df.drop('match_num').join(reach_df, 'content_id', 'left').fillna(-1.0, ['reach_rate'])
+        # print(reach_df.count())
+        # new_feature_df.where('reach_rate < 0').show()
+        if sorting:
+            if test_tournament not in configuration['predict_tournaments']:
+                new_feature_df = new_feature_df.where('reach_rate > 0')
+            else:
+                match_num = new_feature_df.count()
+                new_feature_df = new_feature_df.withColumn('match_num', F.lit(match_num))
+        else:
+            new_feature_df = new_feature_df.where('reach_rate > 0')
+        new_feature_df = new_feature_df\
+            .withColumn("match_num_hot_vector", F.array(F.col('match_num')))
     if sorting:
         df = new_feature_df\
             .orderBy('date', 'content_id') \
@@ -251,7 +269,8 @@ def feature_processing(feature_df):
         .withColumn("sub_tag", F.array(F.lit(1)))\
         .withColumn("free_tag", F.array(F.lit(0)))\
         .withColumn("sub_free_tag_hots_num", F.lit(1))\
-        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))
+        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))\
+        .withColumn("match_num_hots_num", F.lit(1))
 
 
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
@@ -412,9 +431,9 @@ configuration = {
     'tournament_list': "all",
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
-    # 'task': "rate_prediction",
+    'task': "rate_prediction",
     # "task": 'test_prediction',
-    'task': 'prediction_result_save',
+    # 'task': 'prediction_result_save',
     # 'mask_tag': "mask_knock_off",
     'mask_tag': "",
     # 'sample_weight': False,
@@ -451,8 +470,8 @@ configuration = {
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots'],
     #                    ['if_contain_india_team_hot_vector', 'tournament_type_hots'],
     #                    ['match_stage_hots', 'tournament_type_hots']],
-    # 'if_match_num': True,
-    'if_match_num': False,
+    'if_match_num': True,
+    # 'if_match_num': False,
     # 'if_knock_off_rank': True,
     'if_knock_off_rank': False,
     'if_make_match_stage_ranked': False,
@@ -463,8 +482,8 @@ configuration = {
     'if_combine_model': False,
     'au_source': "avg_au",
     # 'au_source': "avg_predicted_au",
-    # 'prediction_free_timer': 1000,
-    'prediction_free_timer': 5,
+    'prediction_free_timer': 1000,
+    # 'prediction_free_timer': 5,
     'end_tag': 0
 }
 match_stage_dic = {
@@ -524,9 +543,8 @@ repeat_num_col = "knock_off_repeat_num"
 mask_condition = 'match_stage in ("final", "semi-final")'
 # path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
 path_suffix = f"/all_features_hots_format_with_{configuration['au_source']}_sub_free_num" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
-match_num_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/match_num").cache()
+# match_num_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/match_num").cache()
 feature_df = feature_processing(load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix))\
-    .join(match_num_df, 'date')\
     .cache()
 
 prediction_cols = load_data_frame(spark,
@@ -673,8 +691,8 @@ selected_cols = ['date', 'content_id'] + feature_cols + label_cols
 error_dic = {}
 print(feature_cols)
 print(feature_num_cols)
-feature_df.where('tournament in ("wc2022")').select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
-predict_feature_df.select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
+# feature_df.where('tournament in ("wc2022")').select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
+# predict_feature_df.select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
 
 
 if configuration['task'] == "rate_prediction":
@@ -774,6 +792,7 @@ else:
     items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
              ([], ["wc2019"], 2),
              (configuration['predict_tournaments'], [], 1)]
+    # items = [([], ["wc2019"], 2)]
     for item in items:
         if configuration['prediction_free_timer'] < 1000 and item[0] == []:
             continue
@@ -797,6 +816,8 @@ else:
                                     'watch_time_per_match': ['reg:squarederror', '65', '0.1', '13']}
             else:
                 best_setting_dic = {'watch_time_per_match': ['reg:squarederror', '61', '0.1', '11']}
+        elif configuration['if_reach_rate']:
+            best_setting_dic = {'reach_rate': ['reg:squarederror', '97', '0.1', '5']}
         elif configuration['au_source'] == "avg_predicted_au":
             if configuration['if_free_timer'] == "":
                 best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
@@ -993,7 +1014,7 @@ else:
                     prediction_df = spark\
                         .createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
                         .withColumn(col_name, F.expr(f'cast({col_name} as float)'))
-                    prediction_df.orderBy('date', 'content_id').show(10, False)
+                    # prediction_df.orderBy('date', 'content_id').show(10, False)
                     save_data_frame(prediction_df,
                                     live_ads_inventory_forecasting_root_path
                                     +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}/sample_tag={sample_tag}")
@@ -1053,14 +1074,21 @@ else:
                 # print(test_error_list2[tournament][5])
             # train_error_df.orderBy('date', 'content_id').show(2000)
             print("")
-            # test_error_df.orderBy('date', 'content_id').show(2000)
+            test_error_df.orderBy('date', 'content_id').show(2000)
             # train_error_df2.orderBy('date', 'content_id').show(2000)
             # test_error_df2.orderBy('date', 'content_id').show(2000)
         else:
             for tournament in res_dic:
                 print(tournament)
                 print(res_dic[tournament])
+    if configuration['task'] == "prediction_result_save":
+        for label in label_cols:
+            df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
+                                +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}")
+                                                 for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]+configuration['predict_tournaments']])
+            df.orderBy('date', 'content_id').show(2000)
     if 'wc2019' in error_dic and len(error_dic['wc2019']) > len(label_cols) - len(configuration['unvalid_labels']):
+        print('wc2019')
         for idx in range(len(label_cols) - len(configuration['unvalid_labels'])):
             item1 = error_dic['wc2019'][idx]
             item2 = error_dic['wc2019'][idx + len(label_cols) - len(configuration['unvalid_labels'])]
