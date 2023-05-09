@@ -3,6 +3,7 @@ import re
 import pyspark.sql.functions as F
 from pyspark.sql.types import StringType
 
+# has SSAI (other sampling result may not have)
 output_root = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata/'
 
 @F.udf(returnType=StringType())
@@ -109,7 +110,6 @@ def custom(segments):
             return '|'.join(res)
     return 'other'
 
-
 def postprocess():
     df = spark.read.parquet(output_root)
     df2 = df.groupby(
@@ -123,3 +123,18 @@ def postprocess():
     ).agg(F.sum('watch_time').alias('watch_time'),
           F.sum('reach').alias('reach'))
     df2.repartition(8).write.mode('overwrite').parquet(f"{output_root.strip('/')}_v3/")
+
+def postprocess2():
+    # check new matches
+    input_lst = ['s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata/tournament=other/']
+    df = spark.read.parquet(*input_lst)
+    df2 = df.groupby('cd', 'is_cricket',
+        'country', 'language', 'platform', 'city', 'state',
+        nccs('segments').alias('nccs'), 
+        device('segments').alias('device'),
+        gender('segments').alias('gender'),
+        age('segments').alias('age'),
+        custom('segments').alias('custom')
+    ).agg(F.sum('watch_time').alias('watch_time'),
+          F.sum('reach').alias('reach'))
+    df2.repartition(8).write.mode('overwrite').parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')

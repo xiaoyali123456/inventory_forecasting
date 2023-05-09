@@ -9,6 +9,13 @@ from pyspark.sql.types import StringType
 
 output_root = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata/'
 watched_video_path = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/'
+WV_TABLE = 'data_lake.watched_video'
+
+spark = SparkSession.builder \
+    .config("spark.sql.hive.convertMetastoreParquet", "false") \
+    .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
+    .enableHiveSupport() \
+    .getOrCreate()
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -51,7 +58,7 @@ def parse(segments):
     return '|'.join(sorted(filtered))
 
 
-def process(dt, tour='wc2022'):
+def process(dt, tour='wc2022', use_backup=True):
     print('process', dt)
     print('begin', pd.datetime.now())
     npar = 32
@@ -59,7 +66,11 @@ def process(dt, tour='wc2022'):
     success_path = f'{final_output_path}_SUCCESS'
     if os.system('aws s3 ls ' + success_path) == 0:
         return
-    wt = spark.read.parquet(watched_video_path + 'cd=' + dt)
+    if use_backup:
+        wt = spark.read.parquet(f'{watched_video_path}cd={dt}/')
+    else:
+        wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
+            .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
     wt1 = wt[['dw_d_id',
         F.expr('lower(genre) == "cricket" as is_cricket'),
         F.expr('lower(language) as language'),
@@ -83,6 +94,10 @@ def batch_process():
     dates = pd.read_json('dates.json')[0]
     for dt in dates:
         process(dt)
+
+def batch_process2():
+    for dt in ['2023-03-17', '2023-03-22']:
+        process(dt, tour='other', use_backup=False)
 
 
 @F.udf(returnType=StringType())
