@@ -112,122 +112,6 @@ def calculate_sub_num_on_target_date(sub_df, user_meta_df, target_date):
     return sub_df.select('dw_p_id').distinct()
 
 
-def estimate_avg_concurrency(match_stage, teams, match_type,
-                             active_frees_rate, frees_watching_match_rate, watch_time_per_free_per_match,
-                             active_subscribers_rate, subscribers_watching_match_rate,
-                             watch_time_per_subscriber_per_match,
-                             avg_india_active_frees_rate, avg_india_frees_watching_match_rate,
-                             avg_india_watch_time_per_free_per_match,
-                             avg_india_active_subscribers_rate, avg_india_subscribers_watching_match_rate,
-                             avg_india_watch_time_per_subscriber_per_match,
-                             avg_stage_1_active_frees_rate, avg_stage_1_frees_watching_match_rate,
-                             avg_stage_1_watch_time_per_free_per_match,
-                             avg_stage_1_active_subscribers_rate, avg_stage_1_subscribers_watching_match_rate,
-                             avg_stage_1_watch_time_per_subscriber_per_match,
-                             avg_stage_2_active_frees_rate, avg_stage_2_frees_watching_match_rate,
-                             avg_stage_2_watch_time_per_free_per_match,
-                             avg_stage_2_active_subscribers_rate, avg_stage_2_subscribers_watching_match_rate,
-                             avg_stage_2_watch_time_per_subscriber_per_match,
-                             avg_sf_active_frees_rate, avg_sf_frees_watching_match_rate,
-                             avg_sf_watch_time_per_free_per_match,
-                             avg_sf_active_subscribers_rate, avg_sf_subscribers_watching_match_rate,
-                             avg_sf_watch_time_per_subscriber_per_match,
-                             avg_final_active_frees_rate, avg_final_frees_watching_match_rate,
-                             avg_final_watch_time_per_free_per_match,
-                             avg_final_active_subscribers_rate, avg_final_subscribers_watching_match_rate,
-                             avg_final_watch_time_per_subscriber_per_match):
-    if match_stage == "semi-final":
-        free_rate = avg_sf_active_frees_rate
-        free_watch_rate = avg_sf_frees_watching_match_rate
-        free_watch_time = avg_sf_watch_time_per_free_per_match
-        sub_rate = avg_sf_active_subscribers_rate
-        sub_watch_rate = avg_sf_subscribers_watching_match_rate
-        sub_watch_time = avg_sf_watch_time_per_subscriber_per_match
-    elif match_stage == "final":
-        free_rate = avg_final_active_frees_rate
-        free_watch_rate = avg_final_frees_watching_match_rate
-        free_watch_time = avg_final_watch_time_per_free_per_match
-        sub_rate = avg_final_active_subscribers_rate
-        sub_watch_rate = avg_final_subscribers_watching_match_rate
-        sub_watch_time = avg_final_watch_time_per_subscriber_per_match
-    elif active_frees_rate > 0:
-        free_rate = active_frees_rate
-        free_watch_rate = frees_watching_match_rate
-        free_watch_time = watch_time_per_free_per_match
-        sub_rate = active_subscribers_rate
-        sub_watch_rate = subscribers_watching_match_rate
-        sub_watch_time = watch_time_per_subscriber_per_match
-    elif teams.find("india") > -1:
-        free_rate = avg_india_active_frees_rate
-        free_watch_rate = avg_india_frees_watching_match_rate
-        free_watch_time = avg_india_watch_time_per_free_per_match
-        sub_rate = avg_india_active_subscribers_rate
-        sub_watch_rate = avg_india_subscribers_watching_match_rate
-        sub_watch_time = avg_india_watch_time_per_subscriber_per_match
-    elif match_stage == "qualifier":
-        free_rate = avg_stage_1_active_frees_rate
-        free_watch_rate = avg_stage_1_frees_watching_match_rate
-        free_watch_time = avg_stage_1_watch_time_per_free_per_match
-        sub_rate = avg_stage_1_active_subscribers_rate
-        sub_watch_rate = avg_stage_1_subscribers_watching_match_rate
-        sub_watch_time = avg_stage_1_watch_time_per_subscriber_per_match
-    else:
-        free_rate = avg_stage_2_active_frees_rate
-        free_watch_rate = avg_stage_2_frees_watching_match_rate
-        free_watch_time = avg_stage_2_watch_time_per_free_per_match
-        sub_rate = avg_stage_2_active_subscribers_rate
-        sub_watch_rate = avg_stage_2_subscribers_watching_match_rate
-        sub_watch_time = avg_stage_2_watch_time_per_subscriber_per_match
-    if match_stage.find("final") > -1 and teams.find("india") > -1:
-        free_rate = min(1.0, free_rate + 0.1)
-        free_watch_rate = min(1.0, free_watch_rate + 0.1)
-        sub_rate = min(1.0, sub_rate + 0.1)
-        sub_watch_rate = min(1.0, sub_watch_rate + 0.1)
-        free_watch_time = free_watch_time * 1.5
-        sub_watch_time = sub_watch_time * 1.5
-    # free_watch_time = min(free_watch_time, 5.0)
-    # avg_concurrency = ((float(total_free_num) * free_rate * free_watch_rate * free_watch_time)
-    #                    + (float(total_sub_num) * sub_rate * sub_watch_rate * sub_watch_time))/total_match_duration_in_minutes
-    res = [free_rate, free_watch_rate, free_watch_time, sub_rate, sub_watch_rate, sub_watch_time]
-    return res
-    # return float(avg_concurrency * 0.8 * (number_of_ad_breaks * average_length_of_a_break_in_seconds / 10.0))
-
-
-# cosine_similarity([[1,1,2,1,1,1,0,0,0]],[[1,1,1,0,1,1,1,1,1]])[0][0]
-def calculate_similarity_between_two_matches(target_feature, feature, feature_num, sub_version):
-    similarity = 0.0
-    if version == "baseline_with_feature_similarity":
-        for i in range(feature_num):
-            similarity += float(cosine_similarity([target_feature[i]], [feature[i]])[0][0])
-        return similarity / feature_num
-    else:
-        for i in range(feature_num):
-            similarity += feature_weights_list[sub_version][i][1] * float(
-                cosine_similarity([target_feature[i]], [feature[i]])[0][0])
-        return similarity
-
-
-def estimate_avg_concurrency_using_feature_similarity(sub_version, *args):
-    similarity_list = []
-    for content_key in valid_feature_dic:
-        similarity_list.append((content_key,
-                                calculate_similarity_between_two_matches(args, valid_feature_dic[content_key],
-                                                                         feature_num, sub_version)))
-    final_similarity_list = sorted(similarity_list, key=lambda content_key: content_key[1], reverse=True)[
-                            :top_N_matches]
-    # print(final_similarity_list)
-    res = [0.0 for i in range(dynamic_parameter_num)]
-    similarity_sum = 0.0
-    for content_key in final_similarity_list:
-        similarity_sum += content_key[1]
-    if similarity_sum == 0.0:
-        similarity_sum = 1.0
-    for content_key in final_similarity_list:
-        res = list(map(lambda x: x[0] + x[1],
-                       zip(res, [content_key[1] / similarity_sum * x for x in valid_parameter_dic[content_key[0]]])))
-    return res
-
-
 def load_wt_features(tournament):
     # df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_checking_result_of_{tournament}") \
     #     .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_checking_result_of_{tournament}")
@@ -322,9 +206,7 @@ def free_timer_wt(wt_list):
 
 
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
-estimate_avg_concurrency_udf = F.udf(estimate_avg_concurrency, ArrayType(FloatType()))
-estimate_avg_concurrency_using_feature_similarity_udf = F.udf(estimate_avg_concurrency_using_feature_similarity,
-                                                              ArrayType(FloatType()))
+
 free_timer_wt_udf = F.udf(free_timer_wt, FloatType())
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
@@ -370,12 +252,12 @@ if_free_timer = True
 # predict_au = ""
 predict_au = "avg_au"
 # predict_au = "avg_predicted_au"
-if_use_predict_au_to_predict_inventory = True
-# if_use_predict_au_to_predict_inventory = False
+# if_use_predict_au_to_predict_inventory = True
+if_use_predict_au_to_predict_inventory = False
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
-prediction_vod_str = ""
-# prediction_vod_str = "_svod"
+# prediction_vod_str = ""
+prediction_vod_str = "_svod"
 # reach_improve = True
 reach_improve = False
 # use_vod_cross = ""
@@ -387,7 +269,8 @@ predict_tournaments = ["ac2023", "wc2023"]
 dau_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/"
 # dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
 dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
-masked_tournament_for_au = "ac2022"
+# masked_tournament_for_au = "ac2022"
+masked_tournament_for_au = ""
 masked_dau_prediction_path = f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/masked/mask={masked_tournament_for_au}/cd=2023-04-11/p0.parquet"
 svod_dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3_if_cwc_svod/cd=2023-04-11"
 sub_pid_did_rate = 0.94
@@ -649,7 +532,7 @@ for test_tournament in test_tournament_list:
                 # print(final_cols)
                 res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
                 save_data_frame(res_df,
-                                live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}{mask_tag}")
+                                live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}{mask_tag}{prediction_vod_str}")
                 # save_data_frame(res_df, live_ads_inventory_forecasting_root_path+f"/test_result_of_{test_tournament}_using_{version}_2")
                 # res_df.select('date', 'title', 'estimated_inventory').show(200, False)
                 # res_df.show(200, False)

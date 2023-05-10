@@ -431,9 +431,9 @@ configuration = {
     'tournament_list': "all",
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
-    'task': "rate_prediction",
+    # 'task': "rate_prediction",
     # "task": 'test_prediction',
-    # 'task': 'prediction_result_save',
+    'task': 'prediction_result_save',
     # 'mask_tag': "mask_knock_off",
     'mask_tag': "",
     # 'sample_weight': False,
@@ -470,8 +470,8 @@ configuration = {
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots'],
     #                    ['if_contain_india_team_hot_vector', 'tournament_type_hots'],
     #                    ['match_stage_hots', 'tournament_type_hots']],
-    'if_match_num': True,
-    # 'if_match_num': False,
+    # 'if_match_num': True,
+    'if_match_num': False,
     # 'if_knock_off_rank': True,
     'if_knock_off_rank': False,
     'if_make_match_stage_ranked': False,
@@ -482,8 +482,8 @@ configuration = {
     'if_combine_model': False,
     'au_source': "avg_au",
     # 'au_source': "avg_predicted_au",
-    'prediction_free_timer': 1000,
-    # 'prediction_free_timer': 5,
+    # 'prediction_free_timer': 1000,
+    'prediction_free_timer': 5,
     'end_tag': 0
 }
 match_stage_dic = {
@@ -817,7 +817,10 @@ else:
             else:
                 best_setting_dic = {'watch_time_per_match': ['reg:squarederror', '61', '0.1', '11']}
         elif configuration['if_reach_rate']:
-            best_setting_dic = {'reach_rate': ['reg:squarederror', '97', '0.1', '5']}
+            if configuration['if_match_num']:
+                best_setting_dic = {'reach_rate': ['reg:squarederror', '77', '0.2', '3']}
+            else:
+                best_setting_dic = {'reach_rate': ['reg:squarederror', '97', '0.1', '5']}
         elif configuration['au_source'] == "avg_predicted_au":
             if configuration['if_free_timer'] == "":
                 best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
@@ -1083,10 +1086,54 @@ else:
                 print(res_dic[tournament])
     if configuration['task'] == "prediction_result_save":
         for label in label_cols:
+            all_tournaments = configuration['predict_tournaments']
+            if configuration['prediction_free_timer'] == 1000:
+                all_tournaments += ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]
+            version = "baseline_with_predicted_parameters"
             df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
                                 +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}")
-                                                 for test_tournament in ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]+configuration['predict_tournaments']])
+                                                 for test_tournament in all_tournaments])
             df.orderBy('date', 'content_id').show(2000)
+            if configuration['if_reach_rate']:
+                load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all") \
+                    .select('content_id', 'match_reach', 'total_reach', 'reach_rate', 'tournament')\
+                    .join(df.select('content_id', 'estimated_reach_rate'), 'content_id')\
+                    .withColumn('estimated_total_reach', F.expr('match_reach/estimated_reach_rate'))\
+                    .groupBy('tournament')\
+                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+                         F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num'))\
+                    .withColumn('error', F.expr('estimated_total_reach/total_reach-1'))\
+                    .show()
+                predicted_reach_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
+                                                                                      + f"/test_result_of_{tournament}_using_{version}{prediction_vod_str.replace('_vod_cross', '')}")
+                                            .withColumn('tournament', F.lit(tournament))
+                                     for tournament in all_tournaments])\
+                    .select('content_id', 'estimated_reach', 'tournament')\
+                    .cache()
+                load_data_frame(spark,
+                                live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all") \
+                    .select('content_id', 'total_reach', 'tournament') \
+                    .join(df.select('content_id', 'estimated_reach_rate'), 'content_id') \
+                    .join(predicted_reach_df, ['content_id', 'tournament']) \
+                    .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
+                    .groupBy('tournament') \
+                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+                         F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num')) \
+                    .withColumn('error', F.expr('estimated_total_reach/total_reach-1')) \
+                    .show()
+                df2 = df\
+                    .select('content_id', 'estimated_reach_rate') \
+                    .join(predicted_reach_df, 'content_id')
+                df3 = df2\
+                    .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
+                    .groupBy('tournament') \
+                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+                         F.count('content_id').alias('match_num'))
+                df2\
+                    .join(df3, 'tournament')\
+                    .withColumn('new_estimated_reach_rate', F.expr('estimated_reach/estimated_total_reach'))\
+                    .orderBy('tournament', 'content_id')\
+                    .show(2000, False)
     if 'wc2019' in error_dic and len(error_dic['wc2019']) > len(label_cols) - len(configuration['unvalid_labels']):
         print('wc2019')
         for idx in range(len(label_cols) - len(configuration['unvalid_labels'])):

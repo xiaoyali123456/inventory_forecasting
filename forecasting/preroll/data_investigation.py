@@ -122,15 +122,49 @@ def save_inventory_raw_data(tournament):
             complete_valid_dates.append(next_date)
     print(complete_valid_dates)
     print(" ".join(complete_valid_dates))
-    # for date in complete_valid_dates:
-    #     if date >= "2023-01-26":
-    #         print(date)
-    #         source_path = f'{shifu_inventory_root_path}/cd={date}'
-    #         target_path = preroll_live_ads_inventory_forecasting_root_path + f"/inventory_data/raw_data/cd={date}"
-    #         os.system(f"aws s3 sync {source_path} {target_path}")
-    #         source_path = f'{shifu_impression_root_path}/cd={date}'
-    #         target_path = preroll_live_ads_inventory_forecasting_root_path + f"/impression_data/raw_data/cd={date}"
-    #         os.system(f"aws s3 sync {source_path} {target_path}")
+
+
+def save_midroll_wv(match_df, complete_valid_dates):
+    print(complete_valid_dates)
+    for tag in tag_dic:
+        watch_df = reduce(lambda x, y: x.union(y),
+                          [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
+                          .withColumn('subscription_status', F.upper(F.col('subscription_status')))
+                          .where(f'subscription_status {tag_dic[tag]} ("ACTIVE", "CANCELLED", "GRACEPERIOD")')
+                          .groupBy('dw_p_id', 'content_id')
+                          .agg(F.sum('watch_time').alias('watch_time'))
+                          .withColumn('date', F.lit(date)) for date in complete_valid_dates]) \
+            .join(match_df, ['content_id']) \
+            .cache()
+        match_active_sub_df = watch_df \
+            .groupBy('content_id') \
+            .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
+                 F.sum('watch_time').alias('total_watch_time')) \
+            .withColumn('avg_watch_time', F.expr('total_watch_time/match_active_sub_num')) \
+            .cache()
+        save_data_frame(match_active_sub_df, live_ads_inventory_forecasting_root_path + f"/{tag}_checking_result_of_{tournament}")
+        print(f"{tournament} midroll {tag} done!")
+
+
+def save_preroll_wv(match_df, complete_valid_dates):
+    complete_valid_dates = filter(lambda date: date <= "2023-02-12" or date >= "2023-03-17", complete_valid_dates)
+    inventory_df = reduce(lambda x, y: x.union(y),
+                      [load_data_frame(spark, f'{preroll_inventory_path}/{date}')
+                          .withColumn('user_account_type', F.upper(F.col('user_account_type')))
+                          .withColumn('ad_placement', F.upper(F.col('ad_placement')))
+                          .where('ad_placement = "PREROLL"')
+                          .withColumn('sub_tag', F.locate('SUBSCRIBED_FREE', F.col('user_account_type')))
+                          .withColumn('sub_tag', F.expr('if(sub_tag>0 or user_account_type="", 0, 1)'))
+                          .select('content_id', 'sub_tag', 'dw_p_id', 'dw_d_id', 'request_id', 'break_id') for date in complete_valid_dates]) \
+        .groupBy('content_id', 'sub_tag')\
+        .agg(F.countDistinct('dw_p_id').alias('pid_reach'),
+             F.countDistinct('dw_d_id').alias('did_reach'),
+             F.countDistinct('request_id').alias('request_num'),
+             F.countDistinct('break_id').alias('break_num'))\
+        .join(match_df, ['content_id']) \
+        .cache()
+    save_data_frame(inventory_df, preroll_live_ads_inventory_forecasting_root_path + f"/date_investigation/reach_and_inventory/{tournament}")
+    print(f"{tournament} preroll done!")
 
 
 check_title_valid_udf = F.udf(check_title_valid, IntegerType())
@@ -138,9 +172,11 @@ check_title_valid_udf = F.udf(check_title_valid, IntegerType())
 
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 preroll_live_ads_inventory_forecasting_root_path = f"{live_ads_inventory_forecasting_root_path}/preroll"
+preroll_inventory_path = f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/raw_data"
 shifu_inventory_root_path = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory/"
 shifu_impression_root_path = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_impression/"
 match_meta_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/match_meta"
+watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
 
 
 # spark.stop()
@@ -176,11 +212,56 @@ match_meta_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/ads_crash/matc
 # match_df.show(200, False)
 # save_data_frame(match_df, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}")
 
-tournament_list = ["new_zealand_tour_of_india2023", "australia_tour_of_india_2023"]
-for tournament in tournament_list:
-    print(tournament)
-    save_inventory_raw_data(tournament)
+# tournament_list = ["new_zealand_tour_of_india2023", "australia_tour_of_india_2023"]
+# for tournament in tournament_list:
+#     print(tournament)
+#     save_inventory_raw_data(tournament)
+tag_dic = {'sub': "in", "free": "not in"}
+tournament = "australia_tour_of_india_2023"
+match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
+valid_dates = match_df.select('date').orderBy('date').distinct().collect()
+# print(valid_dates)
+# print(len(valid_dates))
+complete_valid_dates = [date[0] for date in valid_dates]
+for date in valid_dates:
+    next_date = get_date_list(date[0], 2)[-1]
+    if next_date not in complete_valid_dates:
+        complete_valid_dates.append(next_date)
 
+# save_midroll_wv(match_df, complete_valid_dates)
+# save_preroll_wv(match_df, complete_valid_dates)
+
+
+midroll_df = reduce(lambda x, y: x.union(y),
+                    [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/{tag}_checking_result_of_{tournament}")
+                    .withColumn('sub_tag', F.lit(tag)) for tag in tag_dic])\
+    .withColumn('sub_tag', F.expr('if(sub_tag="free", 0, 1)'))\
+    .cache()
+midroll_df.orderBy('content_id').show(200, False)
+preroll_df = load_data_frame(spark, preroll_live_ads_inventory_forecasting_root_path + f"/date_investigation/reach_and_inventory/{tournament}")\
+    .cache()
+preroll_df.orderBy('content_id').show(200, False)
+
+preroll_df\
+    .join(midroll_df, ['content_id', 'sub_tag'])\
+    .withColumn('reach_bias', F.expr('pid_reach-match_active_sub_num'))\
+    .withColumn('reach_bias_rate', F.expr('reach_bias/match_active_sub_num'))\
+    .withColumn('avg_session', F.expr('break_num/pid_reach'))\
+    .orderBy('content_id', 'sub_tag')\
+    .show(200, False)
+
+
+preroll_df\
+    .join(midroll_df, ['content_id', 'sub_tag'])\
+    .groupBy('content_id')\
+    .agg(F.sum('pid_reach').alias('pid_reach'),
+         F.sum('match_active_sub_num').alias('match_active_sub_num'),
+         F.sum('break_num').alias('break_num'))\
+    .withColumn('reach_bias', F.expr('pid_reach-match_active_sub_num'))\
+    .withColumn('reach_bias_rate', F.expr('reach_bias/match_active_sub_num'))\
+    .withColumn('avg_session', F.expr('break_num/pid_reach'))\
+    .orderBy('content_id')\
+    .show(200, False)
 
 
 
