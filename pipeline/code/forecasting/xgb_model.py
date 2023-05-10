@@ -5,14 +5,15 @@ from config import *
 
 def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", mask_cols=[], mask_condition="", mask_rate=1, wc2019_test_tag=1):
     if test_tournament == "wc2019":
+        # we need to separate matches of wc2029 into training dataset and test dataset
         if sorting:
             sample_tag = wc2019_test_tag
         else:
             sample_tag = 3 - wc2019_test_tag
-            # sample_tag = "1, 2"
     else:
         sample_tag = "1, 2"
     if sorting:
+        # sorting means loading test dataset, otherwise loading training dataset
         if test_tournament == "":
             new_feature_df = feature_df \
                 .where(f'sample_tag in (0, {sample_tag})') \
@@ -32,6 +33,7 @@ def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", 
             .withColumn(repeat_num_col, n_to_array(repeat_num_col))\
             .withColumn(repeat_num_col, F.explode(F.col(repeat_num_col)))
     if mask_cols and mask_rate > 0:
+        # mask features
         new_feature_df = new_feature_df \
             .withColumn('rank_tmp', F.expr('row_number() over (partition by content_id order by date)'))
         for mask_col in mask_cols:
@@ -52,6 +54,7 @@ def load_dataset(feature_df, test_tournament, sorting=False, repeat_num_col="", 
     return df
 
 
+# convert tiers vector-based feature into ordered number
 def enumerate_tiers(tiers_list):
     if 0 in tiers_list:
         return [tiers_list[0] + tiers_list[1]]
@@ -59,6 +62,7 @@ def enumerate_tiers(tiers_list):
         return [tiers_list[0] + tiers_list[1] + 1]
 
 
+# generate cross features
 def cross_features(dim, *args):
     res = [0 for i in range(dim)]
     idx = 1
@@ -98,9 +102,6 @@ def feature_processing(feature_df):
         .withColumn("knock_rank_hot_vector", F.array(F.col('knock_rank'))) \
         .withColumn("knock_rank_hots_num", F.lit(1)) \
         .withColumn("sample_tag", F.expr('if(tournament="wc2019", if(match_stage="group", if(rand<0.5, 1, 2), if(match_rank<=1, 1, 2)), 0)')) \
-        .withColumn("sub_tag", F.array(F.lit(1))) \
-        .withColumn("free_tag", F.array(F.lit(0))) \
-        .withColumn("sub_free_tag_hots_num", F.lit(1)) \
         .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))\
         .where('date != "2022-08-24" and tournament != "ipl2019"')
 
@@ -135,9 +136,10 @@ mask_condition = 'match_stage in ("final", "semi-final")'
 mask_cols = []
 
 
-def load_train_and_prediction_dataset(DATE, config, if_free_timer):
+def load_training_and_prediction_dataset(DATE, config, if_free_timer):
     base_label_cols = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
                        'active_subscribers_rate', 'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
+    # label setting
     if if_free_timer == "":
         label_cols = base_label_cols
     else:
@@ -146,6 +148,7 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
     feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))\
         .cache()
     if config == {}:
+        # predicting matches are existing dataset
         predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
                                                       + "/all_features_hots_format" + xgb_configuration['if_simple_one_hot']) for tournament in xgb_configuration['predict_tournaments_candidate']])\
                                                 .withColumn("rand", F.rand(seed=54321))) \
@@ -153,24 +156,23 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
             .withColumn('request_id', F.lit("0"))\
             .cache()
     else:
+        # predicting matches are from api request
         base_path_suffix = "/prediction/all_features_hots_format" + if_free_timer + xgb_configuration['if_simple_one_hot']
         predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}")
                                                 .withColumn("rand", F.rand(seed=54321))) \
             .cache()
     if xgb_configuration['prediction_svod_tag'] != "":
+        # make matches svod
         predict_feature_df = predict_feature_df \
             .withColumn("vod_type_hots", F.array(F.lit(1))) \
             .withColumn("vod_type_hot_vector", F.array(F.lit(1))) \
             .cache()
-    one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                    'match_type', 'tournament_name', 'hostar_influence',
-                    'match_stage', 'vod_type']
-    multi_hot_cols = ['teams', 'continents', 'teams_tier']
-    additional_cols = ["languages", "platforms"]
+    one_hot_features = one_hot_cols.copy()
+    multi_hot_features = multi_hot_cols.copy()
     if not xgb_configuration['if_hotstar_influence']:
-        one_hot_cols.remove('hostar_influence')
+        one_hot_features.remove('hostar_influence')
     if not xgb_configuration['if_teams']:
-        multi_hot_cols.remove('teams')
+        multi_hot_features.remove('teams')
     if xgb_configuration['if_improve_ties']:
         feature_df = feature_df \
             .withColumn("teams_tier_hot_vector", enumerate_tiers_udf('teams_tier_hots')) \
@@ -182,9 +184,9 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
             .cache()
     mask_features = ['if_contain_india_team']
     if xgb_configuration['if_cross_features']:
+        # generate cross features
         for idx in range(len(xgb_configuration['cross_features'])):
             feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in xgb_configuration['cross_features'][idx]])
-            # print(feature_dim)
             feature_df = feature_df \
                 .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
                 .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *xgb_configuration['cross_features'][idx])) \
@@ -195,15 +197,13 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
                 .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *xgb_configuration['cross_features'][idx])) \
                 .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(xgb_configuration['cross_features'][idx][1:]))) \
                 .cache()
-            one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
+            one_hot_features = [f'cross_features_{idx}'] + one_hot_features
             mask_features.append(f'cross_features_{idx}')
-            # feature_df.select(f"cross_features_{idx}_hots_num", f"cross_features_{idx}_hot_vector").show(20, False)
     global mask_cols
-    mask_cols = [col+"_hot_vector" for col in multi_hot_cols + mask_features]
-    feature_cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols]
-    if xgb_configuration['if_contains_language_and_platform']:
-        feature_cols += [col+"_hot_vector" for col in additional_cols]
+    mask_cols = [col+"_hot_vector" for col in multi_hot_features + mask_features]
+    feature_cols = [col+"_hot_vector" for col in one_hot_features+multi_hot_features]
     if if_free_timer != "":
+        # set free timer feature
         feature_df = feature_df \
             .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
             .withColumn("free_timer_hots_num", F.lit(1)) \
@@ -215,20 +215,20 @@ def load_train_and_prediction_dataset(DATE, config, if_free_timer):
             .cache()
         feature_cols += ["free_timer_hot_vector"]
     if xgb_configuration['prediction_svod_tag'] != "":
+        # set free timer feature for svod matches
         predict_feature_df = predict_feature_df \
             .withColumn("free_timer_hot_vector", F.array(F.lit(xgb_configuration['default_svod_free_timer'])))\
             .cache()
     return feature_df, predict_feature_df, feature_cols, label_cols
 
 
-def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", wc2019_test_tag=1, config={}):
+def model_training_and_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", wc2019_test_tag=1, config={}):
     res_dic = {}
-    train_error_list2 = {}
-    test_error_list2 = {}
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = feature_df.select(*feature_num_cols).distinct().collect()
     labeled_tournaments = [item[0] for item in feature_df.select('tournament').distinct().collect()]
     print(label_cols)
+    # parameter setting from grid search
     best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
                         'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
                         'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
@@ -255,6 +255,7 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1)
         print(len(train_df))
         print(len(test_df))
+        # explode a vector-based feature into multiple one-single-value features
         multi_col_df = []
         for i in range(len(feature_cols)):
             index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
@@ -265,14 +266,10 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
             index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
             multi_col_df.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
         X_test = pd.concat(multi_col_df, axis=1)
-        train_error_list2[test_tournament] = []
-        test_error_list2[test_tournament] = []
         for label in label_cols:
-            # print("")
             if label in xgb_configuration['unvalid_labels']:
                 continue
             print(label)
-            # for prediction start
             object_method, n_estimators, learning_rate, max_depth = best_setting_dic[label]
             n_estimators = int(n_estimators)
             learning_rate = float(learning_rate)
@@ -306,29 +303,30 @@ def model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, fea
 
 
 def main(DATE, config={}, free_time_tag=""):
-    feature_df, predict_feature_df, feature_cols, label_cols = load_train_and_prediction_dataset(DATE, config, if_free_timer=free_time_tag)
+    feature_df, predict_feature_df, feature_cols, label_cols = load_training_and_prediction_dataset(DATE, config, if_free_timer=free_time_tag)
     if config == {}:
+        # model train and test for existing matches
         items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
                  (["wc2019"], 2),
                  (["wc2023"], 1)]
         for item in items:
-            model_prediction(DATE, item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
+            model_training_and_prediction(DATE, item[0], feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="",
                              wc2019_test_tag=item[1], config=config)
     else:
+        # model train and test for new matches from api request
         test_tournaments = [""]
-        # for tournament in config:
-        #     test_tournaments.append(tournament['seasonName'].replace(" ", "_").lower())
         print(test_tournaments)
-        model_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
+        model_training_and_prediction(DATE, test_tournaments, feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", config=config)
 
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
     config = load_requests(DATE)
-    # main()
+    # model train and test for matches
     xgb_configuration['prediction_svod_tag'] = ''
     main(DATE, config=config)
     main(DATE, config=config, free_time_tag="_and_free_timer")
+    # model train and test for matches assuming svod type
     xgb_configuration['prediction_svod_tag'] = '_svod'
     main(DATE, config=config)
     main(DATE, config=config, free_time_tag="_and_free_timer")

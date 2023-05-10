@@ -3,6 +3,7 @@ from util import *
 from config import *
 
 
+# get break list of a specific content with break_start_time, break_end_time
 def get_break_list(playout_df, filter, tournament):
     cols = ['content_id', 'start_time', 'end_time', 'delivered_duration']
     if filter == 1:
@@ -162,8 +163,8 @@ def main(spark, date, content_id, tournament_name):
             .withColumn('duration', F.expr('end_time_int-start_time_int'))\
             .where('duration > 0 and duration < 3600')\
             .cache()
-        # final_playout_df.where('content_id="1540009340"').orderBy('start_time_int').show(1000, False)
         print(final_playout_df.count())
+        # calculate inventory and reach, need to extract the common intervals for each users
         total_inventory_df = watch_video_df\
             .join(F.broadcast(final_playout_df), ['content_id'])\
             .where('(start_timestamp_int < start_time_int and end_timestamp_int > start_time_int) or (start_timestamp_int >= start_time_int and start_timestamp_int < end_time_int)')\
@@ -180,7 +181,6 @@ def main(spark, date, content_id, tournament_name):
             .withColumn('total_did_reach', F.expr(f'cast((total_did_reach * {rate}) as bigint)'))\
             .cache()
         save_data_frame(total_inventory_df, pipeline_base_path + f"/label/inventory/tournament={tournament}/contentid={content_id}")
-        # total_inventory_df.where('total_inventory < 0').show()
         total_inventory_df.orderBy('content_id').show()
 
 

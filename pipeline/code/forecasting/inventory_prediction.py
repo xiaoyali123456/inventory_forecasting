@@ -5,8 +5,6 @@ from config import *
 
 def load_labels():
     df = load_data_frame(spark, pipeline_base_path + f"/label/inventory")
-    # date, content_id, title,
-    # total_inventory, total_pid_reach, total_did_reach
     return df.select('content_id', 'total_inventory', 'total_pid_reach', 'total_did_reach')
 
 
@@ -38,6 +36,7 @@ def load_dataset(config):
     all_feature_df = all_feature_df.select(*common_cols)\
         .union(predict_feature_df.select(*common_cols))\
         .cache()
+    # load avg dau data
     estimated_dau_df = all_feature_df\
         .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
         .distinct()\
@@ -49,23 +48,21 @@ def load_dataset(config):
                .groupBy('tournament')
                .agg(F.avg('estimated_free_num').alias('estimated_free_num'),
                     F.avg('estimated_sub_num').alias('estimated_sub_num'))
-               .withColumn('estimated_free_num', F.lit(35315704.93))
-               .withColumn('estimated_sub_num', F.lit(14764408.23))
                .selectExpr('tournament', 'estimated_free_num', 'estimated_sub_num'))\
         .cache()
     print(estimated_dau_df.count())
-    # 35315704.93	14764408.23
-    # estimated_dau_df.orderBy('tournament').show(20, False)
     return all_feature_df, estimated_dau_df
 
 
 def inventory_forecasting(mask_tag, config):
     all_feature_df, estimated_dau_df = load_dataset(config)
     if config == {}:
+        # inventory forecasting for existing matches
         filter_str = "="
         parameter_path = "previous_tournaments/"
         partition_col = "tournament"
     else:
+        # inventory forecasting for new matches from api request
         filter_str = "!="
         parameter_path = f"future_tournaments/cd={DATE}/"
         partition_col = "request_id"
@@ -73,7 +70,7 @@ def inventory_forecasting(mask_tag, config):
     print(all_feature_df.count())
     test_df = all_feature_df \
         .where(f"request_id {filter_str} '0'") \
-        .selectExpr('request_id', 'date', 'content_id', 'title', 'rank', 'teams', 'tournament', 'match_stage',
+        .selectExpr('request_id', 'date', 'content_id', 'title', 'rank', 'teams', 'tournament', 'vod_type',
                     'total_frees_number', 'active_frees_rate as real_active_frees_rate',
                     'frees_watching_match_rate as real_frees_watching_match_rate',
                     'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
@@ -81,12 +78,10 @@ def inventory_forecasting(mask_tag, config):
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
-    # test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
         .fillna(1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
         .cache()
-    # test_df.select('date', 'content_id').show()
     test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
         .cache()
@@ -98,15 +93,13 @@ def inventory_forecasting(mask_tag, config):
     svod_label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}_svod/{parameter_path}"
     useless_cols = ['tournament', 'sample_tag']
     common_cols = ['date', 'content_id']
-    # print(first_match_date)
+    # load parameters predicted by xgb models
     new_test_label_df = test_df \
-        .withColumn('estimated_variables', F.lit(0)) \
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
             .drop(*useless_cols, 'real_' + label_cols[2]), common_cols) \
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
             .drop(*useless_cols, 'real_' + label_cols[3]), common_cols) \
         .cache()
-    # print(new_test_label_df.count())
     svod_free_rate_df = load_data_frame(spark, f"{svod_label_path}/label={label_cols[0]}") \
         .drop(*useless_cols, 'real_' + label_cols[0]) \
         .selectExpr(*common_cols, f'estimated_{label_cols[0]} as svod_rate')
@@ -116,9 +109,10 @@ def inventory_forecasting(mask_tag, config):
     new_test_label_df = new_test_label_df \
         .join(svod_free_rate_df
               .join(mix_free_rate_df, common_cols)
-              .withColumn(f'estimated_{label_cols[0]}', F.expr('(mix_rate - 0.25 * svod_rate)/0.75'))
-              .drop('svod_rate', 'mix_rate'),
+              .withColumn('avod_rate', F.expr('(mix_rate - 0.25 * svod_rate)/0.75'))
+              .drop('mix_rate'),
               common_cols) \
+        .withColumn(f'estimated_{label_cols[0]}', F.expr('if(vod_type="avod", avod_rate, svod_rate)'))\
         .cache()
     label = 'watch_time_per_free_per_match_with_free_timer'
     parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
@@ -175,6 +169,7 @@ def inventory_forecasting(mask_tag, config):
 
 def main(mask_tag, config={}):
     res_list = inventory_forecasting(mask_tag=mask_tag, config=config)
+    # aggregate and outpur forecasting results
     tournament_dic = {
         "wc2023": -2,
         "ac2023": -1,

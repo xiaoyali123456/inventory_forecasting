@@ -74,8 +74,6 @@ xgb_configuration = {
     'sample_weight': True,
     'unvalid_labels': ['active_frees_rate', 'active_subscribers_rate'],
     # 'unvalid_labels': [],
-    # 'if_contains_language_and_platform': True,
-    'if_contains_language_and_platform': False,
     'if_improve_ties': True,
     # 'if_improve_ties': False,
     'if_simple_one_hot': "_and_simple_one_hot",
@@ -96,6 +94,10 @@ xgb_configuration = {
     'default_svod_free_timer': 5,
     'end_tag': 0
 }
+
+one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'vod_type']
+multi_hot_cols = ['teams', 'continents', 'teams_tier']
+additional_cols = ["languages", "platforms"]
 
 
 duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]

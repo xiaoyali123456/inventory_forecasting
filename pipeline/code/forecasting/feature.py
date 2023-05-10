@@ -3,6 +3,7 @@ from util import *
 from config import *
 
 
+# remove invalid char in title
 def simple_title(title):
     title = title.strip().lower()
     if title.find(": ") > -1:
@@ -16,6 +17,7 @@ def simple_title(title):
     return teams[0] + " vs " + teams[1]
 
 
+# get continents for teams
 def get_continents(teams, tournament_type):
     teams = teams.split(" vs ")
     if tournament_type == "national":
@@ -26,6 +28,7 @@ def get_continents(teams, tournament_type):
         return ""
 
 
+# get tiers for teams
 def get_teams_tier(teams):
     teams = teams.split(" vs ")
     if teams[0] in tiers_dic and teams[1] in tiers_dic:
@@ -34,6 +37,7 @@ def get_teams_tier(teams):
         return ""
 
 
+# hots_num indicates the dimension of the vector
 def generate_hot_vector(hots, hots_num):
     res = [0 for i in range(hots_num)]
     for hot in hots:
@@ -42,14 +46,15 @@ def generate_hot_vector(hots, hots_num):
     return res
 
 
+# convert string-based features to vector-based features
 def add_categorical_features(feature_df, type="train", root_path=""):
     col_num_dic = {}
     df = feature_df\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
         .cache()
     df.groupBy('tournament').count().orderBy('tournament').show()
-    # save_data_frame(df, root_path + "/base_features")
     print(df.count())
+    # multi_hot_cols = ['teams', 'continents', 'teams_tier'], which means the hot number > 1
     for col in multi_hot_cols:
         print(col)
         df2 = df\
@@ -58,6 +63,7 @@ def add_categorical_features(feature_df, type="train", root_path=""):
             .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))\
             .cache()
         if type == "train":
+            # save the feature mappings from string to index
             col_df = df2 \
                 .select(f"{col}_item") \
                 .distinct() \
@@ -69,11 +75,7 @@ def add_categorical_features(feature_df, type="train", root_path=""):
             save_data_frame(col_df, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col)
         col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
-        # print(col_num)
         col_num_dic[col] = col_num
-        # unvalid_num = df2.select('tournament', 'rank', f"{col}_item").join(col_df, f"{col}_item", 'left').where(f"{col}_hots is null").count()
-        # if unvalid_num > 0:
-        #     print(unvalid_num)
         df = df\
             .join(df2
                   .select('tournament', 'rank', f"{col}_item")
@@ -82,24 +84,20 @@ def add_categorical_features(feature_df, type="train", root_path=""):
                   .groupBy('tournament', 'rank')
                   .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'rank']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
-        # print(df.count())
     save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots_simple")
     print("multi hots feature simple processed done!")
     df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots_simple").cache()
-    # df.show()
     for col in multi_hot_cols:
         print(col)
-        # df.select(f"{col}_hots", f"{col}_hots_num").show(20, False)
-        df = df\
-            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
-        # df.show()
-    # print(df.count())
+        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
     save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots")
     print("multi hots feature processed done!")
     df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots").cache()
+    # one hot means the hot number > 1
     for col in one_hot_cols:
         print(col)
         if type == "train":
+            # save the feature mappings from string to index
             col_df = df\
                 .select(col)\
                 .distinct()\
@@ -112,11 +110,7 @@ def add_categorical_features(feature_df, type="train", root_path=""):
         col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
         col_num = col_df.count()
         col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
-        # print(col_num)
         col_num_dic[col] = col_num
-        # unvalid_num = df.join(col_df, col, 'left').where(f"{col}_hots is null").count()
-        # if unvalid_num > 0:
-        #     print(unvalid_num)
         df = df\
             .join(col_df, col, 'left') \
             .fillna(-1, [f'{col}_hots']) \
@@ -137,7 +131,6 @@ def add_categorical_features(feature_df, type="train", root_path=""):
 def main(spark, date, content_id, tournament_name, match_type,
          venue, match_stage, gender_type, vod_type, match_start_time_ist):
     spark.stop()
-    # os.system('pip install --upgrade holidays')
     spark = hive_spark('statistics')
     match_df = load_hive_table(spark, "in_cms.match_update_s3")\
         .where(f'content_id = "{content_id}"')\
@@ -205,9 +198,9 @@ def main(spark, date, content_id, tournament_name, match_type,
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, 5)')) \
         .cache()
-    feature_df = add_hots_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
+    feature_df = add_categorical_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/all_features_hots_format"
-    # save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={date}/contentid={content_id}")
+    # convert the feature with only 2 candidates into a vector with length=1
     for col in one_hot_cols:
         if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
             print(col)
@@ -313,12 +306,6 @@ get_teams_tier_udf = F.udf(get_teams_tier, StringType())
 get_continents_udf = F.udf(get_continents, StringType())
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 
-
-one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                'match_type', 'tournament_name', 'hostar_influence',
-                'match_stage', 'vod_type', 'gender_type']
-multi_hot_cols = ['teams', 'continents', 'teams_tier']
-additional_cols = ["languages", "platforms"]
 
 # save_base_dataset("")
 # save_base_dataset("_and_simple_one_hot")
