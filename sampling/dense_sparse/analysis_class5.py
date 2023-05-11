@@ -1,4 +1,3 @@
-# use WC2022 to forecast future tournament
 import pandas as pd
 
 replace = {
@@ -53,10 +52,6 @@ replace = {
     'gender': {
         'm': 'male',
         'other': 'female',
-    },
-    'custom': {
-        '': 'other',
-        'other': None,
     },
     'state': {
         'up': 'Uttar Pradesh + Uttarakhand',
@@ -148,9 +143,17 @@ most_possible = dict([
     ('other','other'),
 ])
 
+def classisfy(rank, thd1=0.05, thd2=0.2):
+    if rank <= thd1:
+        return 'super_dense'
+    elif rank <= thd1 + thd2:
+        return 'dense'
+    else:
+        return 'sparse'
+
 def fix_state(row):
     city, state = row
-    if (city, state) in possible_geo:
+    if (city, state) in most_possible:
         return state
     return most_possible.get(city, 'other')
 
@@ -167,13 +170,22 @@ def merge(df):
     df2['state'] = df2[['city', 'state']].apply(fix_state, axis=1)
     return df2
 
-def classisfy(rank, thd1=0.05, thd2=0.2):
-    if rank <= thd1:
-        return 'super_dense'
-    elif rank <= thd1 + thd2:
-        return 'dense'
-    else:
-        return 'sparse'
+def confusion(df, truth='class4_truth', forecast='class4_forecast'):
+    gr = df.groupby(['cd', truth, forecast]).agg(
+        reach=('reach_truth', 'sum'),
+        num=('reach_truth', 'size')
+    ).reset_index()
+    gr['reach%'] = gr.reach / gr.groupby('cd').reach.transform(sum)
+    gr['num%'] = gr.num / gr.groupby('cd').num.transform(sum)
+    classes = ['super_dense', 'dense', 'sparse']
+    metrics = ['reach%', 'num%', 'reach', 'num']
+    piv = gr.pivot_table(
+        index=['cd', truth],
+        columns=[forecast],
+        values=metrics
+    ).fillna(0)
+    piv2 = piv.reindex(classes, level=truth).reindex(columns=metrics, level=0).reindex(columns=classes, level=1)
+    return piv2
 
 def rank(df, group):
     df = df.loc[df.is_cricket&~df.is_cricket.isna()]
@@ -185,27 +197,25 @@ def rank(df, group):
     df3 = df2.groupby(group).reach.sum().reset_index()
     # TODO: we fix `cd` here
     df3['rank'] = df3.groupby('cd').reach.rank(method='first', ascending=False, pct=True)
-    df3['class'] = df3['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
+    df3['class'] = df3['rank'].map(lambda x:classisfy(x, 0.02, 0.3))
+    return df3
 
-
-h = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/')
-
-
-df2 = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')
-df2 = df2[df2.is_cricket&~df2.is_cricket.isna()]
-df2.reach *= 4
-df2.watch_time *= 4
-
-df3 = merge(df2)
-df3['custom'] = df3['custom'].map(clean)
-df3.cd = df3.cd.map(str)
 
 basic = ['platform', 'language', 'city', 'state', 'age', 'device', 'gender']
-df5 = df3.groupby(['cd'] + basic).reach.sum().reset_index()
-df5['rank'] = df5.groupby(['cd']).reach.rank(method='first', ascending=False, pct=True)
-df5['class'] = df5['rank'].map(lambda x:classisfy(x, 0.02, 0.2))
+ext = basic + ['custom']
 
+old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')
+old.cd = old.cd.map(str)
+old = old.loc[old.cd == '2022-09-11']
+old2 = rank(old, ['cd'] + basic)
+old2.drop(columns='cd', inplace=True)
 
+neo = pd.read_parquet('s3://s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/')
+neo.cd = neo.cd.map(str)
+neo2 = rank(neo.loc[neo.cd>'2022-11-01'], ['cd'] + basic)
 
+mix = neo2.merge(old2, on=basic, how='left', suffixes=['_truth', '_forecast'])
+cf = confusion(mix, 'class_truth', 'class_forecast') 
 
-
+print(cf.mean(level=1).to_csv())
+print(cf.to_csv())

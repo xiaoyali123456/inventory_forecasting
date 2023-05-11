@@ -96,8 +96,8 @@ def batch_process():
         process(dt)
 
 def batch_process2():
-    for dt in ['2023-03-17', '2023-03-22']:
-        process(dt, tour='other', use_backup=False)
+    for dt in ['2022-09-11']:
+        process(dt, tour='other', use_backup=True)
 
 
 @F.udf(returnType=StringType())
