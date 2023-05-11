@@ -137,4 +137,4 @@ def postprocess2():
         custom('segments').alias('custom')
     ).agg(F.sum('watch_time').alias('watch_time'),
           F.sum('reach').alias('reach'))
-    df2.repartition(8).write.mode('overwrite').parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')
+    df2.repartition(8).write.mode('overwrite').parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v5/')

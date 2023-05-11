@@ -96,7 +96,11 @@ def batch_process():
         process(dt)
 
 def batch_process2():
-    for dt in ['2022-09-11']:
+    for dt in [
+        '2022-09-07',
+        '2022-09-08',
+        '2022-09-09',
+    ]:
         process(dt, tour='other', use_backup=True)
 
 

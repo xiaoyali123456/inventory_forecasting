@@ -206,26 +206,19 @@ ext = basic + ['custom']
 
 # old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')
 old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v5/')
-old.cd = old.cd.map(str)
-old = old.loc[old.cd <= '2022-09-11']
-old2 = rank(old, ['cd']+basic).groupby(basic).mean().reset_index()
-old2['rank'] = old2.reach.rank(method='first', ascending=False, pct=True)
-old2['class'] = old2['rank'].map(lambda x:classisfy(x, 0.02, 0.3))
-
 neo = pd.read_parquet('s3://s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/')
+old.cd = old.cd.map(str)
 neo.cd = neo.cd.map(str)
-neo2 = rank(neo.loc[neo.cd>'2022-11-01'], ['cd'] + basic)
 
-mix = neo2.merge(old2, on=basic, how='left', suffixes=['_truth', '_forecast'])
-cf = confusion(mix, 'class_truth', 'class_forecast') 
+def compare(old, neo):
+    old2 = rank(old, ['cd']+basic).groupby(basic).mean().reset_index()
+    old2['rank'] = old2.reach.rank(method='first', ascending=False, pct=True)
+    old2['class'] = old2['rank'].map(lambda x:classisfy(x, 0.02, 0.3))
+    neo2 = rank(neo, ['cd'] + basic)
+    mix = neo2.merge(old2, on=basic, how='left', suffixes=['_truth', '_forecast'])
+    cf = confusion(mix, 'class_truth', 'class_forecast') 
+    print(cf.max(level=1).to_csv())
 
-print(cf.mean(level=1).to_csv())
-print(cf.to_csv())
-
-# analyze peak concurrency
-df = spark.read.parquet('s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/users_by_live_content/cd=2022-11-10')
-df2 = df.where('playback_status="PLAYING"').selectExpr('time', 'cast(no_user as long) as unum').groupby('time').sum('unum').toPandas()
-# 20Mn
-df = spark.read.parquet('s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/users_by_live_content/cd=2022-11-13')
-df2 = df.where('playback_status="PLAYING"').selectExpr('time', 'cast(no_user as long) as unum').groupby('time').sum('unum').toPandas()
-print(df2['sum(unum)'].max()/1000/1000) # 13 Mn
+compare(old.loc[old.cd <= '2022-09-11'], neo.loc[neo.cd == '2022-11-01'])
+compare(neo.loc[neo.cd == '2022-11-01'], neo.loc[neo.cd == '2022-11-02'])
+compare(neo.loc[neo.cd == '2022-11-06'], neo.loc[neo.cd == '2022-11-09'])
