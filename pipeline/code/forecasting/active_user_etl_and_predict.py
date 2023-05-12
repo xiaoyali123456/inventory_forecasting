@@ -7,7 +7,7 @@ from common import *
 # XXX: due to historical reason, `AU` in this project means `VV`
 # TODO: we should consider whether we should refactor this
 # generate for [begin+1, end]
-def truth(end):
+def truth(end, new_path):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
     last = get_last_cd(DAU_TRUTH_PATH, end)
     old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
@@ -27,7 +27,7 @@ def predict(df, holidays):
     forecast = model.predict(future)
     return model, forecast
 
-def forecast(end):
+def forecast(end, new_path):
     # df = pd.read_parquet(new_path) # need delay for read data
     df = spark.read.parquet(new_path).toPandas()
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
@@ -39,7 +39,6 @@ def forecast(end):
 if __name__ == '__main__':
     rundate = sys.argv[1]
     new_path = f'{DAU_TRUTH_PATH}cd={rundate}/'
-    # TODO: pass new_path to the function instead of global variable
     if not s3.isfile(new_path + '_SUCCESS'):
-        truth(rundate)
-    forecast(rundate)
+        truth(rundate, new_path)
+    forecast(rundate, new_path)
