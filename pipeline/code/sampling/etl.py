@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import pandas as pd
 from common import *
@@ -115,8 +115,41 @@ def load_new_matches(cd):
         .where(f'startdate > "{last_cd}"').toPandas()
     return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
 
+def load_custom_tags(cd):
+    reqs = load_requests(cd)
+    c_tags  = set()
+    for r in reqs:
+        for x in r.get('customAudiences', []):
+            if 'segmentName' in x:
+                c_tags.add(x['segmentName'])
+    return list(c_tags)
+
+@F.udf(returnType=StringType())
+def concat(tags: set):
+    return '|'.join(sorted(tags))
+
+def custom_tags(cd):
+    c_tags = load_custom_tags(cd)
+    t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
+    t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
+    f = lambda x: any(x.endswith(c) for c in c_tags)
+    t3 = ['s3://' + x for x in t + t2 if f(x)]
+    ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
+        .withColumn('segments', concat('segments'))
+    yesterday = (datetime.strptime(cd, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
+    wt = spark.sql(f'select * from {WV_TABLE} where cd = "{yesterday}"') \
+        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
+    wt1 = wt[['dw_d_id',
+        F.expr('lower(genre) == "cricket" as is_cricket'),
+        F.expr('case when watch_time < 86400 then watch_time else 0 end as watch_time')
+    ]]
+    wt1.join(ct, on='dw_d_id', how='left').groupby('is_cricket', 'segments').agg(
+        F.expr('sum(watch_time) as watch_time'),
+        F.expr('count(distinct dw_d_id) as reach')
+    ).repartition(1).write.parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
+
 def main(cd):
-    # cd = '2023-05-01'
+    # cd = '2023-05-01' # TODO: fix customAudiences typo
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
@@ -126,6 +159,7 @@ def main(cd):
             process(dt, playout)
         except:
             print(dt, 'playout not available')
+    custom_tags(cd)
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
