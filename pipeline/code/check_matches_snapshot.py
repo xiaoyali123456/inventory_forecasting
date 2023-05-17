@@ -1,7 +1,6 @@
 from common import *
 import sys
 
-# TODO: change the filename name to snapshot
 if __name__ == '__main__':
     cd = sys.argv[1]
     matches = spark.sql('''

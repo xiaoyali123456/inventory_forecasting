@@ -4,7 +4,7 @@
 graph LR
   subgraph prprocess.sh
     direction TB
-    A(fetch_requests.py) --> B(check_new_match.py)
+    A(fetch_requests.py) --> B(check_matches_snapshot.py)
   end
   subgraph forecast.sh
     direction TB
