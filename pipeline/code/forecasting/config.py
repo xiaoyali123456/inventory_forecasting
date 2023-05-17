@@ -64,26 +64,18 @@ invalid_team_mapping = {
 xgb_configuration = {
     'model': "xgb",
     # 'model': "random_forest",
-    'tournament_list': "all",
-    # 'tournament_list': "svod",
-    # 'tournament_list': "t20",
     # 'mask_tag': "mask_knock_off",
     'predict_tournaments_candidate': ["wc2023"],
     'mask_tag': "",
     # 'sample_weight': False,
     'sample_weight': True,
-    'unvalid_labels': ['active_frees_rate', 'active_subscribers_rate'],
     # 'unvalid_labels': [],
     'if_improve_ties': True,
     # 'if_improve_ties': False,
-    'if_simple_one_hot': "_and_simple_one_hot",
-    # 'if_simple_one_hot': "",
+    'simple_one_hot_suffix': "_and_simple_one_hot",
+    # 'simple_one_hot_suffix': "",
     # 'if_free_timer': "_and_free_timer",
     'if_free_timer': "",
-    # 'if_hotstar_influence': False,
-    'if_hotstar_influence': True,
-    # 'if_teams': False,
-    'if_teams': True,
     'if_cross_features': True,
     # 'if_cross_features': False,
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
@@ -106,3 +98,8 @@ drop_off_rate = 0.85
 default_predict_tournament = "wc2023"
 sub_pid_did_rate = 0.94
 free_pid_did_rate = 1.02
+
+invalid_match_date = '2022-08-24'
+invalid_tournament = 'ipl2019'
+important_content_id = "1440000724"
+meaningless_request_id = "0"

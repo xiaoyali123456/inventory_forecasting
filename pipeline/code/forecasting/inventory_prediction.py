@@ -12,6 +12,7 @@ def free_timer_wt(wt_list):
     if len(wt_list) == 1:
         return float(wt_list[0])
     else:
+        # for tournaments like wc2019
         jio_rate = 0.75
         wt_list = sorted(wt_list)
         return (1 - jio_rate) * wt_list[0] + jio_rate * wt_list[1]
@@ -20,19 +21,18 @@ def free_timer_wt(wt_list):
 def load_dataset(config):
     path_suffix = "/all_features_hots_format_and_simple_one_hot"
     all_feature_df = load_data_frame(spark, pipeline_base_path + path_suffix) \
-        .withColumn('request_id', F.lit("0")) \
+        .withColumn('request_id', F.lit(meaningless_request_id)) \
         .cache()
     if config == {}:
         predict_feature_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/{predict_tournament}/all_features_hots_format")
                                                               for predict_tournament in xgb_configuration['predict_tournaments_candidate']]) \
-            .withColumn('request_id', F.lit("0")) \
+            .withColumn('request_id', F.lit(meaningless_request_id)) \
             .cache()
     else:
         base_path_suffix = f"/prediction{path_suffix}"
         predict_feature_df = load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}") \
             .cache()
     common_cols = list(set(all_feature_df.columns).intersection(set(predict_feature_df.columns)))
-    print(common_cols)
     all_feature_df = all_feature_df.select(*common_cols)\
         .union(predict_feature_df.select(*common_cols))\
         .cache()
@@ -50,7 +50,6 @@ def load_dataset(config):
                     F.avg('estimated_sub_num').alias('estimated_sub_num'))
                .selectExpr('tournament', 'estimated_free_num', 'estimated_sub_num'))\
         .cache()
-    print(estimated_dau_df.count())
     return all_feature_df, estimated_dau_df
 
 
@@ -58,18 +57,17 @@ def inventory_forecasting(mask_tag, config):
     all_feature_df, estimated_dau_df = load_dataset(config)
     if config == {}:
         # inventory forecasting for existing matches
-        filter_str = "="
+        filter_operator = "="
         parameter_path = "previous_tournaments/"
         partition_col = "tournament"
     else:
         # inventory forecasting for new matches from api request
-        filter_str = "!="
+        filter_operator = "!="
         parameter_path = f"future_tournaments/cd={DATE}/"
         partition_col = "request_id"
     res_list = []
-    print(all_feature_df.count())
     test_df = all_feature_df \
-        .where(f"request_id {filter_str} '0'") \
+        .where(f"request_id {filter_operator} '{meaningless_request_id}'") \
         .selectExpr('request_id', 'date', 'content_id', 'title', 'rank', 'teams', 'tournament', 'vod_type',
                     'total_frees_number', 'active_frees_rate as real_active_frees_rate',
                     'frees_watching_match_rate as real_frees_watching_match_rate',
@@ -81,25 +79,20 @@ def inventory_forecasting(mask_tag, config):
     test_df = test_df \
         .join(load_labels(), 'content_id', 'left') \
         .fillna(1, ['total_inventory', 'total_pid_reach', 'total_did_reach'])\
-        .cache()
-    test_df = test_df \
         .join(estimated_dau_df, 'tournament') \
         .cache()
-    print(test_df.count())
-    test_df.select('date', 'content_id').show()
     label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                   'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
     label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}/{parameter_path}"
     svod_label_path = f"{pipeline_base_path}/xgb_prediction{mask_tag}_svod/{parameter_path}"
     useless_cols = ['tournament', 'sample_tag']
     common_cols = ['date', 'content_id']
-    # load parameters predicted by xgb models
+    # load parameters predicted 2 sub-related variables by xgb models
     new_test_label_df = test_df \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}")
-            .drop(*useless_cols, 'real_' + label_cols[2]), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}")
-            .drop(*useless_cols, 'real_' + label_cols[3]), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}").drop(*useless_cols, 'real_' + label_cols[2]), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}").drop(*useless_cols, 'real_' + label_cols[3]), common_cols) \
         .cache()
+    # load and calculate predicted frees_watching_match_rate
     svod_free_rate_df = load_data_frame(spark, f"{svod_label_path}/label={label_cols[0]}") \
         .drop(*useless_cols, 'real_' + label_cols[0]) \
         .selectExpr(*common_cols, f'estimated_{label_cols[0]} as svod_rate')
@@ -114,6 +107,7 @@ def inventory_forecasting(mask_tag, config):
               common_cols) \
         .withColumn(f'estimated_{label_cols[0]}', F.expr('if(vod_type="avod", avod_rate, svod_rate)'))\
         .cache()
+    # load and calculate predicted watch_time_per_free_per_match considering free timer
     label = 'watch_time_per_free_per_match_with_free_timer'
     parameter_df = load_data_frame(spark, f"{label_path}/label={label}") \
         .groupBy(common_cols) \
@@ -123,7 +117,6 @@ def inventory_forecasting(mask_tag, config):
     new_test_label_df = new_test_label_df \
         .join(parameter_df, common_cols) \
         .cache()
-    print(new_test_label_df.count())
     for configuration in duration_configurations[1:2]:
         total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
         res_df = new_test_label_df \
@@ -157,9 +150,7 @@ def inventory_forecasting(mask_tag, config):
         for col in important_cols:
             cols.remove(col)
         final_cols = cols + important_cols
-        print(final_cols)
         res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-        res_df.show(20, False)
         save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction{mask_tag}/{parameter_path}", partition_col=partition_col)
         res_list.append(res_df)
         print("")

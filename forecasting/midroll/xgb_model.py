@@ -966,7 +966,7 @@ else:
             else:
                 train_df = load_dataset(tournament_list_tmp, feature_df, repeat_num_col="knock_off_repeat_num",
                                         mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=int(knock_off_repeat_num/2), test_tournament=test_tournament)
-                test_df = load_dataset(test_tournament_list, test_feature_df, sorting=True,
+                test_df = load_dataset(test_tournament_list, test_feature_df, repeat_num_col="", sorting=True,
                                        mask_cols=mask_cols, mask_condition=mask_condition, mask_rate=1, test_tournament=test_tournament)
             # ## for data enrichment
             # train_df = train_df.reindex(train_df.index.repeat(train_df[f"knock_off_repeat_num"]))

@@ -155,12 +155,13 @@ def save_preroll_wv(match_df, complete_valid_dates):
                           .where('ad_placement = "PREROLL"')
                           .withColumn('sub_tag', F.locate('SUBSCRIBED_FREE', F.col('user_account_type')))
                           .withColumn('sub_tag', F.expr('if(sub_tag>0 or user_account_type="", 0, 1)'))
-                          .select('content_id', 'sub_tag', 'dw_p_id', 'dw_d_id', 'request_id', 'break_id') for date in complete_valid_dates]) \
+                          .select('content_id', 'sub_tag', 'dw_p_id', 'dw_d_id', 'request_id', 'break_id', 'break_slot_count') for date in complete_valid_dates]) \
         .groupBy('content_id', 'sub_tag')\
         .agg(F.countDistinct('dw_p_id').alias('pid_reach'),
              F.countDistinct('dw_d_id').alias('did_reach'),
              F.countDistinct('request_id').alias('request_num'),
-             F.countDistinct('break_id').alias('break_num'))\
+             F.countDistinct('break_id').alias('break_num'),
+             F.sum('break_slot_count').alias('slot_num'))\
         .join(match_df, ['content_id']) \
         .cache()
     save_data_frame(inventory_df, preroll_live_ads_inventory_forecasting_root_path + f"/date_investigation/reach_and_inventory/{tournament}")
@@ -181,6 +182,8 @@ watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/ag
 
 # spark.stop()
 # spark = hive_spark('statistics')
+# df = load_hive_table(spark, 'in_cms.movie_update_s3').cache()
+
 # match_df = load_hive_table(spark, "in_cms.match_update_s3")
 # save_data_frame(match_df, match_meta_path)
 
@@ -228,25 +231,28 @@ for date in valid_dates:
     if next_date not in complete_valid_dates:
         complete_valid_dates.append(next_date)
 
+
 # save_midroll_wv(match_df, complete_valid_dates)
-# save_preroll_wv(match_df, complete_valid_dates)
+save_preroll_wv(match_df, complete_valid_dates)
 
 
 midroll_df = reduce(lambda x, y: x.union(y),
                     [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/{tag}_checking_result_of_{tournament}")
                     .withColumn('sub_tag', F.lit(tag)) for tag in tag_dic])\
     .withColumn('sub_tag', F.expr('if(sub_tag="free", 0, 1)'))\
+    .withColumnRenamed('match_active_sub_num', 'wv_reach')\
     .cache()
 midroll_df.orderBy('content_id').show(200, False)
 preroll_df = load_data_frame(spark, preroll_live_ads_inventory_forecasting_root_path + f"/date_investigation/reach_and_inventory/{tournament}")\
+    .withColumnRenamed('pid_reach', 'preroll_reach')\
+    .withColumn('inventory_rate', F.expr('slot_num/break_num'))\
     .cache()
 preroll_df.orderBy('content_id').show(200, False)
 
 preroll_df\
     .join(midroll_df, ['content_id', 'sub_tag'])\
-    .withColumn('reach_bias', F.expr('pid_reach-match_active_sub_num'))\
-    .withColumn('reach_bias_rate', F.expr('reach_bias/match_active_sub_num'))\
-    .withColumn('avg_session', F.expr('break_num/pid_reach'))\
+    .withColumn('reach_rate', F.expr('preroll_reach/wv_reach'))\
+    .withColumn('avg_session', F.expr('break_num/preroll_reach'))\
     .orderBy('content_id', 'sub_tag')\
     .show(200, False)
 
@@ -254,12 +260,11 @@ preroll_df\
 preroll_df\
     .join(midroll_df, ['content_id', 'sub_tag'])\
     .groupBy('content_id')\
-    .agg(F.sum('pid_reach').alias('pid_reach'),
-         F.sum('match_active_sub_num').alias('match_active_sub_num'),
+    .agg(F.sum('preroll_reach').alias('preroll_reach'),
+         F.sum('wv_reach').alias('wv_reach'),
          F.sum('break_num').alias('break_num'))\
-    .withColumn('reach_bias', F.expr('pid_reach-match_active_sub_num'))\
-    .withColumn('reach_bias_rate', F.expr('reach_bias/match_active_sub_num'))\
-    .withColumn('avg_session', F.expr('break_num/pid_reach'))\
+    .withColumn('reach_rate', F.expr('preroll_reach/wv_reach'))\
+    .withColumn('avg_session', F.expr('break_num/preroll_reach'))\
     .orderBy('content_id')\
     .show(200, False)
 
