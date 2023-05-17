@@ -77,7 +77,7 @@ def feature_processing(feature_df):
         .withColumn("match_rank", F.expr('row_number() over (partition by tournament, match_stage order by rand)')) \
         .select('content_id', 'match_rank') \
         .cache()
-    # match_rank is ranked in the same match stage of the same tournament
+    # match_rank is ranked among matches in the same match stage of the same tournament
     return feature_df \
         .withColumn(repeat_num_col, F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)')) \
         .withColumn("hostar_influence_hots_num", F.lit(1)) \
@@ -142,14 +142,14 @@ mask_condition = 'match_stage in ("final", "semi-final")'
 mask_cols = []
 
 
-def load_training_and_prediction_dataset(DATE, config, free_time_tag):
+def load_training_and_prediction_dataset(DATE, config, free_timer_tag):
     # label setting
-    if free_time_tag == "":
+    if free_timer_tag == "":
         label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                       'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
     else:
         label_cols = ["watch_time_per_free_per_match_with_free_timer"]
-    path_suffix = "/all_features_hots_format" + free_time_tag + xgb_configuration['simple_one_hot_suffix']
+    path_suffix = "/all_features_hots_format" + free_timer_tag + xgb_configuration['simple_one_hot_suffix']
     feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix)).cache()  # features with label
     if config == {}:
         # predicting matches are existing dataset
@@ -162,7 +162,7 @@ def load_training_and_prediction_dataset(DATE, config, free_time_tag):
         # we regard the predicting matches as avod with free_timer=1000 by default
     else:
         # predicting matches are from api requests
-        base_path_suffix = "/prediction/all_features_hots_format" + free_time_tag + xgb_configuration['simple_one_hot_suffix']
+        base_path_suffix = "/prediction/all_features_hots_format" + free_timer_tag + xgb_configuration['simple_one_hot_suffix']
         predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}")
                                                 .withColumn("rand", F.rand(seed=54321))) \
             .cache()
@@ -185,17 +185,17 @@ def load_training_and_prediction_dataset(DATE, config, free_time_tag):
             feature_dim = reduce(lambda x, y: x * y, [feature_candidate_num_dic[feature] for feature in xgb_configuration['cross_features'][idx]])
             feature_df = generate_cross_feature(feature_df, idx, feature_dim)
             predict_feature_df = generate_cross_feature(predict_feature_df, idx, feature_dim)
-            one_hot_features = [f'cross_features_{idx}'] + one_hot_features
+            one_hot_features.append(f'cross_features_{idx}')
             mask_features.append(f'cross_features_{idx}')
     global mask_cols
     mask_cols = [col+"_hot_vector" for col in multi_hot_features + mask_features]
     feature_cols = [col+"_hot_vector" for col in one_hot_features+multi_hot_features]
-    if free_time_tag != "":
+    if free_timer_tag != "":
         # set free timer feature
         feature_df = set_free_timer_feature(feature_df)
         predict_feature_df = set_free_timer_feature(predict_feature_df) \
             .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(1.0))
-        feature_cols += ["free_timer_hot_vector"]
+        feature_cols.append("free_timer_hot_vector")
     if xgb_configuration['prediction_svod_tag'] != "":
         # set free timer feature for svod matches
         predict_feature_df = predict_feature_df \
@@ -207,7 +207,7 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = labeled_feature_df.select(*feature_num_cols).distinct().collect()
     labeled_tournaments = [item[0] for item in labeled_feature_df.select('tournament').distinct().collect()]
-    # parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth]
+    # parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth] format
     best_parameter_dic = {'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
                           'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
                           'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
@@ -274,7 +274,7 @@ def main(DATE, config, free_time_tag):
         # model train and test for existing matches
         items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
                  (["wc2019"], 2),
-                 (["wc2023"], 0)]  # test_tournaments, wc2019_test_tag
+                 (["wc2023"], 0)]  # list of tuples like (test_tournaments, wc2019_test_tag)
         for item in items:
             model_training_and_prediction(DATE, item[0], labeled_feature_df, predict_feature_df, feature_cols, label_cols, mask_tag="", wc2019_test_tag=item[1], config=config)
     else:

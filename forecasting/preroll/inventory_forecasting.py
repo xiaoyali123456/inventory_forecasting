@@ -339,35 +339,33 @@ for test_tournament in test_tournament_list:
                     .join(load_data_frame(spark, f"{label_path}/{label_cols[0]}")
                           .drop('sample_tag', 'real_' + label_cols[0]), ['date', 'content_id'])\
                     .cache()
-            for configuration in configurations[1:2]:
-                total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = configuration
-                res_df = new_test_label_df \
-                    .withColumn('estimated_free_match_number', F.expr(f'estimated_free_num * estimated_free_watch_rate * {free_reach_rate}')) \
-                    .withColumn('estimated_free_inventory', F.expr(f'estimated_free_match_number * {average_free_sessions}')) \
-                    .withColumn('estimated_sub_match_number', F.expr(f'estimated_sub_num * estimated_sub_watch_rate * {sub_reach_rate}')) \
-                    .withColumn('estimated_sub_inventory', F.expr(f'estimated_sub_match_number * {average_sub_sessions}')) \
-                    .withColumn('estimated_inventory', F.expr('estimated_free_inventory + estimated_sub_inventory')) \
-                    .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number / {free_pid_did_rate}) + (estimated_sub_match_number / {sub_pid_did_rate})")) \
-                    .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
-                    .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
-                    .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-                    .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
-                    .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
-                    .where('total_inventory > 0') \
-                    .drop('teams') \
-                    .cache()
-                cols = res_df.columns
-                important_cols = ['estimated_reach', "total_inventory", "estimated_inventory", "inventory_bias", 'inventory_bias_abs']
-                for col in important_cols:
-                    cols.remove(col)
-                final_cols = cols + important_cols
-                # print(final_cols)
-                res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
-                save_data_frame(res_df,
-                                preroll_live_ads_inventory_forecasting_root_path + f"/test_results/{test_tournament}_using_{version}{mask_tag}{prediction_vod_str}")
-                res_list.append(res_df \
-                                .withColumn('tournament', F.lit(test_tournament))
-                                .withColumn('match_type', F.lit(match_type[0])))
+            res_df = new_test_label_df \
+                .withColumn('estimated_free_match_number', F.expr(f'estimated_free_num * estimated_free_watch_rate * {free_reach_rate}')) \
+                .withColumn('estimated_free_inventory', F.expr(f'estimated_free_match_number * {average_free_sessions}')) \
+                .withColumn('estimated_sub_match_number', F.expr(f'estimated_sub_num * estimated_sub_watch_rate * {sub_reach_rate}')) \
+                .withColumn('estimated_sub_inventory', F.expr(f'estimated_sub_match_number * {average_sub_sessions}')) \
+                .withColumn('estimated_inventory', F.expr('estimated_free_inventory + estimated_sub_inventory')) \
+                .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number / {free_pid_did_rate}) + (estimated_sub_match_number / {sub_pid_did_rate})")) \
+                .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
+                .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
+                .withColumn('inventory_bias', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+                .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
+                .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
+                .where('total_inventory > 0') \
+                .drop('teams') \
+                .cache()
+            cols = res_df.columns
+            important_cols = ['estimated_reach', "total_inventory", "estimated_inventory", "inventory_bias", 'inventory_bias_abs']
+            for col in important_cols:
+                cols.remove(col)
+            final_cols = cols + important_cols
+            # print(final_cols)
+            res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
+            save_data_frame(res_df,
+                            preroll_live_ads_inventory_forecasting_root_path + f"/test_results/{test_tournament}_using_{version}{mask_tag}{prediction_vod_str}")
+            res_list.append(res_df \
+                            .withColumn('tournament', F.lit(test_tournament))
+                            .withColumn('match_type', F.lit(match_type[0])))
     print("")
     print("")
 
@@ -403,7 +401,7 @@ prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, preroll_
                 'estimated_free_num', 'estimated_free_watch_rate',
                 'total_subscribers_number', 'real_subscribers_watching_match_rate',
                 'estimated_sub_num', 'estimated_sub_watch_rate',
-                'estimated_free_reach as free_match_AU', 'estimated_sub_reach as sub_match_AU',
+                'estimated_free_match_number as free_match_AU', 'estimated_sub_match_number as sub_match_AU',
                 'estimated_free_inventory', 'estimated_sub_inventory')\
     .cache()
 # prediction_df.where('tournament="wc2021"').show()
@@ -420,16 +418,16 @@ show_cols = ['tournament', 'date', 'title', 'estimated_free_num', 'estimated_sub
 #     .select('date', 'title', 'total_frees_number', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
 #             'estimated_free_watch_time', 'estimated_sub_watch_time', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
 # res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(10000, False)
-res_df\
-    .select(*show_cols)\
-    .withColumn('total_free_error', F.expr('(estimated_free_inventory - total_free_inventory) / total_free_inventory')) \
-    .withColumn('total_sub_error', F.expr('(estimated_sub_inventory - total_sub_inventory) / total_sub_inventory')) \
-    .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-    .show(10000, False)
+# res_df\
+#     .select(*show_cols)\
+#     .withColumn('total_free_error', F.expr('(estimated_free_inventory - total_free_inventory) / total_free_inventory')) \
+#     .withColumn('total_sub_error', F.expr('(estimated_sub_inventory - total_sub_inventory) / total_sub_inventory')) \
+#     .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+#     .show(10000, False)
 # res_df.where(f'date != "2022-08-24" and (total_pid_reach > 0 or tournament in ("{filter}"))').select(*show_cols).show(1000, False)
 
 res_df\
-    .withColumn('')\
+    .where('tournament in ("wc2021", "wc2022")')\
     .withColumn('total_free_error', F.expr('(estimated_free_inventory - total_free_inventory) / total_free_inventory')) \
     .withColumn('total_sub_error', F.expr('(estimated_sub_inventory - total_sub_inventory) / total_sub_inventory')) \
     .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \

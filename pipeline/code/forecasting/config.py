@@ -87,7 +87,8 @@ xgb_configuration = {
     'end_tag': 0
 }
 
-one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'vod_type']
+one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
+                'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'vod_type']
 multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
 
