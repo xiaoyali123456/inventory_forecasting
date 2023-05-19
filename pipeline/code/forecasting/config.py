@@ -87,13 +87,21 @@ xgb_configuration = {
     'end_tag': 0
 }
 
+# hyper-parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth] format
+xgb_hyper_parameter_dic = {'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
+                           'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
+                           'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
+                           'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3'],
+                           'watch_time_per_free_per_match_with_free_timer': ['reg:squarederror', '73', '0.05', '5']}
+
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
                 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'vod_type']
 multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
 
 
-duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
+# duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
+match_configuration = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
 drop_off_rate = 0.85
 
 default_predict_tournament = "wc2023"
@@ -104,3 +112,4 @@ invalid_match_date = '2022-08-24'
 invalid_tournament = 'ipl2019'
 important_content_id = "1440000724"
 meaningless_request_id = "0"
+jio_user_rate_of_wc2019 = 0.75

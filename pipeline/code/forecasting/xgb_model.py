@@ -3,7 +3,8 @@ from util import *
 from config import *
 
 
-def load_dataset(feature_df, test_tournament, if_test=False, if_repeat_col=False, mask_cols=[], mask_condition="", mask_number_per_content=1, wc2019_test_tag=1):
+def load_dataset(feature_df, test_tournament, if_test=False, if_repeat_samples=False, mask_cols=[], mask_condition="",
+                 mask_sample_number_per_content=1, wc2019_test_tag=1):
     if test_tournament == "wc2019":
         # we need to separate matches of wc2029 into training dataset and test dataset
         if if_test:
@@ -19,30 +20,31 @@ def load_dataset(feature_df, test_tournament, if_test=False, if_repeat_col=False
         new_feature_df = feature_df
     else:
         new_feature_df = feature_df.where(filter_str)
-    if if_repeat_col:
+    if if_repeat_samples:
         new_feature_df = new_feature_df\
             .withColumn(repeat_num_col, n_to_array(repeat_num_col))\
             .withColumn(repeat_num_col, F.explode(F.col(repeat_num_col)))
-    if mask_cols and mask_number_per_content > 0:
+    if mask_cols and mask_sample_number_per_content > 0:
         # mask features
         new_feature_df = new_feature_df \
             .withColumn('repeat_idx', F.expr('row_number() over (partition by content_id order by date)'))
         for mask_col in mask_cols:
             if mask_col.find('cross') > -1:
                 new_feature_df = new_feature_df\
-                    .withColumn(mask_col, F.expr(f'if({mask_condition} and repeat_idx <= {mask_number_per_content}, masked_{mask_col}, {mask_col})'))
+                    .withColumn(mask_col, F.expr(f'if({mask_condition} and repeat_idx <= {mask_sample_number_per_content}, masked_{mask_col}, {mask_col})'))
             else:
                 new_feature_df = new_feature_df \
                     .withColumn("masked_" + mask_col, mask_array(mask_col)) \
-                    .withColumn(mask_col, F.expr(f'if({mask_condition} and repeat_idx <= {mask_number_per_content}, masked_{mask_col}, {mask_col})'))
+                    .withColumn(mask_col, F.expr(f'if({mask_condition} and repeat_idx <= {mask_sample_number_per_content}, masked_{mask_col}, {mask_col})'))
     if if_test:
+        # rank for test dataset
         df = new_feature_df.orderBy('date', 'content_id').toPandas()
     else:
         df = new_feature_df.toPandas()
     return df
 
 
-# convert tiers vector-based feature into ordered number
+# convert tiers vector-based feature into ordered number according to the tier level
 def enumerate_tiers(tiers_list):
     if 0 in tiers_list:
         return [tiers_list[0] + tiers_list[1]]
@@ -51,7 +53,7 @@ def enumerate_tiers(tiers_list):
 
 
 # generate cross features
-def cross_features(dim, *args):
+def generate_cross_features(dim, *args):
     res = [0 for i in range(dim)]
     idx = 1
     for x in args:
@@ -61,9 +63,9 @@ def cross_features(dim, *args):
 
 
 # generate masked cross features
-def masked_cross_features(dim, *args):
+def generate_masked_cross_features(dim, *args):
     res = [0 for i in range(dim)]
-    idx = 3
+    idx = 3  # masked feature for if_contains_india_team
     for x in args:
         idx *= x[0] + 1
     res[idx-1] = 1
@@ -110,8 +112,8 @@ def set_ordered_tier_feature(df):
 def generate_cross_feature(df, idx, feature_dim):
     return df \
         .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-        .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *xgb_configuration['cross_features'][idx])) \
-        .withColumn(f"masked_cross_features_{idx}_hot_vector", masked_cross_features_udf(f"cross_features_{idx}_hots_num", *(xgb_configuration['cross_features'][idx][1:])))
+        .withColumn(f"cross_features_{idx}_hot_vector", generate_cross_features_udf(f"cross_features_{idx}_hots_num", *xgb_configuration['cross_features'][idx])) \
+        .withColumn(f"masked_cross_features_{idx}_hot_vector", generate_masked_cross_features_udf(f"cross_features_{idx}_hots_num", *(xgb_configuration['cross_features'][idx][1:])))
 
 
 def set_free_timer_feature(df):
@@ -120,17 +122,24 @@ def set_free_timer_feature(df):
         .withColumn("free_timer_hots_num", F.lit(1))
 
 
+def set_svod_feature(df):
+    svod_value = 1
+    return df \
+        .withColumn("vod_type_hots", F.array(F.lit(svod_value))) \
+        .withColumn("vod_type_hot_vector", F.array(F.lit(svod_value)))
+
+
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
 mask_array = F.udf(lambda l: [0 for i in l], ArrayType(IntegerType()))
 enumerate_tiers_udf = F.udf(enumerate_tiers, ArrayType(IntegerType()))
 if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" else [1], ArrayType(IntegerType()))
-cross_features_udf = F.udf(cross_features, ArrayType(IntegerType()))
-masked_cross_features_udf = F.udf(masked_cross_features, ArrayType(IntegerType()))
+generate_cross_features_udf = F.udf(generate_cross_features, ArrayType(IntegerType()))
+generate_masked_cross_features_udf = F.udf(generate_masked_cross_features, ArrayType(IntegerType()))
 
 
 feature_candidate_num_dic = {
-    'if_contain_india_team_hots': 3,  # we regard masked candidate as the 3rd value
+    'if_contain_india_team_hots': 3,  # 0 for not containing india, 1 for containing india, and 2 for masked feature
     'match_stage_hots': 4,
     'tournament_type_hots': 3,
     'match_type_hots': 3,
@@ -142,7 +151,7 @@ mask_condition = 'match_stage in ("final", "semi-final")'
 mask_cols = []
 
 
-def load_training_and_prediction_dataset(DATE, config, free_timer_tag):
+def load_training_and_prediction_datasets(DATE, config, free_timer_tag):
     # label setting
     if free_timer_tag == "":
         label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
@@ -150,34 +159,29 @@ def load_training_and_prediction_dataset(DATE, config, free_timer_tag):
     else:
         label_cols = ["watch_time_per_free_per_match_with_free_timer"]
     path_suffix = "/all_features_hots_format" + free_timer_tag + xgb_configuration['simple_one_hot_suffix']
-    feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix)).cache()  # features with label
+    feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + path_suffix))  # features with label
     if config == {}:
         # predicting matches are existing dataset
         predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
                                                       + "/all_features_hots_format" + xgb_configuration['simple_one_hot_suffix']) for tournament in xgb_configuration['predict_tournaments_candidate']])\
                                                 .withColumn("rand", F.rand(seed=54321))) \
             .withColumn('free_timer', F.lit(1000))\
-            .withColumn('request_id', F.lit(meaningless_request_id))\
-            .cache()
+            .withColumn('request_id', F.lit(meaningless_request_id))
         # we regard the predicting matches as avod with free_timer=1000 by default
     else:
         # predicting matches are from api requests
         base_path_suffix = "/prediction/all_features_hots_format" + free_timer_tag + xgb_configuration['simple_one_hot_suffix']
         predict_feature_df = feature_processing(load_data_frame(spark, pipeline_base_path + base_path_suffix + f"/cd={DATE}")
-                                                .withColumn("rand", F.rand(seed=54321))) \
-            .cache()
+                                                .withColumn("rand", F.rand(seed=54321)))
     if xgb_configuration['prediction_svod_tag'] != "":
         # make matches svod
-        predict_feature_df = predict_feature_df \
-            .withColumn("vod_type_hots", F.array(F.lit(1))) \
-            .withColumn("vod_type_hot_vector", F.array(F.lit(1))) \
-            .cache()
+        predict_feature_df = set_svod_feature(predict_feature_df)
     one_hot_features = one_hot_cols.copy()
     multi_hot_features = multi_hot_cols.copy()
     if xgb_configuration['if_improve_ties']:
         # improve ties feature meams convert this feature from a multi-hot vector to a ordered number
-        feature_df = set_ordered_tier_feature(feature_df)
-        predict_feature_df = set_ordered_tier_feature(predict_feature_df)
+        feature_df = set_ordered_tier_feature(feature_df).cache()
+        predict_feature_df = set_ordered_tier_feature(predict_feature_df).cache()
     mask_features = ['if_contain_india_team']
     if xgb_configuration['if_cross_features']:
         # generate cross features
@@ -207,12 +211,6 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = labeled_feature_df.select(*feature_num_cols).distinct().collect()
     labeled_tournaments = [item[0] for item in labeled_feature_df.select('tournament').distinct().collect()]
-    # parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth] format
-    best_parameter_dic = {'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
-                          'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
-                          'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
-                          'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3'],
-                          'watch_time_per_free_per_match_with_free_timer': ['reg:squarederror', '73', '0.05', '5']}
     for test_tournament in test_tournaments:
         if test_tournament not in labeled_tournaments:
             test_feature_df = predict_feature_df
@@ -223,43 +221,42 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
             test_df = load_dataset(test_feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag, if_test=True)
         else:
             train_df = load_dataset(labeled_feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag,
-                                    if_repeat_col=True,
-                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_number_per_content=int(knock_off_repeat_num / 2))
+                                    if_repeat_samples=True,
+                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_sample_number_per_content=int(knock_off_repeat_num / 2))
             test_df = load_dataset(test_feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag, if_test=True,
-                                   if_repeat_col=False,
-                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_number_per_content=1)
-        # explode a vector-based feature into multiple one-single-value features
-        multi_col_df = []
+                                   if_repeat_samples=False,
+                                   mask_cols=mask_cols, mask_condition=mask_condition, mask_sample_number_per_content=1)
+        # explode vector-based features of train dataset into multiple one-single-value features
+        multi_col_train_df_list = []
         for i in range(len(feature_cols)):
             index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
-            multi_col_df.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
-        X_train = pd.concat(multi_col_df, axis=1)
-        multi_col_df = []
+            multi_col_train_df_list.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
+        train_feature_df = pd.concat(multi_col_train_df_list, axis=1)
+        # explode vector-based features of test dataset into multiple one-single-value features
+        multi_col_test_df_list = []
         for i in range(len(feature_cols)):
             index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
-            multi_col_df.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
-        X_test = pd.concat(multi_col_df, axis=1)
+            multi_col_test_df_list.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
+        test_feature_df = pd.concat(multi_col_test_df_list, axis=1)
         for label in label_cols:
-            print(label)
-            object_method, n_estimators, learning_rate, max_depth = best_parameter_dic[label]
+            object_method, n_estimators, learning_rate, max_depth = xgb_hyper_parameter_dic[label]
             n_estimators = int(n_estimators)
             learning_rate = float(learning_rate)
             max_depth = int(max_depth)
-            y_train = train_df[label]
+            train_label_df = train_df[label]
             if xgb_configuration['model'] == "xgb":
                 model = XGBRegressor(base_score=0.0, n_estimators=n_estimators, learning_rate=learning_rate,
-                                     max_depth=max_depth, objective=object_method, colsample_bytree=1.0,
-                                     colsample_bylevel=1.0, colsample_bynode=1.0)
+                                     max_depth=max_depth, objective=object_method)
             else:
                 model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
             if xgb_configuration['sample_weight']:
-                model.fit(X_train, y_train, sample_weight=train_df["sample_weight"])
+                model.fit(train_feature_df, train_label_df, sample_weight=train_df["sample_weight"])
             else:
-                model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            y_test = test_df[label]
+                model.fit(train_feature_df, train_label_df)
+            test_prediction_df = model.predict(test_feature_df)
+            test_label_df = test_df[label]
             prediction_df = spark.createDataFrame(
-                pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1),
+                pd.concat([test_df[['date', 'content_id']], test_label_df, pd.DataFrame(test_prediction_df)], axis=1),
                 ['date', 'content_id', 'real_' + label, 'estimated_' + label]) \
                 .withColumn('estimated_' + label, F.expr(f'cast({"estimated_" + label} as float)'))
             if config == {}:
@@ -269,7 +266,7 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
 
 
 def main(DATE, config, free_time_tag):
-    labeled_feature_df, predict_feature_df, feature_cols, label_cols = load_training_and_prediction_dataset(DATE, config, free_time_tag=free_time_tag)
+    labeled_feature_df, predict_feature_df, feature_cols, label_cols = load_training_and_prediction_datasets(DATE, config, free_time_tag=free_time_tag)
     if config == {}:
         # model train and test for existing matches
         items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),

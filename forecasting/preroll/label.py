@@ -132,29 +132,85 @@ def save_inventory_data(tournament):
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 preroll_live_ads_inventory_forecasting_root_path = f"{live_ads_inventory_forecasting_root_path}/preroll"
 aggr_shifu_inventory_path = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_reporting/aggregates/hourly/ad_inventory"
+watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 
 
-tournament_list = ['sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023', 'wc2022', 'ac2022',
+tournament_list = ['australia_tour_of_india_2023', 'sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023', 'wc2022', 'ac2022',
                    'south_africa_tour_of_india2022', 'west_indies_tour_of_india2022', 'ipl2022',
                    'england_tour_of_india2021', 'wc2021', 'ipl2021', 'australia_tour_of_india2020',
                    'india_tour_of_new_zealand2020', 'ipl2020', 'west_indies_tour_of_india2019', 'wc2019']
 content_filter1 = 'content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", "1540019005", "1540019014", "1540019017","1540016333")'
 content_filter2 = 'date != "2022-08-24"'
-for tournament in tournament_list:
-    print(tournament)
-    save_inventory_data(tournament)
+# for tournament in tournament_list[:1]:
+#     print(tournament)
+#     save_inventory_data(tournament)
 
-df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory") \
-    .groupBy('date', 'content_id', 'sub_tag', 'title', 'tournament')\
-    .agg(F.sum('inventory').alias('inventory'))\
+# df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory") \
+#     .groupBy('date', 'content_id', 'sub_tag', 'title', 'tournament')\
+#     .agg(F.sum('inventory').alias('inventory'))\
+#     .cache()
+# save_data_frame(df, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_separate")
+# save_data_frame(df.groupBy('date', 'content_id', 'title', 'tournament').agg(F.sum('inventory').alias('inventory')), f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory")
+
+
+inventory_df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory")\
+    .join(load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_separate")
+          .where('sub_tag=0')
+          .selectExpr('content_id', 'inventory as free_inventory'), 'content_id')\
+    .join(load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_separate")
+          .where('sub_tag=1')
+          .selectExpr('content_id', 'inventory as sub_inventory'), 'content_id')\
+    .orderBy('date', 'content_id')\
     .cache()
-save_data_frame(df, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_separate")
-save_data_frame(df.groupBy('date', 'content_id', 'title', 'tournament').agg(F.sum('inventory').alias('inventory')), f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory")
+print(inventory_df.count())
 
+path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num"
+wv_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix)\
+    .select('content_id', 'match_active_free_num', 'match_active_sub_num')\
+    .cache()
+res_df = inventory_df\
+    .join(wv_df, 'content_id')\
+    .withColumn('free_avg_session_num', F.expr('free_inventory/match_active_free_num'))\
+    .withColumn('sub_avg_session_num', F.expr('sub_inventory/match_active_sub_num'))\
+    .orderBy('date', 'content_id')\
+    .cache()
+
+print(res_df.count())
+save_data_frame(res_df, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_with_avg_session_num")
+
+
+res_df.show(2000, False)
 
 #
-# label_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory/tournament={tournament}")
-#                                             for tournament in tournament_list]).cache()
-load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory").orderBy('date', 'content_id').show(2000, False)
 
-
+# match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/wc2021").cache()
+# valid_dates = match_df.select('date').orderBy('date').distinct().collect()
+# content_ids = [item[0] for item in match_df.select('content_id').distinct().collect()]
+# content_ids_str = '", "'.join(content_ids)
+# print(content_ids_str)
+# # print(valid_dates)
+# # print(len(valid_dates))
+# complete_valid_dates = [date[0] for date in valid_dates]
+# for date in valid_dates:
+#     next_date = get_date_list(date[0], 2)[-1]
+#     if next_date not in complete_valid_dates:
+#         complete_valid_dates.append(next_date)
+#
+#
+# watch_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{watch_video_sampled_path}/cd={date}")
+#                   .select('dw_p_id', 'dw_d_id', 'content_id', 'subscription_status', 'has_exited') for date in complete_valid_dates])\
+#     .join(F.broadcast(match_df.select('content_id')), 'content_id')\
+#     .withColumn('subscription_status', F.upper(F.col('subscription_status')))\
+#     .withColumn('sub_tag', F.expr('if(subscription_status in ("ACTIVE", "CANCELLED", "GRACEPERIOD"), 1, 0)'))\
+#     .cache()
+#
+# watch_df\
+#     .withColumn('reload', F.expr('if(has_exited = true, 1, 0)'))\
+#     .groupBy('content_id', 'sub_tag')\
+#     .agg(F.countDistinct('dw_p_id').alias('reach'),
+#          F.sum('reload').alias('reload_num'))\
+#     .withColumn('inventory', F.expr('reach+reload_num'))\
+#     .withColumn('sessions', F.expr('inventory/reach'))\
+#     .orderBy('sub_tag', 'content_id')\
+#     .show(200, False)
