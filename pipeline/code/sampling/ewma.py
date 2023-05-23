@@ -130,11 +130,21 @@ def moving_avg(df, group_cols, target, alpha=0.2):
     df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
     return df4.iloc[-1].rename(target).reset_index()
 
+def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
+    # df = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
+    ch = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
+    ch = ch[~(ch.is_cricket==False)]
+    ch.segments.fillna('', inplace=True)
+    ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
+    df2 = df.merge(ch2, how='cross')
+    df2[dst_col] = df2[dst_col+'_x'] * df2[dst_col+'_y']
+    return df2.drop(columns=[dst_col+'_x', dst_col+'_y'])
+
 if __name__ == '__main__':
     DATE = sys.argv[1]
     iv = load_inventory(DATE)
     giv = aggregate(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(giv, ['cd'], target='ad_time')
-    df.to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    merge_custom_cohort(df, DATE).to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
     df2 = moving_avg(giv, ['cd'], target='reach')
-    df2.to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    merge_custom_cohort(df2, DATE, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
