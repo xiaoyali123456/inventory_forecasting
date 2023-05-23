@@ -16,6 +16,7 @@
 ├── sampling
 └── readme.md
 ```
+[Pipeline Flow Chart](https://github.com/hotstar/live-ads-inventory-forecasting-ml/blob/main/pipeline/readme.md)
 
 ## Storage Path Convention
 
