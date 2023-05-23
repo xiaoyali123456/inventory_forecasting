@@ -129,6 +129,36 @@ def save_inventory_data(tournament):
         save_data_frame(label_df, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory/tournament={tournament}")
 
 
+def save_detailed_inventory_data(tournament):
+    match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
+    valid_dates = match_df.select('date').orderBy('date').distinct().collect()
+    # print(valid_dates)
+    # print(len(valid_dates))
+    complete_valid_dates = [date[0] for date in valid_dates]
+    for date in valid_dates:
+        next_date = get_date_list(date[0], 2)[-1]
+        if next_date not in complete_valid_dates:
+            complete_valid_dates.append(next_date)
+    date_list = complete_valid_dates.copy()
+    complete_valid_dates = []
+    for date in date_list:
+        if date >= "2020-05-15":
+            complete_valid_dates.append(date)
+    if complete_valid_dates:
+        label_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{aggr_shifu_inventory_path}/cd={date}")
+                          .withColumn('user_account_type', F.upper(F.col('user_account_type')))
+                          .withColumn('ad_placement', F.upper(F.col('ad_placement')))
+                          .where('ad_placement = "PREROLL"')
+                          .withColumn('sub_tag', F.locate('SUBSCRIBED_FREE', F.col('user_account_type')))
+                          .withColumn('sub_tag', F.expr('if(sub_tag>0 or user_account_type="", 0, 1)'))
+                          .select('content_id', 'content_title', 'content_type', 'content_language', 'break_no', 'sub_tag', 'user_account_type', 'inventory')
+                                                    for date in complete_valid_dates])\
+            .join(match_df, 'content_id')\
+            .where(f'{content_filter1}')\
+            .where(f'{content_filter2}')
+        save_data_frame(label_df, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory_detailed/tournament={tournament}")
+
+
 live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
 preroll_live_ads_inventory_forecasting_root_path = f"{live_ads_inventory_forecasting_root_path}/preroll"
 aggr_shifu_inventory_path = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_reporting/aggregates/hourly/ad_inventory"
@@ -145,6 +175,18 @@ content_filter2 = 'date != "2022-08-24"'
 # for tournament in tournament_list[:1]:
 #     print(tournament)
 #     save_inventory_data(tournament)
+
+# for tournament in ['wc2021', 'wc2022']:
+#     print(tournament)
+#     save_detailed_inventory_data(tournament)
+
+
+df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory_detailed/tournament=wc2021").cache()
+df2 = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory_detailed/tournament=wc2022").cache()
+for col in ['content_language', 'break_no', 'sub_tag', 'user_account_type']:
+    df.groupBy('date', 'content_id', col).agg(F.sum('inventory').alias('inventory')).where('date<="2021-10-22"').orderBy('date', 'content_id', col).show(2000, False)
+    df2.groupBy('date', 'content_id', col).agg(F.sum('inventory').alias('inventory')).where('date<="2022-10-21"').orderBy('date', 'content_id', col).show(2000, False)
+
 
 # df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/aggr_inventory") \
 #     .groupBy('date', 'content_id', 'sub_tag', 'title', 'tournament')\

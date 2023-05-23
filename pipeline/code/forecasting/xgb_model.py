@@ -265,8 +265,8 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
                 save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{mask_tag}{xgb_configuration['prediction_svod_tag']}/future_tournaments/cd={DATE}/label={label}")
 
 
-def main(DATE, config, free_time_tag):
-    labeled_feature_df, predict_feature_df, feature_cols, label_cols = load_training_and_prediction_datasets(DATE, config, free_time_tag=free_time_tag)
+def main(DATE, config, free_timer_tag):
+    labeled_feature_df, predict_feature_df, feature_cols, label_cols = load_training_and_prediction_datasets(DATE, config, free_timer_tag=free_timer_tag)
     if config == {}:
         # model train and test for existing matches
         items = [(["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
@@ -285,8 +285,8 @@ if __name__ == '__main__':
     config = load_requests(DATE)
     # model train and test for matches
     xgb_configuration['prediction_svod_tag'] = ''
-    main(DATE, config=config, free_time_tag="")
-    main(DATE, config=config, free_time_tag="_and_free_timer")
+    main(DATE, config=config, free_timer_tag="")
+    main(DATE, config=config, free_timer_tag="_and_free_timer")
     # model train and test for matches assuming svod type
     xgb_configuration['prediction_svod_tag'] = '_svod'
-    main(DATE, config=config, free_time_tag="")
+    main(DATE, config=config, free_timer_tag="")
