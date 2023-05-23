@@ -49,9 +49,9 @@
             "customAudiences": [
                 {
                     "uploadSource": "ap_tool",
-                    "segmentName": "AP_3YC",
+                    "segmentName": "A_58290825",
                     "customCohort": "C_14_1",
-                    "upload_date": "2023-03-15"
+                    "upload_date": "2023-05-05"
                 }
             ],
             "adPlacements": [

@@ -1,7 +1,8 @@
+from common import *
 from datetime import datetime, timedelta
 import sys
 import pandas as pd
-from common import *
+
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -110,43 +111,56 @@ def match_filter(s):
 
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
-    # last_cd = '2022-12-01' # debug
     matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
     return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
 
-def load_custom_tags(cd):
-    reqs = load_requests(cd)
-    c_tags  = set()
-    for r in reqs:
-        for x in r.get('customAudiences', []):
-            if 'segmentName' in x:
-                c_tags.add(x['segmentName'])
-    return list(c_tags)
+
+def latest_match_days(cd, n):
+    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
+    return matches[['startdate']].distinct().toPandas().startdate.sort_values().tolist()[-n:]
+
 
 @F.udf(returnType=StringType())
 def concat(tags: set):
     return '|'.join(sorted(tags))
 
-def custom_tags(cd):
+
+def load_custom_tags(cd):
+    res  = set()
+    for r in load_requests(cd):
+        for x in r.get('customAudiences', []):
+            if 'segmentName' in x:
+                res.add(x['segmentName'])
+    return list(res)
+
+
+def process_custom_tags(cd):
+    # debug: 
+    # c_tags=['A_58290825']
     c_tags = load_custom_tags(cd)
     t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     f = lambda x: any(x.endswith(c) for c in c_tags)
     t3 = ['s3://' + x for x in t + t2 if f(x)]
-    ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
-        .withColumn('segments', concat('segments'))
-    yesterday = (datetime.strptime(cd, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
-    wt = spark.sql(f'select * from {WV_TABLE} where cd = "{yesterday}"') \
-        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
-    wt1 = wt[['dw_d_id',
-        F.expr('lower(genre) == "cricket" as is_cricket'),
-        F.expr('case when watch_time < 86400 then watch_time else 0 end as watch_time')
-    ]]
-    wt1.join(ct, on='dw_d_id', how='left').groupby('is_cricket', 'segments').agg(
-        F.expr('sum(watch_time) as watch_time'),
-        F.expr('count(distinct dw_d_id) as reach')
-    ).repartition(1).write.parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
+    if len(t3) > 0:
+        ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
+            .withColumn('segments', concat('segments'))
+        matches_days = latest_match_days(cd, 3)
+        sql = ','.join(f'"{x}"' for x in matches_days)
+        wt = spark.sql(f'select * from {DAU_TABLE} where cd in ({sql})')
+        wt1 = wt[['dw_d_id',
+            F.expr('lower(cms_genre) == "cricket" as is_cricket'),
+            F.expr('case when watch_time < 86400 then watch_time else 0 end as watch_time')
+        ]]
+        res = wt1.join(ct, on='dw_d_id', how='left').groupby('is_cricket', 'segments').agg(
+            F.expr('sum(watch_time) as watch_time'),
+            F.expr('count(distinct dw_d_id) as reach')
+        )
+    else:
+        t = pd.DataFrame([[False, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
+        res = spark.createDataFrame(t)
+    res.repartition(1).write.parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
 def main(cd):
     # cd = '2023-05-01' # TODO: fix customAudiences typo
@@ -159,9 +173,9 @@ def main(cd):
             process(dt, playout)
         except:
             print(dt, 'playout not available')
-    custom_tags(cd)
+    process_custom_tags(cd)
+
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
     main(DATE)
-
