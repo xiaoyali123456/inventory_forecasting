@@ -204,21 +204,38 @@ def rank(df, group):
 basic = ['platform', 'language', 'city', 'state', 'age', 'device', 'gender']
 ext = basic + ['custom']
 
-# old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v4/')
-old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v5/')
-neo = pd.read_parquet('s3://s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/')
+old = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/v6/')
+neo = pd.read_parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/')
 old.cd = old.cd.map(str)
 neo.cd = neo.cd.map(str)
 
-def compare(old, neo):
-    old2 = rank(old, ['cd']+basic).groupby(basic).mean().reset_index()
-    old2['rank'] = old2.reach.rank(method='first', ascending=False, pct=True)
-    old2['class'] = old2['rank'].map(lambda x:classisfy(x, 0.02, 0.3))
+# WC day by day, 50% threshold
+def compare(old, neo, date):
+    old2 = rank(old, ['cd'] + basic).groupby(basic).mean().reset_index()
     neo2 = rank(neo, ['cd'] + basic)
+    old2['rank'] = old2.reach.rank(method='first', ascending=False, pct=True)
+    old2['class'] = old2['rank'].map(lambda x:classisfy(x, 0.02, 0.5))
     mix = neo2.merge(old2, on=basic, how='left', suffixes=['_truth', '_forecast'])
-    cf = confusion(mix, 'class_truth', 'class_forecast') 
-    print(cf.max(level=1).to_csv())
+    cf = confusion(mix, 'class_truth', 'class_forecast')
+    with open('final.csv', 'a') as fp:
+        fp.write(date + '\n')
+        cf.max(level=1).to_csv(fp)
 
-compare(old.loc[old.cd <= '2022-09-11'], neo.loc[neo.cd == '2022-11-01'])
-compare(neo.loc[neo.cd == '2022-11-01'], neo.loc[neo.cd == '2022-11-02'])
-compare(neo.loc[neo.cd == '2022-11-06'], neo.loc[neo.cd == '2022-11-09'])
+dates = sorted(set(neo.cd))
+for i in dates[1:]:
+    print(i)
+    compare(neo[neo.cd < i], neo[neo.cd == i], i)
+
+
+# 50% threshold
+def compare2(old, neo):
+    old2 = rank(old, ['cd'] + basic).groupby(basic).mean().reset_index()
+    old2['rank'] = old2.reach.rank(method='first', ascending=False, pct=True)
+    old2['class'] = old2['rank'].map(lambda x:classisfy(x, 0.02, 0.5))
+    neo2 = rank(neo, ['cd'] + basic)
+    neo2['class'] = neo2['rank'].map(lambda x:classisfy(x, 0.02, 0.5))
+    mix = neo2.merge(old2, on=basic, how='left', suffixes=['_truth', '_forecast'])
+    cf = confusion(mix, 'class_truth', 'class_forecast')
+    cf.to_csv('cf.csv')
+    print(cf.max(level=1))
+compare2(old.loc[old.cd <= '2023-01-01'], neo)
