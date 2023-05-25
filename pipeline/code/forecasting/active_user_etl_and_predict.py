@@ -11,12 +11,13 @@ def truth(end, new_path):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
     last = get_last_cd(DAU_TRUTH_PATH, end)
     old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
-    new = spark.sql(f'select cd as ds, dw_p_id from {DAU_TABLE} where cd > "{last}" and cd < "{end}"') \
+    actual_last = str(old.select('ds').toPandas()['ds'].max().date())
+    new_vv = spark.sql(f'select cd as ds, dw_p_id from {DAU_TABLE} where cd > "{last}" and cd < "{end}"') \
+        .groupby('ds').agg(F.countDistinct('dw_p_id').alias('vv'))
+    new_sub_vv = new_vv \
         .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
-        .groupby('ds').agg(
-            F.countDistinct('dw_p_id').alias('vv'),
-            F.countDistinct('dw_p_id').alias('sub_vv')
-        )
+        .groupby('ds').agg(F.countDistinct('dw_p_id').alias('sub_vv'))
+    new = new_vv.merge(new_sub_vv, on='ds')
     old.union(new).repartition(1).write.parquet(new_path)
 
 def predict(df, holidays):
