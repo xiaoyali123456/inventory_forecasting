@@ -129,6 +129,14 @@ def set_svod_feature(df):
         .withColumn("vod_type_hot_vector", F.array(F.lit(svod_value)))
 
 
+def convert_vector_unit_features_to_value_unit_features(df, feature_cols, feature_num_col_list):
+    multi_col_train_df_list = []
+    for i in range(len(feature_cols)):
+        index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
+        multi_col_train_df_list.append(df[feature_cols[i]].apply(pd.Series, index=index))
+    return pd.concat(multi_col_train_df_list, axis=1)
+
+
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
 mask_array = F.udf(lambda l: [0 for i in l], ArrayType(IntegerType()))
@@ -226,18 +234,9 @@ def model_training_and_prediction(DATE, test_tournaments, labeled_feature_df, pr
             test_df = load_dataset(test_feature_df, test_tournament, wc2019_test_tag=wc2019_test_tag, if_test=True,
                                    if_repeat_samples=False,
                                    mask_cols=mask_cols, mask_condition=mask_condition, mask_sample_number_per_content=1)
-        # explode vector-based features of train dataset into multiple one-single-value features
-        multi_col_train_df_list = []
-        for i in range(len(feature_cols)):
-            index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
-            multi_col_train_df_list.append(train_df[feature_cols[i]].apply(pd.Series, index=index))
-        train_feature_df = pd.concat(multi_col_train_df_list, axis=1)
-        # explode vector-based features of test dataset into multiple one-single-value features
-        multi_col_test_df_list = []
-        for i in range(len(feature_cols)):
-            index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
-            multi_col_test_df_list.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
-        test_feature_df = pd.concat(multi_col_test_df_list, axis=1)
+        # explode vector-based features of train/test dataset into multiple one-single-value features
+        train_feature_df = convert_vector_unit_features_to_value_unit_features(train_df, feature_cols=feature_cols, feature_num_col_list=feature_num_col_list)
+        test_feature_df = convert_vector_unit_features_to_value_unit_features(test_df, feature_cols=feature_cols, feature_num_col_list=feature_num_col_list)
         for label in label_cols:
             object_method, n_estimators, learning_rate, max_depth = xgb_hyper_parameter_dic[label]
             n_estimators = int(n_estimators)

@@ -434,8 +434,8 @@ configuration = {
     # 'task': "rate_prediction",
     # "task": 'test_prediction',
     'task': 'prediction_result_save',
-    # 'mask_tag': "mask_knock_off",
-    'mask_tag': "",
+    'mask_tag': "mask_knock_off",
+    # 'mask_tag': "",
     # 'sample_weight': False,
     'sample_weight': True,
     'test_tournaments': ["ac2022", "wc2022"],
@@ -450,9 +450,10 @@ configuration = {
     # 'if_improve_ties': False,
     'if_simple_one_hot': "_and_simple_one_hot",
     # 'if_simple_one_hot': "",
-    # 'if_free_timer': "_and_free_timer",
-    'if_free_timer': "",
-    'if_reach_rate': True,
+    'if_free_timer': "_and_free_timer",
+    # 'if_free_timer': "",
+    # 'if_reach_rate': True,
+    'if_reach_rate': False,
     # 'if_hotstar_influence': False,
     'if_hotstar_influence': True,
     # 'if_teams': False,
@@ -482,8 +483,8 @@ configuration = {
     'if_combine_model': False,
     'au_source': "avg_au",
     # 'au_source': "avg_predicted_au",
-    # 'prediction_free_timer': 1000,
-    'prediction_free_timer': 5,
+    'prediction_free_timer': 1000,
+    # 'prediction_free_timer': 5,
     'end_tag': 0
 }
 match_stage_dic = {
@@ -1086,6 +1087,8 @@ else:
                 print(res_dic[tournament])
     if configuration['task'] == "prediction_result_save":
         for label in label_cols:
+            if label in configuration['unvalid_labels']:
+                continue
             all_tournaments = configuration['predict_tournaments']
             if configuration['prediction_free_timer'] == 1000:
                 all_tournaments += ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]

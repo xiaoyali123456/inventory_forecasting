@@ -191,7 +191,7 @@ def cross_features(dim, *args):
 
 def empty_cross_features(dim, *args):
     res = [0 for i in range(dim)]
-    idx = 3
+    idx = if_contain_india_team_dim + 1
     for x in args:
         idx *= x[0] + 1
     res[idx-1] = 1
@@ -215,7 +215,7 @@ def feature_processing(feature_df):
     return feature_df\
         .withColumn(repeat_num_col, F.expr(f'if({mask_condition}, {knock_off_repeat_num}, 1)'))\
         .withColumn("hostar_influence_hots_num", F.lit(1))\
-        .withColumn("if_contain_india_team_hots_num", F.lit(2))\
+        .withColumn("if_contain_india_team_hots_num", F.lit(if_contain_india_team_dim))\
         .withColumn("if_contain_india_team_hots", if_contain_india_team_hot_vector_udf('if_contain_india_team_hots', 'tournament_type'))\
         .withColumn("if_contain_india_team_hot_vector", generate_hot_vector_udf('if_contain_india_team_hots', 'if_contain_india_team_hots_num'))\
         .join(match_rank_df, 'content_id')\
@@ -235,7 +235,7 @@ n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
 mask_array = F.udf(lambda l: [0 for i in l], ArrayType(IntegerType()))
 enumerate_tiers_udf = F.udf(enumerate_tiers, ArrayType(IntegerType()))
 order_match_stage_udf = F.udf(lambda x: [match_stage_dic[x]], ArrayType(IntegerType()))
-if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" else [1], ArrayType(IntegerType()))
+if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" else [2], ArrayType(IntegerType()))
 cross_features_udf = F.udf(cross_features, ArrayType(IntegerType()))
 empty_cross_features_udf = F.udf(empty_cross_features, ArrayType(IntegerType()))
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
@@ -307,8 +307,8 @@ configuration = {
     'if_feature_weight': False,
     'au_source': "avg_au",
     # 'au_source': "avg_predicted_au",
-    # 'prediction_free_timer': 1000,
-    'prediction_free_timer': 5,
+    'prediction_free_timer': 1000,
+    # 'prediction_free_timer': 5,
     'end_tag': 0
 }
 match_stage_dic = {
@@ -317,8 +317,10 @@ match_stage_dic = {
     'semi-final': 2,
     'final': 3
 }
+
+if_contain_india_team_dim = 3
 hots_num_dic = {
-    'if_contain_india_team_hots': 3,
+    'if_contain_india_team_hots': if_contain_india_team_dim+1,
     'match_stage_hots': 4,
     'tournament_type_hots': 3,
     'match_type_hots': 3,
@@ -353,6 +355,9 @@ path_suffix = f"/all_features_hots_format_with_{configuration['au_source']}_sub_
 feature_df = feature_processing(load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix))\
     .join(label_df.select('content_id', *base_label_cols), 'content_id')\
     .cache()
+
+# feature_df.groupBy('tournament').count().show()
+# .where('tournament != "wc2021" or (tournament = "wc2021" and if_contain_india_team = 1)')\
 
 prediction_cols = load_data_frame(spark,
                                   live_ads_inventory_forecasting_complete_feature_path + "/" + configuration['predict_tournaments'][0] + "/all_features_hots_format" + configuration['if_simple_one_hot']).columns
@@ -585,10 +590,10 @@ else:
         if configuration['prediction_free_timer'] < 1000 and item[0] == []:
             continue
         print(item)
-        train_error_list = []
-        train_error_list2 = {}
-        test_error_list = []
-        test_error_list2 = {}
+        train_prediction_dic = {}
+        train_error_dic = {}
+        test_prediction_dic = {}
+        test_error_dic = {}
         configuration['predict_tournaments'] = item[0]
         if configuration['predict_tournaments']:
             configuration['test_tournaments'] = configuration['predict_tournaments']
@@ -601,6 +606,8 @@ else:
                             'sub_avg_session_num': ['reg:squarederror', '65', '0.1', '5']}
         idx = 0
         for label in best_setting_dic:
+            train_prediction_dic[label] = []
+            test_prediction_dic[label] = []
             best_setting_dic[label].append(estimated_label_cols[idx])
             idx += 1
         print(best_setting_dic)
@@ -649,8 +656,8 @@ else:
                 index = [feature_cols[i] + str(j) for j in range(feature_num_col_list[0][i])]
                 multi_col_df.append(test_df[feature_cols[i]].apply(pd.Series, index=index))
             X_test = pd.concat(multi_col_df, axis=1)
-            train_error_list2[test_tournament] = []
-            test_error_list2[test_tournament] = []
+            train_error_dic[test_tournament] = []
+            test_error_dic[test_tournament] = []
             for label in label_cols:
                 # print("")
                 print(label)
@@ -696,48 +703,44 @@ else:
                         .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
                         .withColumn('test_tournament', F.lit(test_tournament))\
                         .withColumn('label', F.lit(label_cols.index(label)))
-                    train_error_list.append(prediction_df)
+                    train_prediction_dic[label].append(prediction_df)
                     error = metrics.mean_absolute_error(y_train, y_pred)
                     y_mean = y_train.mean()
-                    train_error_list2[test_tournament].append(error / y_mean)
+                    train_error_dic[test_tournament].append(error / y_mean)
                     y_pred = model.predict(X_test)
                     y_test = test_df[label]
                     prediction_df = spark.createDataFrame(pd.concat([test_df[['date', 'content_id']], y_test, pd.DataFrame(y_pred)], axis=1), ['date', 'content_id', 'real_'+label, col_name])\
                         .withColumn(col_name, F.expr(f'cast({col_name} as float)'))\
                         .withColumn('test_tournament', F.lit(test_tournament))\
                         .withColumn('label', F.lit(label_cols.index(label)))
-                    test_error_list.append(prediction_df)
+                    test_prediction_dic[label].append(prediction_df)
                     # save_data_frame(prediction_df, live_ads_inventory_forecasting_root_path+f"/xgb_prediction{mask_tag}/{test_tournament}/{label}")
                     error = metrics.mean_absolute_error(y_test, y_pred)
                     y_mean = y_test.mean()
-                    test_error_list2[test_tournament].append(error / y_mean)
+                    test_error_dic[test_tournament].append(error / y_mean)
                     if test_tournament not in error_dic:
                         error_dic[test_tournament] = []
                     error_dic[test_tournament].append((error, y_mean, test_num))
                     # res_dic[test_tournament][label] = error / y_mean
                     # ## for prediction end
         if configuration['task'] != "prediction_result_save":
-            train_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[:len(label_cols)]]).orderBy('date', 'content_id').cache()
-            train_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[(len(label_cols))*(-1):]]).orderBy('date', 'content_id').cache()
-            test_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[:len(label_cols)]]).orderBy('date', 'content_id').cache()
-            test_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[(len(label_cols))*(-1):]]).orderBy('date', 'content_id').cache()
-            print(train_error_list2)
-            print(test_error_list2)
-            for tournament in test_error_list2:
+            # train_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[:len(label_cols)]]).orderBy('date', 'content_id').cache()
+            # train_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in train_error_list[(len(label_cols))*(-1):]]).orderBy('date', 'content_id').cache()
+            # test_error_df = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[:len(label_cols)]]).orderBy('date', 'content_id').cache()
+            # test_error_df2 = reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']), [df.drop('label') for df in test_error_list[(len(label_cols))*(-1):]]).orderBy('date', 'content_id').cache()
+            prediction_result_list = []
+            print(train_error_dic)
+            print(test_error_dic)
+            for tournament in test_error_dic:
                 print(tournament)
-                print(test_error_list2[tournament][0])
-                if len(test_error_list2[tournament]) > 1:
-                    print(test_error_list2[tournament][1])
-                    # print(test_error_list2[tournament][2])
-                    print("")
-                    print("")
-                    print(test_error_list2[tournament][2])
-                    print(test_error_list2[tournament][3])
-                # print(test_error_list2[tournament][4])
-                # print(test_error_list2[tournament][5])
-            # train_error_df.orderBy('date', 'content_id').show(2000)
-            print("")
-            test_error_df.orderBy('date', 'content_id').show(2000)
+                for error in test_error_dic[tournament]:
+                    print(error)
+            for label in label_cols:
+                prediction_result_list.append(reduce(lambda x, y: x.union(y), [df.drop('label') for df in test_prediction_dic[label]]))
+            reduce(lambda x, y: x.join(y, ['date', 'content_id', 'test_tournament']),
+                   [df for df in prediction_result_list])\
+                .orderBy('date', 'content_id')\
+                .show(2000)
             # train_error_df2.orderBy('date', 'content_id').show(2000)
             # test_error_df2.orderBy('date', 'content_id').show(2000)
         else:
@@ -748,20 +751,11 @@ else:
         for label in label_cols:
             all_tournaments = configuration['predict_tournaments']
             if configuration['prediction_free_timer'] == 1000:
-                all_tournaments += ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]
+                all_tournaments += ["ipl2022", "ac2022", "wc2022"]
             version = "baseline_with_predicted_parameters"
             df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, preroll_live_ads_inventory_forecasting_root_path
                                 +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}")
                                                  for test_tournament in all_tournaments])
             df.orderBy('date', 'content_id').show(2000)
-    if 'wc2019' in error_dic and len(error_dic['wc2019']) > len(label_cols):
-        print('wc2019')
-        for idx in range(len(label_cols)):
-            item1 = error_dic['wc2019'][idx]
-            item2 = error_dic['wc2019'][idx + len(label_cols)]
-            print((item1[0] * item1[2] + item2[0] * item2[2]) / (item1[1] * item1[2] + item2[1] * item2[2]))
-
-
-
 
 
