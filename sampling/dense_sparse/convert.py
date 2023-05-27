@@ -11,7 +11,6 @@ def classisfy(rank, thd1=0.02, thd2=0.5):
 
 INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/'
 # OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-05-01/all.json'
-# OUTPUT_GZIP_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-05-02/all.json.gz'
 OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-05-26/all.json'
 SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v2.json'
 
@@ -48,9 +47,9 @@ for i in basic:
         meta = row.metaData
         if meta['type'] == 'map':
             # meta.pop('type')
-            df2[i] = df2[i].map(lambda x: row.defaultValue if (x not in meta or x == 'other') else meta[x])
+            df2[i] = df2[i].map(lambda x: x if x in meta else 'other')
         elif meta['type'] == 'gender':
-            df2[i] = df2[i].map(lambda x: row.defaultValue if (x == 'other') else x)
+            pass
 df2 = df2.groupby(basic).reach.sum().reset_index()
 
 df2['rank'] = df2.reach.rank(method='first', ascending=False, pct=True)
@@ -62,16 +61,16 @@ custom_tags = list(set(f'C_{v["groupNumber"]}_{v["priority"]}' for k,v in meta['
 # custom_tags.add(row.defaultValue)
 custom_tag_df = pd.DataFrame({'custom_cohort': custom_tags})
 
-df3 = df2.drop(columns='rank')
+# df3 = df2.drop(columns=['rank', 'reach'])
+df3 = df2.drop(columns=['rank'])
+# TODO: exclude below useless fields
 df3['requestId'] = 1
 df3['tournamentId'] = 1
 df3['matchId'] = 1
-df3['forecast_version'] = 'v1'
-df3['custom_cohort'] =  custom_tags
+
+df3['forecast_version'] = 'mlv1'
 df4 = df3.merge(custom_tag_df, how='cross')
 print(df4.iloc[:2].to_json(orient='records', indent=2))
 
 # final
 df4.to_json(OUTPUT_PATH, orient='records')
-# df4.to_json(OUTPUT_GZIP_PATH, orient='records')
-
