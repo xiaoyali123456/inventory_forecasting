@@ -11,13 +11,15 @@ def truth(end, new_path):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
     last = get_last_cd(DAU_TRUTH_PATH, end)
     old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
-    new = spark.sql(f'select cd as ds, dw_p_id from {DAU_TABLE} where cd > "{last}" and cd < "{end}"') \
-        .where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
-        .groupby('ds').agg(
-            F.countDistinct('dw_p_id').alias('vv'),
-            F.countDistinct('dw_p_id').alias('sub_vv')
-        )
-    old.union(new).repartition(1).write.parquet(new_path)
+    actual_last = old.select('ds').toPandas()['ds'].max()
+    if not isinstance(actual_last, str):
+        actual_last = str(actual_last.date())
+    base = spark.sql(f'select cd as ds, dw_p_id, subscription_status from {DAU_TABLE} where cd > "{actual_last}" and cd < "{end}"')
+    new_vv = base.groupby('ds').agg(F.countDistinct('dw_p_id').alias('vv'))
+    new_sub_vv = base.where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
+        .groupby('ds').agg(F.countDistinct('dw_p_id').alias('sub_vv'))
+    new = new_vv.join(new_sub_vv, on='ds')
+    old.union(new).repartition(1).write.mode('overwrite').parquet(new_path)
 
 def predict(df, holidays):
     model = Prophet(holidays=holidays)
@@ -28,7 +30,7 @@ def predict(df, holidays):
     return model, forecast
 
 def forecast(end, new_path):
-    # df = pd.read_parquet(new_path) # need delay for read data
+    # df = pd.read_parquet(new_path) # pandas read has problem
     df = spark.read.parquet(new_path).toPandas()
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)

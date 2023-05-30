@@ -26,3 +26,18 @@ $SPARK forecasting/inventory_prediction.py $DATE
 
 #$SPARK sampling/ewma.py $DATE
 
+
+#######
+# test non prod env
+
+# post
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/forecast-request -XPOST -H 'content-type:application/json' -d @/home/hadoop/minliang/live/pipeline/code/booking/example/post2.json
+
+# get
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/forecast-request\?page-size\=10\&page-number\=0
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/forecast-request\?page-size\=10\&page-number\=0\&status\=INIT
+
+# set status to success
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/111_222/ad-placement/MIDROLL/forecast-request -XPATCH -H 'content-type:application/json' -d '{ "request_status":"IN_PROGRESS","version":1}'
+
+# kafka

@@ -55,6 +55,7 @@ def get_last_cd(path, end=None, n=1):
     #     df = df.where('cd < "{end}"')
     # return str(df.selectExpr('max(cd) as cd').head().cd)
     lst = sorted([x.split('=')[-1] for x in s3.ls(path)])
+    lst = [x for x in lst if '$' not in x]
     if end is not None:
         lst = [x for x in lst if x < end]
     return lst[-n:] if n > 1 else lst[-1]
