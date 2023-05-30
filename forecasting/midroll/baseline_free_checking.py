@@ -67,11 +67,14 @@ def load_hive_table(spark: SparkSession, table: str, date: str = None) -> DataFr
         return spark.sql(f'select * from {table} where cd = "{date}"')
 
 
-def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',') -> None:
+def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ',', partition_col = '') -> None:
     def save_data_frame_internal(df: DataFrame, path: str, fmt: str = 'parquet', header: bool = False,
                                  delimiter: str = ',') -> None:
         if fmt == 'parquet':
-            df.write.mode('overwrite').parquet(path)
+            if partition_col == "":
+                df.write.mode('overwrite').parquet(path)
+            else:
+                df.write.partitionBy(partition_col).mode('overwrite').parquet(path)
         elif fmt == 'parquet2':
             df.write.mode('overwrite').parquet(path, compression='gzip')
         elif fmt == 'parquet3':
@@ -124,6 +127,7 @@ live_ads_inventory_forecasting_root_path = "s3://adtech-ml-perf-ads-us-east-1-pr
 play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
 viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
+live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 
 tournament_dic = {"wc2022": ['"ICC Men\'s T20 World Cup 2022"'],
                   "ac2022": ['"DP World Asia Cup 2022"'],
@@ -244,8 +248,6 @@ reduce(lambda x, y: x.union(y),
     .show(100, False)
 
 
-
-
 # enriched_watch_df = reduce(lambda x, y: x.union(y),
 #     [load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")
 #         .withColumnRenamed(subscription_status_col, 'subscription_status')
@@ -277,6 +279,123 @@ reduce(lambda x, y: x.union(y),
 # print(f"{tournament} done!")
 #
 
+# calculate increment dau for wc2019
+# for date in get_date_list("2019-05-13", 10):
+#     print(date)
+#     jio_and_none_jio_vv_df = load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")\
+#         .withColumnRenamed(subscription_status_col, 'subscription_status')\
+#         .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
+#         .withColumnRenamed(content_id_col, 'content_id')\
+#         .withColumnRenamed(carrier_hs_col, 'carrier_hs')\
+#         .withColumnRenamed(carrier_col, 'carrier')\
+#         .withColumn('carrier_hs', F.upper(F.col('carrier_hs')))\
+#         .withColumn('carrier_jio', F.expr('if(locate("JIO", carrier_hs)>0, 1, 0)'))\
+#         .withColumn('subscription_status', F.upper(F.col('subscription_status')))\
+#         .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')\
+#         .groupBy('carrier_jio')\
+#         .agg(F.countDistinct('dw_p_id').alias('active_free_num'))\
+#         .cache()
+#     save_data_frame(jio_and_none_jio_vv_df, live_ads_inventory_forecasting_root_path + f"/free_dau/cd={date}")
+
+
+match_date_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/all_features_hots_format")\
+    .where('tournament="wc2019"')\
+    .groupBy('date')\
+    .agg(F.max('if_contain_india_team').alias('if_contain_india_team'), F.count('*'))\
+    .cache()
+print(match_date_df.count())
+first_match_date = match_date_df.orderBy('date').select('date').collect()[0][0]
+print(first_match_date)
+free_dau_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_dau")\
+    .withColumnRenamed('cd', 'date')\
+    .where(f'(date between "2019-05-16" and "2019-05-22") or date >= "{first_match_date}"')\
+    .cache()
+before_match_df = free_dau_df\
+    .where(f'date < "{first_match_date}"')\
+    .groupBy('carrier_jio')\
+    .agg(F.avg('active_free_num').alias('before_match_active_free_num'))\
+    .cache()
+during_match_india_df = free_dau_df\
+    .join(match_date_df.where('if_contain_india_team=1'), 'date')\
+    .groupBy('carrier_jio')\
+    .agg(F.avg('active_free_num').alias('during_match_active_free_num'))\
+    .cache()
+during_match_non_india_df = free_dau_df\
+    .join(match_date_df.where('if_contain_india_team=0'), 'date')\
+    .groupBy('carrier_jio')\
+    .agg(F.avg('active_free_num').alias('during_match_active_free_num'))\
+    .cache()
+# before_match_jio_dau = before_match_df.where('carrier_jio=1').select('before_match_active_free_num').collect()[0][0]
+# before_match_non_jio_dau = before_match_df.where('carrier_jio=0').select('before_match_active_free_num').collect()[0][0]
+# during_match_jio_india_dau = during_match_india_df.where('carrier_jio=1').select('during_match_active_free_num').collect()[0][0]
+# during_match_non_jio_india_dau = during_match_india_df.where('carrier_jio=0').select('during_match_active_free_num').collect()[0][0]
+# during_match_jio_non_india_dau = during_match_non_india_df.where('carrier_jio=1').select('during_match_active_free_num').collect()[0][0]
+# during_match_non_jio_non_india_dau = during_match_non_india_df.where('carrier_jio=0').select('during_match_active_free_num').collect()[0][0]
+# india_incremental = before_match_non_jio_dau * (during_match_jio_india_dau / before_match_jio_dau) - during_match_non_jio_india_dau
+# non_india_incremental = before_match_non_jio_dau * (during_match_jio_non_india_dau / before_match_jio_dau) - during_match_non_jio_non_india_dau
+# print(before_match_jio_dau, before_match_non_jio_dau)
+# print(during_match_jio_india_dau, during_match_non_jio_india_dau)
+# print(during_match_jio_non_india_dau, during_match_non_jio_non_india_dau)
+# print(india_incremental, non_india_incremental)
+
+free_dau_df\
+    .where(f'date < "{first_match_date}"')\
+    .withColumn('if_contain_india_team', F.lit(-1))\
+    .where('carrier_jio=0')\
+    .select('date', 'active_free_num', 'if_contain_india_team')\
+    .union(free_dau_df
+           .where('carrier_jio=0')
+           .join(match_date_df, 'date').select('date', 'active_free_num', 'if_contain_india_team'))\
+    .withColumnRenamed('active_free_num', 'non_jio_active_num')\
+    .orderBy('date')\
+    .show(1000)
+free_dau_df\
+    .where(f'date < "{first_match_date}"')\
+    .withColumn('if_contain_india_team', F.lit(-1))\
+    .where('carrier_jio=1')\
+    .select('date', 'active_free_num', 'if_contain_india_team')\
+    .union(free_dau_df
+           .where('carrier_jio=1')
+           .join(match_date_df, 'date').select('date', 'active_free_num', 'if_contain_india_team'))\
+    .withColumnRenamed('active_free_num', 'jio_active_num')\
+    .orderBy('date')\
+    .show(1000)
+
+# dau_df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/cd=2023-05-29").cache()
+# dau_df.orderBy('ds').show(230)
+# incremental_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/all_features_hots_format")\
+#     .where('tournament="wc2019"')\
+#     .groupBy('date')\
+#     .agg(F.max('if_contain_india_team').alias('if_contain_india_team'), F.count('*'))\
+#     .withColumn('dau_incremental', F.expr(f'if(if_contain_india_team=1, {india_incremental}, {non_india_incremental})'))\
+#     .cache()
+# incremental_df\
+#     .orderBy('date')\
+#     .show(1000)
+
+non_jio_dau_df = free_dau_df\
+    .where('carrier_jio=0')\
+    .select('date', 'active_free_num')\
+    .withColumnRenamed('active_free_num', 'non_jio_active_num')\
+    .join(match_date_df.select('date').distinct(), 'date')\
+    .cache()
+jio_dau_df = free_dau_df\
+    .where('carrier_jio=1')\
+    .select('date', 'active_free_num')\
+    .withColumnRenamed('active_free_num', 'jio_active_num')\
+    .join(match_date_df.select('date').distinct(), 'date')\
+    .cache()
+incremental_df = non_jio_dau_df\
+    .join(jio_dau_df, 'date')\
+    .withColumn('new_non_jio_active_num', F.expr('jio_active_num * 0.63'))\
+    .withColumn('dau_incremental', F.expr(f'new_non_jio_active_num - non_jio_active_num'))\
+    .cache()
+incremental_df\
+    .orderBy('date')\
+    .show(1000)
+
+
+save_data_frame(incremental_df.select('date', 'dau_incremental').repartition(1), live_ads_inventory_forecasting_root_path + "/dau_incremental")
 
 # ready_date_dic = {}
 # for date in valid_dates:

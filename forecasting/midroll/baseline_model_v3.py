@@ -261,6 +261,7 @@ prediction_vod_str = ""
 # reach_improve = True
 reach_improve = False
 # use_vod_cross = ""
+wc2019_avod_tag = "_full_avod_2019"
 use_vod_cross = "_vod_cross"
 feature_weights_list = []
 
@@ -268,7 +269,8 @@ feature_weights_list = []
 predict_tournaments = ["ac2023", "wc2023"]
 dau_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/all/"
 # dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/DAU_predict.parquet"
-dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
+# dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_predict/v3/cd=2023-04-11/"
+dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/cd=2023-05-29"
 # masked_tournament_for_au = "ac2022"
 masked_tournament_for_au = ""
 masked_dau_prediction_path = f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_full_v2/masked/mask={masked_tournament_for_au}/cd=2023-04-11/p0.parquet"
@@ -349,8 +351,8 @@ if prediction_vod_str != "":
     test_tournament_list = predict_tournaments
     dau_prediction_path = svod_dau_prediction_path
 
-if reach_improve:
-    test_tournament_list = predict_tournaments
+# if reach_improve:
+#     test_tournament_list = predict_tournaments
 
 if masked_tournament_for_au != "":
     test_tournament_list = [masked_tournament_for_au]
@@ -453,7 +455,7 @@ for test_tournament in test_tournament_list:
             label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
                           'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
             # print(first_match_date)
-            label_path = f"{live_ads_inventory_forecasting_root_path}/xgb_prediction{mask_tag}{use_vod_cross}{prediction_vod_str}/{test_tournament}"
+            label_path = f"{live_ads_inventory_forecasting_root_path}/xgb_prediction{mask_tag}{wc2019_avod_tag}{use_vod_cross}{prediction_vod_str}/{test_tournament}"
             new_test_label_df = test_df \
                 .withColumn('estimated_variables', F.lit(0)) \
                 .join(load_data_frame(spark, f"{label_path}/{label_cols[2]}")
@@ -466,9 +468,11 @@ for test_tournament in test_tournament_list:
                 svod_free_rate_df = load_data_frame(spark, f"{svod_label_path}/{label_cols[0]}")\
                     .drop('sample_tag', 'real_' + label_cols[0])\
                     .selectExpr('date', 'content_id', f'estimated_free_watch_rate as svod_rate')
+                svod_free_rate_df.orderBy('date').show(30, False)
                 mix_free_rate_df = load_data_frame(spark, f"{label_path}/{label_cols[0]}") \
                     .drop('sample_tag', 'real_' + label_cols[0]) \
                     .selectExpr('date', 'content_id', f'estimated_free_watch_rate as mix_rate')
+                mix_free_rate_df.orderBy('date').show(30, False)
                 new_test_label_df = new_test_label_df \
                     .join(svod_free_rate_df
                           .join(mix_free_rate_df, ['date', 'content_id'])
@@ -483,7 +487,7 @@ for test_tournament in test_tournament_list:
                     .cache()
             if if_free_timer:
                 label = 'watch_time_per_free_per_match_with_free_timer'
-                parameter_df = load_data_frame(spark, f"{label_path}/{label}")\
+                parameter_df = load_data_frame(spark, f"{label_path.replace(wc2019_avod_tag, '')}/{label}")\
                     .drop('sample_tag', 'real_' + label)\
                     .groupBy('date', 'content_id')\
                     .agg(F.collect_list('estimated_free_watch_time_with_free_timer').alias('estimated_free_watch_time'))\

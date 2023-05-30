@@ -93,7 +93,7 @@ def add_categorical_features(feature_df, type="train", root_path=""):
     save_data_frame(df, root_path + "/base_features_with_all_features_multi_hots")
     print("multi hots feature processed done!")
     df = load_data_frame(spark, root_path + "/base_features_with_all_features_multi_hots").cache()
-    # one hot means the hot number > 1
+    # one hot means the hot number = 1
     for col in one_hot_cols:
         print(col)
         if type == "train":
@@ -117,11 +117,12 @@ def add_categorical_features(feature_df, type="train", root_path=""):
             .withColumn(f"{col}_hots_num", F.lit(col_num))
     for col in one_hot_cols:
         print(col)
-        df = df\
-            .withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
-    for col in ['hostar_influence']:
+        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
+    for col in numerical_cols:
         print(col)
-        df = df.withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}")))
+        df = df\
+            .withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}"))) \
+            .withColumn(f"{col}_hots_num", F.lit(1))
     df.groupBy('tournament').count().orderBy('tournament').show()
     save_data_frame(df, root_path + "/base_features_with_all_features_hots")
     print("all hots feature processed done!")
@@ -189,7 +190,7 @@ def main(spark, date, content_id, tournament_name, match_type,
         .withColumn('match_type', F.lit(match_type.lower())) \
         .withColumn('tournament_name', F.lit(" ".join(tournament_name.lower().split(" ")[:-1]))) \
         .withColumn('year', F.lit(int(tournament_name.lower().split(" ")[-1]))) \
-        .withColumn('hostar_influence', F.expr('year - 2016')) \
+        .withColumn('hotstar_influence', F.expr('year - 2016')) \
         .withColumn('match_stage', F.lit(match_stage.lower())) \
         .withColumn('vod_type', F.lit(vod_type.lower())) \
         .withColumn('gender_type', F.lit(gender_type.lower())) \
@@ -209,10 +210,6 @@ def main(spark, date, content_id, tournament_name, match_type,
                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_free_timer_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")
-    cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
-    df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={date}/contentid={content_id}")\
-        .drop(*cols)
-    df.orderBy('date', 'content_id').show(3000, False)
     return feature_df
 
 
@@ -225,7 +222,21 @@ def save_base_dataset(path_suffix):
         print(content)
         date = content[0]
         content_id = content[1]
-        save_data_frame(df.where(f'date="{date}" and content_id="{content_id}"'), pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
+        res_df = df\
+            .where(f'date="{date}" and content_id="{content_id}"') \
+            .withColumnRenamed('hostar_influence', 'hotstar_influence')\
+            .withColumnRenamed('hostar_influence_hots', 'hotstar_influence_hots')\
+            .withColumnRenamed('hostar_influence_hots_num', 'hotstar_influence_hots_num')\
+            .withColumnRenamed('hostar_influence_hot_vector', 'hotstar_influence_hot_vector')\
+            .withColumn("hotstar_influence_hots_num", F.lit(1)) \
+            .withColumn("if_contain_india_team_hots_num", F.lit(2)) \
+            .withColumn("if_contain_india_team_hots", if_contain_india_team_hot_vector_udf('if_contain_india_team_hots', 'tournament_type')) \
+            .withColumn("if_contain_india_team_hot_vector", generate_hot_vector_udf('if_contain_india_team_hots', 'if_contain_india_team_hots_num'))
+        if path_suffix.find('free_timer') > -1:
+            res_df = res_df\
+                .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
+                .withColumn("free_timer_hots_num", F.lit(1))
+        save_data_frame(res_df, pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
 
 
 def generate_prediction_dataset(today, config):
@@ -258,8 +269,6 @@ def generate_prediction_dataset(today, config):
     feature_df = spark.createDataFrame(res, cols) \
         .withColumn('total_frees_number', F.lit(-1)) \
         .withColumn('total_subscribers_number', F.lit(-1)) \
-        .withColumn('active_frees_rate', F.lit(-1.0)) \
-        .withColumn('active_subscribers_rate', F.lit(-1.0)) \
         .withColumn('frees_watching_match_rate', F.lit(-1.0)) \
         .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
         .withColumn('watch_time_per_free_per_match', F.lit(-1.0)) \
@@ -275,7 +284,7 @@ def generate_prediction_dataset(today, config):
         .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
         .withColumn('if_holiday', F.expr('if(if_holiday="true", 1, 0)')) \
         .withColumn('venue', F.expr('if(venue_detail="india", 1, 0)')) \
-        .withColumn('hostar_influence', F.expr('year - 2016')) \
+        .withColumn('hotstar_influence', F.expr('year - 2016')) \
         .withColumn('teams', simple_title_udf('title')) \
         .withColumn('continents', get_continents_udf('teams', 'tournament_type')) \
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
@@ -290,11 +299,9 @@ def generate_prediction_dataset(today, config):
             feature_df = feature_df \
                 .withColumn(f"{col}_hots_num", F.lit(1)) \
                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
-    save_data_frame(feature_df.drop('free_timer'), pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_free_timer_and_simple_one_hot" + f"/cd={today}")
-    cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + additional_cols]
-    df = load_data_frame(spark,
-                         pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
+    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
+    cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + numerical_cols]
+    df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
         .drop(*cols)
     df.orderBy('date', 'content_id').show(3000, False)
     return feature_df
@@ -305,17 +312,16 @@ simple_title_udf = F.udf(simple_title, StringType())
 get_teams_tier_udf = F.udf(get_teams_tier, StringType())
 get_continents_udf = F.udf(get_continents, StringType())
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
+if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" else [1], ArrayType(IntegerType()))
 
 
-# save_base_dataset("")
 # save_base_dataset("_and_simple_one_hot")
-# save_base_dataset("_and_free_timer")
-# save_base_dataset("_and_free_timer_and_simple_one_hot")
+save_base_dataset("_and_free_timer_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)
 
 if __name__ == '__main__':
-    DATE=sys.argv[1]
+    DATE = sys.argv[1]
     config = load_requests(DATE)
     generate_prediction_dataset(DATE, config=config)

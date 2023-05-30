@@ -432,10 +432,10 @@ configuration = {
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
     # 'task': "rate_prediction",
-    # "task": 'test_prediction',
-    'task': 'prediction_result_save',
-    'mask_tag': "mask_knock_off",
-    # 'mask_tag': "",
+    "task": 'test_prediction',
+    # 'task': 'prediction_result_save',
+    # 'mask_tag': "mask_knock_off",
+    'mask_tag': "",
     # 'sample_weight': False,
     'sample_weight': True,
     'test_tournaments': ["ac2022", "wc2022"],
@@ -450,8 +450,8 @@ configuration = {
     # 'if_improve_ties': False,
     'if_simple_one_hot': "_and_simple_one_hot",
     # 'if_simple_one_hot': "",
-    'if_free_timer': "_and_free_timer",
-    # 'if_free_timer': "",
+    # 'if_free_timer': "_and_free_timer",
+    'if_free_timer': "",
     # 'if_reach_rate': True,
     'if_reach_rate': False,
     # 'if_hotstar_influence': False,
@@ -465,6 +465,10 @@ configuration = {
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
+    # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'teams_tier_hots', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hot_vector', 'match_type_hots', 'tournament_type_hots'],
     #                    ['vod_type_hots', 'tournament_type_hots']],
@@ -483,6 +487,8 @@ configuration = {
     'if_combine_model': False,
     'au_source': "avg_au",
     # 'au_source': "avg_predicted_au",
+    # 'wc2019_avod_tag': '',
+    'wc2019_avod_tag': '_full_avod_2019',
     'prediction_free_timer': 1000,
     # 'prediction_free_timer': 5,
     'end_tag': 0
@@ -543,7 +549,8 @@ knock_off_repeat_num = 1
 repeat_num_col = "knock_off_repeat_num"
 mask_condition = 'match_stage in ("final", "semi-final")'
 # path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
-path_suffix = f"/all_features_hots_format_with_{configuration['au_source']}_sub_free_num" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
+# path_suffix = f"/all_features_hots_format_with_{configuration['au_source']}_sub_free_num" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
+path_suffix = f"/all_features_hots_format_with_{configuration['au_source']}_sub_free_num{configuration['wc2019_avod_tag']}" + configuration['if_free_timer'] + configuration['if_simple_one_hot']
 # match_num_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/match_num").cache()
 feature_df = feature_processing(load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix))\
     .cache()
@@ -1021,7 +1028,7 @@ else:
                     # prediction_df.orderBy('date', 'content_id').show(10, False)
                     save_data_frame(prediction_df,
                                     live_ads_inventory_forecasting_root_path
-                                    +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}/sample_tag={sample_tag}")
+                                    +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{configuration['wc2019_avod_tag']}{prediction_vod_str}/{test_tournament}/{label}/sample_tag={sample_tag}")
                     error = metrics.mean_absolute_error(y_test, y_pred)
                     y_mean = y_test.mean()
                     print(error / y_mean)

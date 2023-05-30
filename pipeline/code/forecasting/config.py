@@ -76,8 +76,8 @@ xgb_configuration = {
     # 'simple_one_hot_suffix': "",
     # 'if_free_timer': "_and_free_timer",
     'if_free_timer': "",
-    'if_cross_features': True,
-    # 'if_cross_features': False,
+    'if_contains_cross_features': True,
+    # 'if_contains_cross_features': False,
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
@@ -87,16 +87,21 @@ xgb_configuration = {
     'end_tag': 0
 }
 
+free_rate_label = "frees_watching_match_rate"
+free_wt_label = "watch_time_per_free_per_match_with_free_timer"
+sub_rate_label = "subscribers_watching_match_rate"
+sub_wt_label = "watch_time_per_subscriber_per_match"
+
 # hyper-parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth] format
-xgb_hyper_parameter_dic = {'frees_watching_match_rate': ['reg:squarederror', '45', '0.05', '11'],
-                           'watch_time_per_free_per_match': ['reg:squarederror', '73', '0.05', '3'],
-                           'subscribers_watching_match_rate': ['reg:squarederror', '53', '0.05', '9'],
-                           'watch_time_per_subscriber_per_match': ['reg:squarederror', '61', '0.1', '3'],
-                           'watch_time_per_free_per_match_with_free_timer': ['reg:squarederror', '73', '0.05', '5']}
+xgb_hyper_parameter_dic = {free_rate_label: ['reg:squarederror', 45, 0.05, 11],
+                           free_wt_label: ['reg:squarederror', 73, 0.05, 5],
+                           sub_rate_label: ['reg:squarederror', 53, 0.05, 9],
+                           sub_wt_label: ['reg:squarederror', 61, 0.1, 3]}
 
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'vod_type']
+                'match_type', 'tournament_name', 'match_stage', 'vod_type']
 multi_hot_cols = ['teams', 'continents', 'teams_tier']
+numerical_cols = ['hotstar_influence', 'free_timer']
 additional_cols = ["languages", "platforms"]
 
 
@@ -111,5 +116,8 @@ free_pid_did_rate = 1.02
 invalid_match_date = '2022-08-24'
 invalid_tournament = 'ipl2019'
 important_content_id = "1440000724"
+important_content_weight = 2
 meaningless_request_id = "0"
 jio_user_rate_of_wc2019 = 0.75
+slack_notification_topic = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
+region = "us-east-1"
