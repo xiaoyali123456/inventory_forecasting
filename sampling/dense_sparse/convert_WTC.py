@@ -1,6 +1,6 @@
 import pandas as pd
 
-def classisfy(rank, thd1=0.02, thd2=0.5):
+def classify(rank, thd1=0.02, thd2=0.5):
     if rank <= thd1:
         return 'super_dense'
     elif rank <= thd1 + thd2:
@@ -10,7 +10,7 @@ def classisfy(rank, thd1=0.02, thd2=0.5):
 
 
 INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v3/'
-OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-01/all.json'
+OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-05-27/all.json'
 SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v2.json'
 
 df = pd.read_parquet(INPUT_PATH) # don't use spark due to limit of master result
@@ -46,30 +46,24 @@ for i in basic:
         meta = row.metaData
         if meta['type'] == 'map':
             # meta.pop('type')
-            df2[i] = df2[i].map(lambda x: x if x in meta else 'other')
+            df2[i] = df2[i].map(lambda x: x if x in meta else row.defaultValue)
         elif meta['type'] == 'gender':
-            pass
+            df2[i] = df2[i].map(lambda x: x if x in ['f', 'm'] else row.defaultValue)
 df2 = df2.groupby(basic).reach.sum().reset_index()
 
-df2['rank'] = df2.reach.rank(method='first', ascending=False, pct=True)
-df2['density'] = df2['rank'].map(lambda x: classisfy(x, 0.02, 0.5))
+df3 = df2.reset_index()
+for i in basic:
+    if inv[i] in ssai_config.tagType.tolist():
+        row = ssai_config[ssai_config.tagType == inv[i]].iloc[0]
+        meta = row.metaData
+        if meta['type'] == 'map':
+            df3[i] = df3[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
+        elif meta['type'] == 'gender':
+            pass
+df3 = df3.groupby(basic).agg({'reach':sum, 'index':list}).reset_index()
+df3['rank'] = df3.reach.rank(method='first', ascending=False, pct=True)
+df3['density'] = df3['rank'].map(lambda x: classify(x, 0.02, 0.5))
 
-row = ssai_config[ssai_config.tagType == 'CustomTags'].iloc[0]
-meta = row.metaData
-custom_tags = list(set(f'C_{v["groupNumber"]}_{v["priority"]}' for k,v in meta['customCohort'].items() if v.get('enabled', True)))
-# custom_tags.add(row.defaultValue)
-custom_tag_df = pd.DataFrame({'custom_cohort': custom_tags})
-
-# df3 = df2.drop(columns=['rank', 'reach'])
-df3 = df2.drop(columns=['rank'])
-# TODO: exclude below useless fields
-df3['requestId'] = 1
-df3['tournamentId'] = 1
-df3['matchId'] = 1
-
-df3['forecast_version'] = 'mlv1'
-df4 = df3.merge(custom_tag_df, how='cross')
-print(df4.iloc[:2].to_json(orient='records', indent=2))
-
-# final
-df4.to_json(OUTPUT_PATH, orient='records')
+for k, v in df3.groupby('density').index.sum().items():
+    df2.loc[v, 'density'] = k
+df2.drop(columns=['rank', 'reach']).to_json(OUTPUT_PATH, orient='records')
