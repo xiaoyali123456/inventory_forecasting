@@ -21,12 +21,13 @@ class LiveMatchRegression(object):
         # self.loss_fn = torch.nn.HuberLoss(delta=0.1)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-2)
         #self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=1e-2)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3)
+        # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
         self.dataset = LiveMatchDataLoader(label_list=self.label_list, test_tournaments=test_tournaments)
         self.test_tournament = test_tournaments[0]
 
-    def train(self, num_epochs=200):
+    def train(self, num_epochs=50):
         data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
         num_steps = len(data_loader)
         for epoch in range(num_epochs):
@@ -53,7 +54,7 @@ class LiveMatchRegression(object):
                 #              .format(epoch + 1, num_epochs, i + 1, num_steps, loss.item()))
                 #for wp in self.model.parameters():
                 #    print(wp.data.shape, wp.data)
-            # if epoch % 20 == 0:
+            # if epoch % 10 == 0:
             #     self.eval()
 
     def eval(self):

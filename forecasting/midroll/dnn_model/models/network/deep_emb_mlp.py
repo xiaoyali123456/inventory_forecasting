@@ -14,7 +14,7 @@ class DeepEmbMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(64, num_task),
         )
-
+        torch.manual_seed(54321)
         self.encoder = [nn.Embedding(max_token, emb_dim) for i in range(columns)]
         for emb in self.encoder:
             # nn.init.normal_(emb.weight, mean=0, std=0.5)
