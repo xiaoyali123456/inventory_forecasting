@@ -5,6 +5,7 @@ from torch import nn
 
 class DeepEmbMLP(nn.Module):
     def __init__(self, columns, max_token, emb_dim=6, num_task=1):
+        torch.manual_seed(54321234)
         super().__init__()
         self.emb_dim = emb_dim
         self.mlp = nn.Sequential(
@@ -14,7 +15,6 @@ class DeepEmbMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(64, num_task),
         )
-        torch.manual_seed(54321)
         self.encoder = [nn.Embedding(max_token, emb_dim) for i in range(columns)]
         for emb in self.encoder:
             # nn.init.normal_(emb.weight, mean=0, std=0.5)
