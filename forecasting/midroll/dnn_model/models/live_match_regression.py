@@ -9,9 +9,9 @@ import pandas as pd
 class LiveMatchRegression(object):
     def __init__(self, label_idx_list, test_tournaments):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
-                              "watch_time_per_free_per_match": [1 / 10.3, 1],
-                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
-                              "watch_time_per_subscriber_per_match": [1 / 57.9, 1]
+                             "watch_time_per_free_per_match": [1 / 10.3, 1],
+                             'subscribers_watching_match_rate': [1 / 0.56, 0.1],
+                             "watch_time_per_subscriber_per_match": [1 / 57.9, 1]
         }
         label_list_tmp = [label for label in self.label_config]
         self.label_list = [label_list_tmp[label_idx] for label_idx in label_idx_list]
@@ -72,8 +72,8 @@ class LiveMatchRegression(object):
             sample_ids_logs = self.test_inner(data_loader, label_idx, sample_ids)
             sample_ids_logs_all.append(sample_ids_logs)
         res_list = []
-        cols = [f"content_id", f"estimated_{data_loader.dataset.label_list[0]}", f"real_{data_loader.dataset.label_list[0]}"]
-        print(cols)
+        cols = [f"content_id", f"estimated_{self.label_list[0]}", f"real_{self.label_list[0]}"]
+        # print(cols)
         for sample_idx in range(len(sample_ids_logs_all[0])):
             items = [sample_ids_logs_all[0][sample_idx][0]]
             # items = []
@@ -85,7 +85,7 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
-        # df.to_parquet(f"dnn_predictions/{self.test_tournament}/{self.label_list[0]}")
+        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0
