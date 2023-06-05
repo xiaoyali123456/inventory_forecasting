@@ -247,8 +247,6 @@ top_N_matches = 5
 version = "baseline_with_predicted_parameters"
 mask_tag = ""
 # mask_tag = "mask_knock_off"
-# if_free_timer = False
-if_free_timer = True
 # predict_au = ""
 predict_au = "avg_au"
 # predict_au = "avg_predicted_au"
@@ -256,13 +254,6 @@ predict_au = "avg_au"
 if_use_predict_au_to_predict_inventory = False
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
-prediction_vod_str = ""
-# prediction_vod_str = "_svod"
-# reach_improve = True
-reach_improve = False
-# use_vod_cross = ""
-wc2019_avod_tag = "_full_avod_2019"
-use_vod_cross = "_vod_cross"
 feature_weights_list = []
 
 
@@ -346,10 +337,6 @@ all_feature_df.groupBy('tournament').count().show(50, False)
 test_tournament_list = ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"] + predict_tournaments
 if version in ['predicted_parameters_comparison']:
     test_tournament_list = ["wc2019", "wc2022"]
-
-if prediction_vod_str != "":
-    test_tournament_list = predict_tournaments
-    dau_prediction_path = svod_dau_prediction_path
 
 # if reach_improve:
 #     test_tournament_list = predict_tournaments
@@ -509,7 +496,7 @@ for test_tournament in test_tournament_list:
                 # print(final_cols)
                 res_df = res_df.select(*final_cols).orderBy('date', 'content_id')
                 save_data_frame(res_df,
-                                live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_{version}{mask_tag}{prediction_vod_str}")
+                                live_ads_inventory_forecasting_root_path + f"/test_result_of_{test_tournament}_using_dnn")
                 # save_data_frame(res_df, live_ads_inventory_forecasting_root_path+f"/test_result_of_{test_tournament}_using_{version}_2")
                 # res_df.select('date', 'title', 'estimated_inventory').show(200, False)
                 # res_df.show(200, False)
@@ -533,67 +520,65 @@ for test_tournament in test_tournament_list:
     print("")
     print("")
 
-if version in ["predicted_parameters_comparison"]:
-    reduce(lambda x, y: x.union(y), res_list).orderBy(['date', 'content_id']).show(1000, False)
-else:
-    tournament_dic = {
-        "wc2023": -2,
-        "ac2023": -1,
-        "wc2022": 0,
-        "ac2022": 1,
-        "ipl2022": 2,
-        "wc2021": 3,
-        "wc2019": 4,
-    }
-    tag_mapping_udf = F.udf(lambda x: tournament_dic[x], IntegerType())
-    reduce(lambda x, y: x.union(y), res_list) \
-        .groupBy('tournament') \
-        .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
-             F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
-             F.sum('total_inventory').alias('total_inventory'),
-             F.sum('estimated_inventory').alias('estimated_inventory'),
-             F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
-             F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
-             F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
-             F.count('content_id')) \
-        .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
-        .withColumn('total_match_error', F.expr('sum_inventory_abs_error / total_inventory')) \
-        .withColumn('tag', tag_mapping_udf('tournament')) \
-        .orderBy('tag')\
-        .drop('tag')\
-        .show(100, False)
-    prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_result_of_{tournament}_using_{version}{mask_tag}")
-                                     for tournament in test_tournament_list])\
-        .orderBy('date', 'content_id').select('date', 'content_id', 'title', 'tournament',
-                                              'estimated_inventory', 'estimated_reach',
-                                              'total_frees_number', 'real_frees_watching_match_rate', 'real_watch_time_per_free_per_match',
-                                              'estimated_free_num', 'estimated_free_watch_rate', 'estimated_free_watch_time',
-                                              'total_subscribers_number', 'real_subscribers_watching_match_rate', 'real_watch_time_per_subscriber_per_match',
-                                              'estimated_sub_num', 'estimated_sub_watch_rate', 'estimated_sub_watch_time', 'estimated_free_dau', 'estimated_sub_dau')\
-        .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_free_watch_rate'))\
-        .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_sub_watch_rate'))\
-        .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time) / '
-                                             '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
-                                             'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
-        .withColumn('sub_inventory', F.expr('(estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) / '
-                                             '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
-                                             'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
-        .cache()
-    res_df = reduce(lambda x, y: x.union(y), [load_labels(tournament, all_feature_df) for tournament in tournament_list])\
-        .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", "1540019005", "1540019014", "1540019017","1540016333")')\
-        .join(prediction_df, ['date', 'content_id', 'title'], 'full')\
-        .orderBy('date', 'content_id')\
-        .cache()
-    res_df.count()
-    show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'estimated_free_dau', 'estimated_sub_dau',
-                 'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_free_watch_time', 'estimated_sub_watch_time',
-                 'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_free_watch_rate', 'estimated_sub_watch_rate']
-    # res_df\
-    #     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\
-    #     .select('date', 'title', 'total_frees_number', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
-    #             'estimated_free_watch_time', 'estimated_sub_watch_time', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
-    res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(1000, False)
-    # res_df.where(f'date != "2022-08-24" and (total_pid_reach > 0 or tournament in ("{filter}"))').select(*show_cols).show(1000, False)
+
+tournament_dic = {
+    "wc2023": -2,
+    "ac2023": -1,
+    "wc2022": 0,
+    "ac2022": 1,
+    "ipl2022": 2,
+    "wc2021": 3,
+    "wc2019": 4,
+}
+tag_mapping_udf = F.udf(lambda x: tournament_dic[x], IntegerType())
+reduce(lambda x, y: x.union(y), res_list) \
+    .groupBy('tournament') \
+    .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
+         F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
+         F.sum('total_inventory').alias('total_inventory'),
+         F.sum('estimated_inventory').alias('estimated_inventory'),
+         F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
+         F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
+         F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
+         F.count('content_id')) \
+    .withColumn('total_error', F.expr('(estimated_inventory - total_inventory) / total_inventory')) \
+    .withColumn('total_match_error', F.expr('sum_inventory_abs_error / total_inventory')) \
+    .withColumn('tag', tag_mapping_udf('tournament')) \
+    .orderBy('tag')\
+    .drop('tag')\
+    .show(100, False)
+prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/test_result_of_{tournament}_using_dnn")
+                                 for tournament in test_tournament_list])\
+    .orderBy('date', 'content_id').select('date', 'content_id', 'title', 'tournament',
+                                          'estimated_inventory', 'estimated_reach',
+                                          'total_frees_number', 'real_frees_watching_match_rate', 'real_watch_time_per_free_per_match',
+                                          'estimated_free_num', 'estimated_free_watch_rate', 'estimated_free_watch_time',
+                                          'total_subscribers_number', 'real_subscribers_watching_match_rate', 'real_watch_time_per_subscriber_per_match',
+                                          'estimated_sub_num', 'estimated_sub_watch_rate', 'estimated_sub_watch_time', 'estimated_free_dau', 'estimated_sub_dau')\
+    .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_free_watch_rate'))\
+    .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_sub_watch_rate'))\
+    .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time) / '
+                                         '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
+                                         'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
+    .withColumn('sub_inventory', F.expr('(estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) / '
+                                         '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
+                                         'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
+    .cache()
+res_df = reduce(lambda x, y: x.union(y), [load_labels(tournament, all_feature_df) for tournament in tournament_list])\
+    .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", "1540019005", "1540019014", "1540019017","1540016333")')\
+    .join(prediction_df, ['date', 'content_id', 'title'], 'full')\
+    .orderBy('date', 'content_id')\
+    .cache()
+res_df.count()
+show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'estimated_free_dau', 'estimated_sub_dau',
+             'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_free_watch_time', 'estimated_sub_watch_time',
+             'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_free_watch_rate', 'estimated_sub_watch_rate']
+# res_df\
+#     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\
+#     .select('date', 'title', 'total_frees_number', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
+#             'estimated_free_watch_time', 'estimated_sub_watch_time', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
+res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(1000, False)
+# res_df.where(f'date != "2022-08-24" and (total_pid_reach > 0 or tournament in ("{filter}"))').select(*show_cols).show(1000, False)
 
 
 
