@@ -28,7 +28,7 @@ class LiveMatchRegression(object):
         self.test_tournament = test_tournaments[0]
 
     def train(self, num_epochs=40):
-        data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
+        data_loader = self.dataset.get_dataset(batch_size=32, mode='train')
         num_steps = len(data_loader)
         for epoch in range(num_epochs):
             for i, (x, y) in enumerate(data_loader):
