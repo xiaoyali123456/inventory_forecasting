@@ -395,7 +395,7 @@ for test_tournament in test_tournament_list:
     test_match_type_list = test_feature_df.select('match_type').distinct().collect()
     # # print(test_match_type_list)
     test_label_df = load_labels(f"{test_tournament}", all_feature_df) \
-        .join(test_feature_df, 'content_id') \
+        .join(test_feature_df, ['content_id', 'tournament']) \
         .cache()
     # simple_feature_df = feature_df \
     #     .where(f"tournament!='{test_tournament}'") \
@@ -543,13 +543,13 @@ show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'estima
 #     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\
 #     .select('date', 'title', 'total_frees_number', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
 #             'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
-res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(1000, False)
+# res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(1000, False)
 res_df.where('date != "2022-08-24" and tournament != "ipl2019"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach').show(1000, False)
-res_df.where('tournament="ac2022"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach',
-                                          'real_frees_watching_match_rate', 'estimated_frees_watching_match_rate',
-                                          'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
-                                          'real_subscribers_watching_match_rate', 'estimated_subscribers_watching_match_rate',
-                                          'real_watch_time_per_subscriber_per_match', 'estimated_watch_time_per_subscriber_per_match').show(1000, False)
+# res_df.where('tournament="ac2022"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach',
+#                                           'real_frees_watching_match_rate', 'estimated_frees_watching_match_rate',
+#                                           'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
+#                                           'real_subscribers_watching_match_rate', 'estimated_subscribers_watching_match_rate',
+#                                           'real_watch_time_per_subscriber_per_match', 'estimated_watch_time_per_subscriber_per_match').show(1000, False)
 # res_df.where(f'date != "2022-08-24" and (total_pid_reach > 0 or tournament in ("{filter}"))').select(*show_cols).show(1000, False)
 
 
