@@ -13,4 +13,4 @@ class SingleRunner(object):
                 model = self.model_class(label_idx_list, test_tournaments)
                 model.train()
                 model.test()
-                model.save(f'model_{"_and_".join([str(i) for i in label_idx_list])}_of{"_and_".join(test_tournaments)}.ckpt')
+                # model.save(f'model_{"_and_".join([str(i) for i in label_idx_list])}_of{"_and_".join(test_tournaments)}.ckpt')
