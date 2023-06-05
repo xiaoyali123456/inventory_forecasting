@@ -112,38 +112,6 @@ def calculate_sub_num_on_target_date(sub_df, user_meta_df, target_date):
     return sub_df.select('dw_p_id').distinct()
 
 
-def load_wt_features(tournament):
-    # df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/free_checking_result_of_{tournament}") \
-    #     .join(load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/sub_checking_result_of_{tournament}")
-    #           .withColumnRenamed('avg_watch_time', 'avg_sub_watch_time').withColumnRenamed('total_watch_time',
-    #                                                                                        'total_sub_watch_time'),
-    #           ['date', 'content_id', 'title', 'shortsummary']) \
-    #     .withColumn("if_contain_india_team", F.locate('india', F.col('title'))) \
-    #     .withColumn('if_contain_india_team', F.expr('if(if_contain_india_team > 0, 1, 0)')) \
-    #     .withColumn('if_weekend', F.dayofweek(F.col('date'))) \
-    #     .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
-    #     .withColumnRenamed('sub_num', 'total_subscribers_number') \
-    #     .withColumnRenamed('active_sub_rate', 'active_subscribers_rate') \
-    #     .withColumnRenamed('match_active_sub_rate', 'subscribers_watching_match_rate') \
-    #     .withColumnRenamed('avg_sub_watch_time', 'watch_time_per_subscriber_per_match') \
-    #     .withColumnRenamed('free_num', 'total_frees_number') \
-    #     .withColumnRenamed('active_free_rate', 'active_frees_rate') \
-    #     .withColumnRenamed('match_active_free_rate', 'frees_watching_match_rate') \
-    #     .withColumnRenamed('avg_watch_time', 'watch_time_per_free_per_match')
-    # return df \
-    #     .selectExpr('date', 'content_id', 'title', 'shortsummary',
-    #                 'total_frees_number', 'active_free_num', 'match_active_free_num', 'total_free_watch_time',
-    #                 'total_subscribers_number', 'active_sub_num', 'match_active_sub_num', 'total_sub_watch_time',
-    #                 'active_frees_rate', 'frees_watching_match_rate', 'watch_time_per_free_per_match',
-    #                 'active_subscribers_rate', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match',
-    #                 'if_contain_india_team', 'if_weekend') \
-    #     .orderBy('date', 'content_id') \
-    #     .withColumn('tournament', F.lit(tournament))
-    return load_data_frame(spark,
-                           live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format") \
-        .where(f'tournament="{tournament}"')
-
-
 def load_labels(tournament, feature_df):
     data_source = "watched_video_sampled"
     if not check_s3_path_exist(live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}"):
@@ -156,10 +124,10 @@ def load_labels(tournament, feature_df):
             .withColumn('total_pid_reach', F.lit(-1))\
             .withColumn('total_did_reach', F.lit(-1))
     else:
-        df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")
+        df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}").where('total_inventory > 0')
     # date, content_id, title, shortsummary,
     # total_inventory, total_pid_reach, total_did_reach
-    return df
+    return df.withColumn('tournament', F.lit(tournament))
 
 
 def first_match_data(df, col):
@@ -224,10 +192,6 @@ live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-
 configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
 # drop_off_rate = 0.8
 drop_off_rate = 0.85
-dynamic_parameters = ['active_frees_rate', 'frees_watching_match_rate', "watch_time_per_free_per_match",
-                      'active_subscribers_rate', 'subscribers_watching_match_rate',
-                      "watch_time_per_subscriber_per_match"]
-dynamic_parameter_num = len(dynamic_parameters)
 one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
                 'match_type', 'tournament_name', 'hostar_influence',
                 'match_stage', 'vod_type', 'gender_type']
@@ -449,8 +413,7 @@ for test_tournament in test_tournament_list:
             .cache()
         # <-- for optimized baseline with predicted parameters -->
         if version in ["baseline_with_predicted_parameters"]:
-            label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
-                          'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
+            label_cols = ['frees_watching_match_rate', 'watch_time_per_free_per_match', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match']
             # print(first_match_date)
             label_path = f"{live_ads_inventory_forecasting_root_path}/dnn_predictions/{test_tournament}"
             new_test_label_df = test_df \
@@ -468,12 +431,12 @@ for test_tournament in test_tournament_list:
                     f'+ total_subscribers_number * real_subscribers_watching_match_rate * real_watch_time_per_subscriber_per_match)'
                     f'/{total_match_duration_in_minutes}')) \
                     .withColumn('estimated_avg_concurrency', F.expr(
-                    f'(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time '
-                    f'+ estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time)/{total_match_duration_in_minutes}')) \
+                    f'(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
+                    f'+ estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
                     .withColumn('estimated_inventory', F.expr(
                     f'estimated_avg_concurrency * {drop_off_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)')) \
                     .withColumn('estimated_reach', F.expr(
-                    f"(estimated_free_num * estimated_free_watch_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_sub_watch_rate / {sub_pid_did_rate})")) \
+                    f"(estimated_free_num * estimated_frees_watching_match_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_subscribers_watching_match_rate / {sub_pid_did_rate})")) \
                     .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
                     .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
                     .withColumn('avg_concurrency_bias',
@@ -552,32 +515,41 @@ prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads
     .orderBy('date', 'content_id').select('date', 'content_id', 'title', 'tournament',
                                           'estimated_inventory', 'estimated_reach',
                                           'total_frees_number', 'real_frees_watching_match_rate', 'real_watch_time_per_free_per_match',
-                                          'estimated_free_num', 'estimated_free_watch_rate', 'estimated_free_watch_time',
+                                          'estimated_free_num', 'estimated_frees_watching_match_rate', 'estimated_watch_time_per_free_per_match',
                                           'total_subscribers_number', 'real_subscribers_watching_match_rate', 'real_watch_time_per_subscriber_per_match',
-                                          'estimated_sub_num', 'estimated_sub_watch_rate', 'estimated_sub_watch_time', 'estimated_free_dau', 'estimated_sub_dau')\
-    .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_free_watch_rate'))\
-    .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_sub_watch_rate'))\
-    .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time) / '
-                                         '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
-                                         'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
-    .withColumn('sub_inventory', F.expr('(estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) / '
-                                         '(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time + '
-                                         'estimated_sub_num * estimated_sub_watch_rate * estimated_sub_watch_time) * estimated_inventory'))\
+                                          'estimated_sub_num', 'estimated_subscribers_watching_match_rate', 'estimated_watch_time_per_subscriber_per_match', 'estimated_free_dau', 'estimated_sub_dau')\
+    .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_frees_watching_match_rate'))\
+    .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_subscribers_watching_match_rate'))\
+    .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match) / '
+                                         '(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match + '
+                                         'estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match) * estimated_inventory'))\
+    .withColumn('sub_inventory', F.expr('(estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match) / '
+                                         '(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match + '
+                                         'estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match) * estimated_inventory'))\
     .cache()
 res_df = reduce(lambda x, y: x.union(y), [load_labels(tournament, all_feature_df) for tournament in tournament_list])\
     .where('content_id not in ("1440000689", "1440000694", "1440000696", "1440000982", "1540019005", "1540019014", "1540019017","1540016333")')\
-    .join(prediction_df, ['date', 'content_id', 'title'], 'full')\
+    .join(prediction_df, ['date', 'content_id', 'title', 'tournament'], 'full')\
     .orderBy('date', 'content_id')\
     .cache()
+prediction_df.count()
 res_df.count()
+res_df.groupBy('tournament').count().show(200, False)
+prediction_df.groupBy('tournament').count().show(200, False)
 show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'estimated_free_dau', 'estimated_sub_dau',
-             'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_free_watch_time', 'estimated_sub_watch_time',
-             'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_free_watch_rate', 'estimated_sub_watch_rate']
+             'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match',
+             'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_frees_watching_match_rate', 'estimated_subscribers_watching_match_rate']
 # res_df\
 #     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\
 #     .select('date', 'title', 'total_frees_number', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
-#             'estimated_free_watch_time', 'estimated_sub_watch_time', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
+#             'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
 res_df.where(f'tournament in ("{filter}")').select(*show_cols).show(1000, False)
+res_df.where('date != "2022-08-24" and tournament != "ipl2019"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach').show(1000, False)
+res_df.where('tournament="ac2022"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach',
+                                          'real_frees_watching_match_rate', 'estimated_frees_watching_match_rate',
+                                          'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
+                                          'real_subscribers_watching_match_rate', 'estimated_subscribers_watching_match_rate',
+                                          'real_watch_time_per_subscriber_per_match', 'estimated_watch_time_per_subscriber_per_match').show(1000, False)
 # res_df.where(f'date != "2022-08-24" and (total_pid_reach > 0 or tournament in ("{filter}"))').select(*show_cols).show(1000, False)
 
 
