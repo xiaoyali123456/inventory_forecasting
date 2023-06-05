@@ -145,7 +145,7 @@ def feature_processing(df, if_contains_free_timer_feature=False, if_make_matches
     if if_make_matches_svod:
         df = set_svod_feature(df)\
             .withColumn("free_timer_hot_vector", F.array(F.lit(xgb_configuration['default_svod_free_timer'])))  # set vod type and free timer features for svod matches
-    return df, feature_cols
+    return df.withColumn('sample_weight', F.expr(f'if(content_id="{important_content_id}", {important_content_weight}, 1)')), feature_cols
 
 
 def data_split(df, split_rate=0.9):
@@ -157,7 +157,6 @@ def data_split(df, split_rate=0.9):
 
 def feature_processing_and_dataset_split(dataset_path, if_contains_free_timer_feature=False, if_make_matches_svod=False):
     all_df = load_data_frame(spark, dataset_path) \
-        .withColumn('sample_weight', F.expr(f'if(content_id="{important_content_id}", {important_content_weight}, 1)')) \
         .where(f'date != "{invalid_match_date}" and tournament != "{invalid_tournament}"')
     all_df, feature_cols = feature_processing(all_df, if_contains_free_timer_feature=if_contains_free_timer_feature, if_make_matches_svod=if_make_matches_svod)
     train_df, val_df = data_split(all_df)

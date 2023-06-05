@@ -4,9 +4,10 @@ from torch.utils.data import Dataset
 
 
 class LiveMatchDataLoader(object):
-    def __init__(self, label_list, data_paths = 'data/LiveMatch/data.csv'):
-        self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
-        self.testset = LiveMatchDataset(data_paths, label_list)
+    def __init__(self, label_list, test_tournaments, data_paths = 'data/LiveMatch/data.csv'):
+        # self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
+        self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
+        self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=test_tournaments)
         # self.testset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
         # self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=['ac2023', 'wc2023'])
 

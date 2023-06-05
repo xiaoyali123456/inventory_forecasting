@@ -7,7 +7,7 @@ import pandas as pd
 
 
 class LiveMatchRegression(object):
-    def __init__(self, label_idx_list):
+    def __init__(self, label_idx_list, test_tournaments):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                               "watch_time_per_free_per_match": [1 / 10.3, 1],
                               'subscribers_watching_match_rate': [1 / 0.56, 0.1],
@@ -17,14 +17,15 @@ class LiveMatchRegression(object):
         self.label_list = [label_list_tmp[label_idx] for label_idx in label_idx_list]
         self.label_num = len(label_idx_list)
         self.model = DeepEmbMLP(columns=12, max_token=32, num_task=self.label_num)
-        print(self.model)
+        # print(self.model)
         self.loss_fn_list = [torch.nn.HuberLoss(delta=self.label_config[self.label_list[i]][1]) for i in range(self.label_num)]
         # self.loss_fn = torch.nn.HuberLoss(delta=0.1)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-2)
         #self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=1e-2)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
-        self.dataset = LiveMatchDataLoader(label_list=self.label_list)
+        self.dataset = LiveMatchDataLoader(label_list=self.label_list, test_tournaments=test_tournaments)
+        self.test_tournament = test_tournaments[0]
 
     def train(self, num_epochs=200):
         data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
@@ -84,6 +85,7 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
+        # df.to_parquet(f"dnn_predictions/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0
