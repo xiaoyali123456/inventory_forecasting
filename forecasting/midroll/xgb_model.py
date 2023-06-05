@@ -222,21 +222,33 @@ def enumerate_tiers(tiers_list):
         return [tiers_list[0] + tiers_list[1] + 1]
 
 
-def cross_features(dim, *args):
+def cross_features(dim, dim_list, *args):
     res = [0 for i in range(dim)]
-    idx = 1
+    partition_dim = dim
+    dim_idx = 0
+    idx = 0
     for x in args:
-        idx *= x[0] + 1
-    res[idx-1] = 1
+        partition_dim /= dim_list[dim_idx]
+        dim_idx += 1
+        idx += x[0] * partition_dim
+    res[int(idx)] = 1
+    # print(idx)
     return res
 
 
-def empty_cross_features(dim, *args):
+def empty_cross_features(dim, dim_list, *args):
     res = [0 for i in range(dim)]
-    idx = 3
+    partition_dim = dim
+    dim_idx = 0
+    idx = 0
     for x in args:
-        idx *= x[0] + 1
-    res[idx-1] = 1
+        partition_dim /= dim_list[dim_idx]
+        if dim_idx == 0:
+            idx += (dim_list[0] - 1) * partition_dim
+        else:
+            idx += x[0] * partition_dim
+        dim_idx += 1
+    res[int(idx)] = 1
     return res
 
 
@@ -269,8 +281,16 @@ def feature_processing(feature_df):
         .withColumn("sub_tag", F.array(F.lit(1)))\
         .withColumn("free_tag", F.array(F.lit(0)))\
         .withColumn("sub_free_tag_hots_num", F.lit(1))\
-        .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))\
+        .withColumn('sample_repeat_num', F.expr('if(tournament="wc2019" and if_contain_india_team=1, 200, 1)'))\
         .withColumn("match_num_hots_num", F.lit(1))
+# .withColumn('sample_repeat_num', F.expr('if(content_id="1440000724", 2, 1)'))\
+
+
+def generate_if_contain_india_team_and_teams_tier(if_contain_india_team_hots, teams_tier_hots):
+    if if_contain_india_team_hots[0] == 1:
+        return teams_tier_hots
+    else:
+        return [3]
 
 
 n_to_array = F.udf(lambda n: [n] * n, ArrayType(IntegerType()))
@@ -281,6 +301,7 @@ if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" e
 cross_features_udf = F.udf(cross_features, ArrayType(IntegerType()))
 empty_cross_features_udf = F.udf(empty_cross_features, ArrayType(IntegerType()))
 generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
+generate_if_contain_india_team_and_teams_tier_udf = F.udf(generate_if_contain_india_team_and_teams_tier, ArrayType(IntegerType()))
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
 ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"
@@ -462,13 +483,13 @@ configuration = {
     # 'if_cross_features': False,
     # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
-    'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
-    #                    ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots'],
-    #                    ['if_contain_india_team_hots', 'teams_tier_hots', 'tournament_type_hots']],
+    #                    ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
+    'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
+                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
+                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots'],
+                       ['if_contain_india_team_hots', 'teams_tier_hot_vector', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hot_vector', 'match_type_hots', 'tournament_type_hots'],
     #                    ['vod_type_hots', 'tournament_type_hots']],
@@ -504,7 +525,8 @@ hots_num_dic = {
     'match_stage_hots': 4,
     'tournament_type_hots': 3,
     'match_type_hots': 3,
-    'vod_type_hots': 2
+    'vod_type_hots': 2,
+    'teams_tier_hot_vector': 6
 }
 
 tournament_list = [tournament for tournament in tournament_dic]
@@ -560,9 +582,10 @@ prediction_cols = load_data_frame(spark,
 predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
                                               + "/all_features_hots_format" + configuration['if_simple_one_hot']).select(*prediction_cols) for tournament in configuration['predict_tournaments']])
     .withColumn("rand", F.rand(seed=54321)))\
+    .where('if_contain_india_team = 1')\
     .cache()
 
-if len(configuration['cross_features']) == 3:
+if len(configuration['cross_features']) >= 3:
     prediction_vod_str += "_vod_cross"
 
 
@@ -583,13 +606,15 @@ print(prediction_vod_str)
 # predict_feature_df.groupBy('tournament', 'vod_type').count().show()
 # feature_df.groupBy('sample_tag').count().show()
 
-one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                'match_type', 'tournament_name', 'hostar_influence',
-                'match_stage', 'vod_type', 'gender_type']
+# one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
+#                 'match_type', 'tournament_name', 'hostar_influence',
+#                 'match_stage', 'vod_type']
+one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'if_contain_india_team',
+                'match_type', 'tournament_name',
+                'match_stage', 'vod_type']
 multi_hot_cols = ['teams', 'continents', 'teams_tier']
 additional_cols = ["languages", "platforms"]
-if not configuration['if_hotstar_influence']:
-    one_hot_cols.remove('hostar_influence')
+
 
 if not configuration['if_teams']:
     multi_hot_cols.remove('teams')
@@ -613,27 +638,40 @@ if configuration['if_improve_ties']:
         .withColumn("teams_tier_hots_num", F.lit(1)) \
         .cache()
 
+# if len(configuration['cross_features']) == 4:
+#     feature_df = feature_df \
+#         .withColumn("if_contain_india_team_and_teams_tier_hots", generate_if_contain_india_team_and_teams_tier_udf('if_contain_india_team_hots', 'teams_tier_hots')) \
+#         .withColumn("if_contain_india_team_and_teams_tier_hots_num", F.lit(5)) \
+#         .cache()
+#     predict_feature_df = predict_feature_df \
+#         .withColumn("if_contain_india_team_and_teams_tier_hots", enumerate_tiers_udf('teams_tier_hots')) \
+#         .withColumn("teams_tier_hots_num", F.lit(1)) \
+#         .cache()
+
 mask_features = ['if_contain_india_team']
 if configuration['if_cross_features']:
     for idx in range(len(configuration['cross_features'])):
-        feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in configuration['cross_features'][idx]])
+        feature_dim_list = [hots_num_dic[feature] for feature in configuration['cross_features'][idx]]
+        feature_dim = reduce(lambda x, y: x * y, feature_dim_list)
         print(feature_dim)
         feature_df = feature_df \
+            .withColumn("cross_feature_dim_list", F.array(*map(F.lit, feature_dim_list))) \
             .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *configuration['cross_features'][idx])) \
+            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *(configuration['cross_features'][idx]))) \
             .cache()
         predict_feature_df = predict_feature_df \
+            .withColumn("cross_feature_dim_list", F.array(*map(F.lit, feature_dim_list))) \
             .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *configuration['cross_features'][idx])) \
+            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *(configuration['cross_features'][idx]))) \
             .cache()
         one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
         mask_features.append(f'cross_features_{idx}')
         # feature_df.select(f"cross_features_{idx}_hots_num", f"cross_features_{idx}_hot_vector").show(20, False)
 
 mask_cols = [col+"_hot_vector" for col in multi_hot_cols + mask_features]
-feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols]
+feature_cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols]
 if configuration['if_contains_language_and_platform']:
     feature_cols += [col+"_hot_vector" for col in additional_cols]
 
@@ -673,15 +711,7 @@ if configuration['if_feature_weight']:
 else:
     colsample_bynode = 1.0
 
-# print(colsample_bynode)
-# one_hot_cols = ['if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team', 'match_type', 'tournament_name', 'hostar_influence', 'match_stage', 'gender_type']
-# multi_hot_cols = ['teams', 'teams_tier']
-# additional_cols = ["languages", "platforms"]
-# feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols[:-1]+additional_cols]
 
-# feature_cols = [col+"_hot_vector" for col in one_hot_cols[:-1]+multi_hot_cols[:-1]]
-# feature_cols = [col+"_hot_vector" for col in ['teams', 'match_time', 'match_stage', 'if_holiday',
-#                                               'if_weekend', 'hostar_influence', 'if_contain_india_team']]
 feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
 feature_num = len(feature_cols)
 # label = "total_inventory"
@@ -701,7 +731,7 @@ print(feature_cols)
 print(feature_num_cols)
 # feature_df.where('tournament in ("wc2022")').select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
 # predict_feature_df.select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
-
+feature_df.orderBy('date', 'content_id').select('tournament', 'title', *label_cols).show(100)
 
 if configuration['task'] == "rate_prediction":
     for test_tournament in tournament_list:
@@ -797,10 +827,11 @@ if configuration['task'] == "rate_prediction":
     print(best_setting_dic)
     print(time.time() - s_time)
 else:
-    items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
-             ([], ["wc2019"], 2),
-             (configuration['predict_tournaments'], [], 1)]
+    # items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
+    #          ([], ["wc2019"], 2),
+    #          (configuration['predict_tournaments'], [], 1)]
     # items = [([], ["wc2019"], 2)]
+    items = [(configuration['predict_tournaments'], [], 1)]
     for item in items:
         if configuration['prediction_free_timer'] < 1000 and item[0] == []:
             continue
@@ -1085,9 +1116,9 @@ else:
                 # print(test_error_list2[tournament][5])
             # train_error_df.orderBy('date', 'content_id').show(2000)
             print("")
-            test_error_df.orderBy('date', 'content_id').show(2000)
+            # test_error_df.orderBy('date', 'content_id').show(2000)
             # train_error_df2.orderBy('date', 'content_id').show(2000)
-            # test_error_df2.orderBy('date', 'content_id').show(2000)
+            test_error_df2.orderBy('date', 'content_id').show(2000)
         else:
             for tournament in res_dic:
                 print(tournament)
@@ -1101,9 +1132,9 @@ else:
                 all_tournaments += ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"]
             version = "baseline_with_predicted_parameters"
             df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
-                                +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{prediction_vod_str}/{test_tournament}/{label}")
+                                +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{configuration['wc2019_avod_tag']}{prediction_vod_str}/{test_tournament}/{label}")
                                                  for test_tournament in all_tournaments])
-            df.orderBy('date', 'content_id').show(2000)
+            # df.orderBy('date', 'content_id').show(2000)
             if configuration['if_reach_rate']:
                 load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all") \
                     .select('content_id', 'match_reach', 'total_reach', 'reach_rate', 'tournament')\

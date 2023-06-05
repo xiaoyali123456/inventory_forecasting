@@ -280,22 +280,31 @@ reduce(lambda x, y: x.union(y),
 #
 
 # calculate increment dau for wc2019
-# for date in get_date_list("2019-05-13", 10):
-#     print(date)
-#     jio_and_none_jio_vv_df = load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")\
-#         .withColumnRenamed(subscription_status_col, 'subscription_status')\
-#         .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
-#         .withColumnRenamed(content_id_col, 'content_id')\
-#         .withColumnRenamed(carrier_hs_col, 'carrier_hs')\
-#         .withColumnRenamed(carrier_col, 'carrier')\
-#         .withColumn('carrier_hs', F.upper(F.col('carrier_hs')))\
-#         .withColumn('carrier_jio', F.expr('if(locate("JIO", carrier_hs)>0, 1, 0)'))\
-#         .withColumn('subscription_status', F.upper(F.col('subscription_status')))\
-#         .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')\
-#         .groupBy('carrier_jio')\
-#         .agg(F.countDistinct('dw_p_id').alias('active_free_num'))\
-#         .cache()
-#     save_data_frame(jio_and_none_jio_vv_df, live_ads_inventory_forecasting_root_path + f"/free_dau/cd={date}")
+# tournament = "wc2019"
+# tournament = "west_indies_tour_of_india2019"
+# tournament = "australia_tour_of_india2020"
+tournament = "india_tour_of_new_zealand2020"
+match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/{tournament}").cache()
+date_list = [date[0] for date in match_df.select('date').distinct().collect()]
+print(date_list)
+for date in date_list:
+    print(date)
+    jio_and_none_jio_vv_df = load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc")\
+        .withColumnRenamed(subscription_status_col, 'subscription_status')\
+        .withColumnRenamed(dw_p_id_col, 'dw_p_id')\
+        .withColumnRenamed(content_id_col, 'content_id')\
+        .withColumnRenamed(carrier_hs_col, 'carrier_hs')\
+        .withColumnRenamed(carrier_col, 'carrier')\
+        .withColumn('carrier_hs', F.upper(F.col('carrier_hs')))\
+        .withColumn('carrier_jio', F.expr('if(locate("JIO", carrier_hs)>0, 1, 0)'))\
+        .withColumn('subscription_status', F.upper(F.col('subscription_status')))\
+        .where('subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")')\
+        .groupBy('carrier_jio')\
+        .agg(F.countDistinct('dw_p_id').alias('active_free_num'))\
+        .cache()
+    save_data_frame(jio_and_none_jio_vv_df, live_ads_inventory_forecasting_root_path + f"/free_dau/cd={date}")
+
+
 
 
 match_date_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + f"/all_features_hots_format")\

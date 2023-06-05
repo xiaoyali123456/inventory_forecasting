@@ -359,6 +359,10 @@ if masked_tournament_for_au != "":
     dau_prediction_path = masked_dau_prediction_path
 
 filter = "\", \"".join(predict_tournaments)
+dau_prediction_df = load_data_frame(spark, dau_prediction_path)\
+        .withColumn('estimated_free_dau', F.expr('DAU - subs_DAU'))\
+        .selectExpr('cd as date', 'estimated_free_dau', 'subs_DAU as estimated_sub_dau')\
+        .cache()
 if not if_use_predict_au_to_predict_inventory:
     estimated_dau_df = all_feature_df\
         .selectExpr('tournament', 'total_frees_number as estimated_free_num', 'total_subscribers_number as estimated_sub_num')\
@@ -385,11 +389,16 @@ else:
        .cache()
 
 
-print(estimated_dau_df.count())
-estimated_dau_df.groupBy('tournament').count().show(50, False)
-estimated_dau_df.where(f'tournament in ("{filter}")').show(20, False)
+# print(estimated_dau_df.count())
+# estimated_dau_df.groupBy('tournament').count().show(50, False)
+# estimated_dau_df.where(f'tournament in ("{filter}")').show(20, False)
 
-feature_df = all_feature_df.where('tournament != "ipl2019"').cache()
+print(all_feature_df.count())
+feature_df = all_feature_df\
+    .where('tournament != "ipl2019"') \
+    .join(dau_prediction_df, 'date') \
+    .cache()
+print(feature_df.count())
 tournament_df = all_feature_df \
     .groupBy('tournament') \
     .agg(F.min('date').alias('date')) \
@@ -429,7 +438,8 @@ for test_tournament in test_tournament_list:
                     'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
                     'total_subscribers_number', 'active_subscribers_rate as real_active_subscribers_rate',
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
-                    'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
+                    'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match',
+                    'estimated_free_dau', 'estimated_sub_dau') \
         .cache()
     test_match_type_list = test_feature_df.select('match_type').distinct().collect()
     # # print(test_match_type_list)
@@ -487,7 +497,7 @@ for test_tournament in test_tournament_list:
                     .cache()
             if if_free_timer:
                 label = 'watch_time_per_free_per_match_with_free_timer'
-                parameter_df = load_data_frame(spark, f"{label_path.replace(wc2019_avod_tag, '')}/{label}")\
+                parameter_df = load_data_frame(spark, f"{label_path}/{label}")\
                     .drop('sample_tag', 'real_' + label)\
                     .groupBy('date', 'content_id')\
                     .agg(F.collect_list('estimated_free_watch_time_with_free_timer').alias('estimated_free_watch_time'))\
@@ -622,7 +632,7 @@ else:
                                               'total_frees_number', 'real_frees_watching_match_rate', 'real_watch_time_per_free_per_match',
                                               'estimated_free_num', 'estimated_free_watch_rate', 'estimated_free_watch_time',
                                               'total_subscribers_number', 'real_subscribers_watching_match_rate', 'real_watch_time_per_subscriber_per_match',
-                                              'estimated_sub_num', 'estimated_sub_watch_rate', 'estimated_sub_watch_time')\
+                                              'estimated_sub_num', 'estimated_sub_watch_rate', 'estimated_sub_watch_time', 'estimated_free_dau', 'estimated_sub_dau')\
         .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_free_watch_rate'))\
         .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_sub_watch_rate'))\
         .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_free_watch_rate * estimated_free_watch_time) / '
@@ -638,8 +648,8 @@ else:
         .orderBy('date', 'content_id')\
         .cache()
     res_df.count()
-    show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'free_match_AU',
-                 'sub_match_AU', 'estimated_reach', 'estimated_free_watch_time', 'estimated_sub_watch_time',
+    show_cols = ['date', 'title', 'estimated_free_num', 'estimated_sub_num', 'estimated_free_dau', 'estimated_sub_dau',
+                 'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_free_watch_time', 'estimated_sub_watch_time',
                  'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_free_watch_rate', 'estimated_sub_watch_rate']
     # res_df\
     #     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\

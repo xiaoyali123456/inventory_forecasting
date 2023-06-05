@@ -316,7 +316,7 @@ if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" e
 
 
 # save_base_dataset("_and_simple_one_hot")
-save_base_dataset("_and_free_timer_and_simple_one_hot")
+# save_base_dataset("_and_free_timer_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)

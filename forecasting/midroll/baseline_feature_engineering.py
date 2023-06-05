@@ -936,7 +936,7 @@ def generate_prediction_dataset(tournament):
     df.orderBy('date', 'content_id').show(3000, False)
 
 
-generate_prediction_dataset("ac2023")
+# generate_prediction_dataset("ac2023")
 
 
 # feature_df = reduce(lambda x, y: x.union(y), [merge_sub_and_free_features(tournament) for tournament in tournament_dic])
@@ -1073,11 +1073,6 @@ print(feature_df.count())
 #     save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix_tmp + "_and_simple_one_hot")
 #
 #
-# cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
-# df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix.replace("_and_free_timer", ""))\
-#     .drop(*cols)
-# df.orderBy('date', 'content_id').select('date', 'content_id', 'tournament', 'title', 'total_frees_number', 'frees_watching_match_rate', 'total_subscribers_number', 'subscribers_watching_match_rate').show(3000, False)
-
 
 # only use jio users for free rate label
 path_suffix = "/all_features_hots_format_with_avg_au_sub_free_num"
@@ -1096,19 +1091,20 @@ free_num_df = free_dau_df\
     .cache()
 free_num_df.show()
 jio_reach_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix + "_and_free_timer")\
-    .where('tournament="wc2019" and free_timer = 1000')\
+    .where('free_timer = 1000')\
     .withColumn('new_match_active_free_num', F.expr('match_active_free_num * user_rate'))\
-    .select('content_id', 'new_match_active_free_num', 'free_timer')\
+    .select('content_id', 'new_match_active_free_num', 'watch_time_per_free_per_match_with_free_timer')\
     .cache()
 print(jio_reach_df.count())
 jio_reach_df.show()
 res_df = feature_df\
     .join(free_num_df, 'tournament', 'left')\
     .join(jio_reach_df, 'content_id', 'left') \
-    .withColumn('total_frees_number', F.expr('if(tournament="wc2019", new_total_frees_number, total_frees_number)'))\
-    .withColumn('match_active_free_num', F.expr('if(tournament="wc2019", new_match_active_free_num, match_active_free_num)'))\
+    .withColumn('watch_time_per_free_per_match', F.expr('if(vod_type="avod", watch_time_per_free_per_match_with_free_timer, watch_time_per_free_per_match)'))\
+    .withColumn('total_frees_number', F.expr('if(vod_type="avod", new_total_frees_number, total_frees_number)'))\
+    .withColumn('match_active_free_num', F.expr('if(vod_type="avod", new_match_active_free_num, match_active_free_num)'))\
     .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number'))\
-    .drop('new_total_frees_number', 'new_match_active_free_num')
+    .drop('new_total_frees_number', 'new_match_active_free_num', 'watch_time_per_free_per_match_with_free_timer')
 print(feature_df.count())
 print(res_df.count())
 # res_df.where('tournament="wc2019" or tournament="wc2022"')\
@@ -1116,8 +1112,13 @@ print(res_df.count())
 #             'match_active_free_num', 'new_match_active_free_num',
 #             'frees_watching_match_rate')\
 #     .show(50)
-path_suffix += "_full_avod_2019"
+path_suffix += "_full_avod"
 save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
+
+# feature_df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + path_suffix).drop('').cache()
+# path_suffix += "_and_free_timer"
+# res_df = add_free_timer_features(feature_df)
+# save_data_frame(res_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix)
 
 
 for path_suffix_tmp in [path_suffix]:
@@ -1130,6 +1131,19 @@ for path_suffix_tmp in [path_suffix]:
                 .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
     save_data_frame(feature_df, live_ads_inventory_forecasting_complete_feature_path + path_suffix_tmp + "_and_simple_one_hot")
 
+
+cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
+df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/all_features_hots_format_with_avg_au_sub_free_num_full_avod_and_simple_one_hot")\
+    .drop(*cols, 'rand', 'languages_hots',	'languages_hots_num',	'platforms_hots',	'platforms_hots_num',
+          'active_free_num',	'active_sub_num', 'active_frees_rate',	'active_subscribers_rate')
+feature_cols = df.columns
+# df.orderBy('date', 'content_id').show(3000, False)
+# df.orderBy('date', 'content_id').select('date', 'content_id', 'tournament', 'title', 'total_frees_number', 'frees_watching_match_rate', 'total_subscribers_number', 'subscribers_watching_match_rate').show(3000, False)
+
+predict_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
+                                              + "/all_features_hots_format_and_simple_one_hot").select(*feature_cols) for tournament in ["ac2023", "wc2023"]]).cache()
+
+df.union(predict_df).orderBy('date', 'content_id').show(3000, False)
 
 
 # save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format_csv", "csv", True, '###')

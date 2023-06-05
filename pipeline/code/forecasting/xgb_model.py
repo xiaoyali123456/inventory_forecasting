@@ -168,9 +168,9 @@ def model_train_and_test(train_df, feature_cols, test_df, label_cols, if_validat
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = train_df.select(*feature_num_cols).distinct().collect()
     # explode vector-based features of train/test dataset into multiple one-single-value features
-    train_feature_df = convert_vector_unit_features_to_value_unit_features(train_df, feature_cols=feature_cols,
+    train_feature_df = convert_vector_unit_features_to_value_unit_features(train_df.toPandas(), feature_cols=feature_cols,
                                                                            feature_num_col_list=feature_num_col_list)
-    test_feature_df = convert_vector_unit_features_to_value_unit_features(test_df, feature_cols=feature_cols,
+    test_feature_df = convert_vector_unit_features_to_value_unit_features(test_df.toPandas(), feature_cols=feature_cols,
                                                                           feature_num_col_list=feature_num_col_list)
     for label in label_cols:
         object_method, n_estimators, learning_rate, max_depth = xgb_hyper_parameter_dic[label]
