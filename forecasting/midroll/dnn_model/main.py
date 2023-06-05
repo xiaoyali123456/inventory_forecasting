@@ -17,8 +17,8 @@ def main():
     # runner.run(argv)
     label_split_list = [[0], [2], [1], [3]]
     test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]
-    for label_idx_list in label_split_list[:1]:
-        for test_tournaments in test_tournaments_list:
+    for label_idx_list in label_split_list:
+        for test_tournaments in test_tournaments_list[:1]:
             print(label_idx_list, test_tournaments)
             model = LiveMatchRegression(label_idx_list, test_tournaments)
             model.train()
