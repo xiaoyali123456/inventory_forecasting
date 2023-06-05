@@ -1,5 +1,4 @@
 import torch
-from absl import logging
 from sklearn.metrics import mean_absolute_error
 from models.dataset import LiveMatchDataLoader
 from models.network.deep_emb_mlp import DeepEmbMLP
@@ -103,7 +102,7 @@ class LiveMatchRegression(object):
             if sample_ids is not None:
                 result.extend([v for v in p])
                 labels.extend([v.item() for v in y[idx]])
-        logging.info(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
+        print(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
         sample_ids_logs = []
         if sample_ids is not None:
             for i, item in enumerate(zip(result, labels)):
