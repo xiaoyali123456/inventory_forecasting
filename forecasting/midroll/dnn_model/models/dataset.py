@@ -71,16 +71,23 @@ class LiveMatchDataset(Dataset):
         # print(df['tournament'])
         if selected_tournaments is not None:
             df = df.loc[df['tournament'].isin(selected_tournaments)]
+            print(len(df))
             if self.if_mask_knock_off_matches:
-                self.mask_data(df)
+                mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
+                self.mask_data(mask_df)
+                # print(len(mask_df))
+                df = pd.concat([df[~df['match_stage'].isin(['semi-final', 'final'])], mask_df])
+                print(len(df))
 
         if removed_tournaments is not None:
             df = df.loc[~df['tournament'].isin(removed_tournaments)]
+            print(len(df))
             if self.if_mask_knock_off_matches:
                 mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
                 self.mask_data(mask_df)
                 # print(len(mask_df))
                 df = pd.concat([df, mask_df])
+                print(len(df))
 
         features = {}
         for key in feature_config:
