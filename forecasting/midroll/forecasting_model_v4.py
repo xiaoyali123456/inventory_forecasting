@@ -495,12 +495,12 @@ tournament_dic = {
 }
 tag_mapping_udf = F.udf(lambda x: tournament_dic[x], IntegerType())
 reduce(lambda x, y: x.union(y), res_list) \
+    .where('tournament != "wc2019"')\
     .groupBy('tournament') \
     .agg(F.sum('real_avg_concurrency').alias('real_avg_concurrency'),
          F.sum('estimated_avg_concurrency').alias('estimated_avg_concurrency'),
          F.sum('total_inventory').alias('total_inventory'),
          F.sum('estimated_inventory').alias('estimated_inventory'),
-         F.avg('inventory_bias_abs_rate').alias('avg_match_error'),
          F.sum('inventory_bias_abs').alias('sum_inventory_abs_error'),
          F.avg('reach_bias_abs').alias('avg_reach_bias_abs'),
          F.count('content_id')) \

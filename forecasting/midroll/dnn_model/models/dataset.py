@@ -1,6 +1,7 @@
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+pd.options.mode.chained_assignment = None  # default='warn'
 
 
 class LiveMatchDataLoader(object):
@@ -47,8 +48,9 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
-        df['teams_hots'] = f"[{self.max_token - 1}, {self.max_token - 1}]"
-        df['continents_hots'] = f"[{self.max_token - 1}, {self.max_token - 1}]"
+        df['teams_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
+        # print(df['teams_hots'])
+        df['continents_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
 
     def _parse(self, df, selected_tournaments, removed_tournaments):
         feature_config = [
@@ -77,7 +79,7 @@ class LiveMatchDataset(Dataset):
             if self.if_mask_knock_off_matches:
                 mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
                 self.mask_data(mask_df)
-                print(len(mask_df))
+                # print(len(mask_df))
                 df = pd.concat([df, mask_df])
 
         features = {}
