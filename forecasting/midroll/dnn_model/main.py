@@ -17,7 +17,8 @@ def main():
     # runner = runner_class(model=model_class)
     # runner.run(argv)
     max_token = 100
-    if_mask_knock_off_matches = True
+    # if_mask_knock_off_matches = True
+    if_mask_knock_off_matches = False
     filename = 'data/LiveMatch/data.csv'
     all_df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
     label_split_list = [[0], [2], [1], [3]]
