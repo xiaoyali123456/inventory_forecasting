@@ -47,6 +47,8 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
+        print(df['teams_hots'])
+        print(df['continents_hots'])
         df['teams_hots'] = [self.max_token - 1, self.max_token - 1]
         df['continents_hots'] = [self.max_token - 1, self.max_token - 1]
 
