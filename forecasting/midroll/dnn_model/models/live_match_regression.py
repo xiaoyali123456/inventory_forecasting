@@ -6,7 +6,7 @@ import pandas as pd
 
 
 class LiveMatchRegression(object):
-    def __init__(self, label_idx_list, test_tournaments):
+    def __init__(self, all_df, label_idx_list, test_tournaments):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
@@ -21,14 +21,14 @@ class LiveMatchRegression(object):
         # self.loss_fn = torch.nn.HuberLoss(delta=0.1)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-2)
         #self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=1e-2)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3, weight_decay=1e-3)
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
-        self.dataset = LiveMatchDataLoader(label_list=self.label_list, test_tournaments=test_tournaments)
+        self.dataset = LiveMatchDataLoader(dataset=all_df, label_list=self.label_list, test_tournaments=test_tournaments)
         self.test_tournament = test_tournaments[0]
 
-    def train(self, num_epochs=40):
-        data_loader = self.dataset.get_dataset(batch_size=32, mode='train')
+    def train(self, num_epochs=30):
+        data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
         num_steps = len(data_loader)
         for epoch in range(num_epochs):
             for i, (x, y) in enumerate(data_loader):
@@ -40,7 +40,7 @@ class LiveMatchRegression(object):
                     loss_list = [self.loss_fn_list[i](p, y[i].float()) for i in range(self.label_num)]
                 else:
                     loss_list = [self.loss_fn_list[i](p[:, i], y[i].float()) for i in range(self.label_num)]
-                loss = 0.0
+                loss = torch.nn.MSELoss()
                 for idx in range(self.label_num):
                     # loss += self.label_config[data_loader.dataset.label_list[idx]][0] * loss_list[idx]
                     loss += loss_list[idx]

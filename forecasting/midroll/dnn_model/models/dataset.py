@@ -4,10 +4,10 @@ from torch.utils.data import Dataset
 
 
 class LiveMatchDataLoader(object):
-    def __init__(self, label_list, test_tournaments, data_paths = 'data/LiveMatch/data.csv'):
+    def __init__(self, dataset, label_list, test_tournaments):
         # self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
-        self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
-        self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=test_tournaments)
+        self.trainset = LiveMatchDataset(dataset, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
+        self.testset = LiveMatchDataset(dataset, label_list, selected_tournaments=test_tournaments)
         # self.testset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
         # self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=['ac2023', 'wc2023'])
 
@@ -29,8 +29,8 @@ class LiveMatchDataLoader(object):
 
 
 class LiveMatchDataset(Dataset):
-    def __init__(self, filename, label_list, selected_tournaments=None, removed_tournaments=None):
-        df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
+    def __init__(self, df, label_list, selected_tournaments=None, removed_tournaments=None):
+        # df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
         self.label_list = label_list
         self.features, self.labels, self.sample_ids = self._parse(df, selected_tournaments, removed_tournaments)
 
