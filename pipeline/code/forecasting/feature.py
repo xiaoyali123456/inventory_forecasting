@@ -271,6 +271,7 @@ def generate_prediction_dataset(today, config):
         .withColumn('total_subscribers_number', F.lit(-1)) \
         .withColumn('frees_watching_match_rate', F.lit(-1.0)) \
         .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
+        .withColumn('watch_time_per_free_per_match', F.lit(-1.0)) \
         .withColumn('watch_time_per_free_per_match_with_free_timer', F.lit(-1.0)) \
         .withColumn('watch_time_per_subscriber_per_match', F.lit(-1.0)) \
         .withColumn('gender_type', F.lit("men")) \
