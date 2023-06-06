@@ -3,15 +3,11 @@ import torch
 from torch.utils.data import Dataset
 
 
-def mask_knock_off_matches(all_df):
-    return all_df
-
-
 class LiveMatchDataLoader(object):
-    def __init__(self, dataset, label_list, test_tournaments):
+    def __init__(self, dataset, label_list, test_tournaments, if_mask_knock_off_matches, max_token):
         # self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
-        self.trainset = LiveMatchDataset(dataset, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
-        self.testset = LiveMatchDataset(dataset, label_list, selected_tournaments=test_tournaments)
+        self.trainset = LiveMatchDataset(dataset, if_mask_knock_off_matches, max_token, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
+        self.testset = LiveMatchDataset(dataset, if_mask_knock_off_matches, max_token, label_list, selected_tournaments=test_tournaments)
         # self.testset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
         # self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=['ac2023', 'wc2023'])
 
@@ -33,9 +29,11 @@ class LiveMatchDataLoader(object):
 
 
 class LiveMatchDataset(Dataset):
-    def __init__(self, df, label_list, selected_tournaments=None, removed_tournaments=None):
+    def __init__(self, df, if_mask_knock_off_matches, max_token, label_list, selected_tournaments=None, removed_tournaments=None):
         # df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
         self.label_list = label_list
+        self.if_mask_knock_off_matches = if_mask_knock_off_matches
+        self.max_token = max_token
         self.features, self.labels, self.sample_ids = self._parse(df, selected_tournaments, removed_tournaments)
 
     def __len__(self):
@@ -48,7 +46,7 @@ class LiveMatchDataset(Dataset):
     def get_sample_ids(self):
         return self.sample_ids
 
-    def _parse(self, df, selected_tournaments, removed_tournaments):
+    def _parse(self, df, if_mask_knock_off_matches, selected_tournaments, removed_tournaments):
         feature_config = [
             'vod_type_hots',
             'match_stage_hots',
@@ -67,6 +65,8 @@ class LiveMatchDataset(Dataset):
         # print(df['tournament'])
         if selected_tournaments is not None:
             df = df.loc[df['tournament'].isin(selected_tournaments)]
+            if if_mask_knock_off_matches:
+                df['teams_hots'] = []
 
         if removed_tournaments is not None:
             keep_tours = {}
