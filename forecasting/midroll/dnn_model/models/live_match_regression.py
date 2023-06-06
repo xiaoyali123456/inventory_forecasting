@@ -40,7 +40,7 @@ class LiveMatchRegression(object):
                     loss_list = [self.loss_fn_list[i](p, y[i].float()) for i in range(self.label_num)]
                 else:
                     loss_list = [self.loss_fn_list[i](p[:, i], y[i].float()) for i in range(self.label_num)]
-                loss = torch.nn.MSELoss()
+                loss = 0
                 for idx in range(self.label_num):
                     # loss += self.label_config[data_loader.dataset.label_list[idx]][0] * loss_list[idx]
                     loss += loss_list[idx]
