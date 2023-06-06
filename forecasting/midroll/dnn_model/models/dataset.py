@@ -3,6 +3,10 @@ import torch
 from torch.utils.data import Dataset
 
 
+def mask_knock_off_matches(all_df):
+    return all_df
+
+
 class LiveMatchDataLoader(object):
     def __init__(self, dataset, label_list, test_tournaments):
         # self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
