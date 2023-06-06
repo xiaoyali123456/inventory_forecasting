@@ -6,7 +6,7 @@ import pandas as pd
 
 
 class LiveMatchRegression(object):
-    def __init__(self, all_df, label_idx_list, test_tournaments):
+    def __init__(self, all_df, label_idx_list, test_tournaments, max_token):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
@@ -15,7 +15,7 @@ class LiveMatchRegression(object):
         label_list_tmp = [label for label in self.label_config]
         self.label_list = [label_list_tmp[label_idx] for label_idx in label_idx_list]
         self.label_num = len(label_idx_list)
-        self.model = DeepEmbMLP(columns=12, max_token=32, num_task=self.label_num)
+        self.model = DeepEmbMLP(columns=12, max_token=max_token, num_task=self.label_num)
         # print(self.model)
         self.loss_fn_list = [torch.nn.HuberLoss(delta=self.label_config[self.label_list[i]][1]) for i in range(self.label_num)]
         # self.loss_fn = torch.nn.HuberLoss(delta=0.1)

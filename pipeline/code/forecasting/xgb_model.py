@@ -166,6 +166,7 @@ def feature_processing_and_dataset_split(dataset_path, if_contains_free_timer_fe
 def model_train_and_test(train_df, feature_cols, test_df, label_cols, if_validation=False, if_make_matches_svod=False, DATE=""):
     feature_num_cols = [col.replace("_hot_vector", "_hots_num") for col in feature_cols]
     feature_num_col_list = train_df.select(*feature_num_cols).distinct().collect()
+    print(feature_num_col_list)
     # explode vector-based features of train/test dataset into multiple one-single-value features
     train_feature_df = convert_vector_unit_features_to_value_unit_features(train_df.toPandas(), feature_cols=feature_cols,
                                                                            feature_num_col_list=feature_num_col_list)
@@ -176,7 +177,10 @@ def model_train_and_test(train_df, feature_cols, test_df, label_cols, if_validat
         train_label_df = train_df[label]
         model = XGBRegressor(base_score=0.0, n_estimators=n_estimators, learning_rate=learning_rate,
                              max_depth=max_depth, objective=object_method)
-        model.fit(train_feature_df, train_label_df, sample_weight=train_df["sample_weight"])
+        print(train_feature_df)
+        print(train_label_df)
+        # model.fit(train_feature_df, train_label_df, sample_weight=train_df["sample_weight"])
+        model.fit(train_feature_df, train_label_df)
         test_prediction_df = model.predict(test_feature_df)
         test_label_df = test_df[label]
         prediction_df = spark.createDataFrame(
