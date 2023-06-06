@@ -6,7 +6,7 @@ import pandas as pd
 
 
 class LiveMatchRegression(object):
-    def __init__(self, all_df, label_idx_list, test_tournaments, max_token):
+    def __init__(self, all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
@@ -24,7 +24,8 @@ class LiveMatchRegression(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3, weight_decay=1e-3)
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
-        self.dataset = LiveMatchDataLoader(dataset=all_df, label_list=self.label_list, test_tournaments=test_tournaments)
+        self.dataset = LiveMatchDataLoader(dataset=all_df, label_list=self.label_list, test_tournaments=test_tournaments,
+                                           if_mask_knock_off_matches=if_mask_knock_off_matches, max_token=max_token)
         self.test_tournament = test_tournaments[0]
 
     def train(self, num_epochs=30):
