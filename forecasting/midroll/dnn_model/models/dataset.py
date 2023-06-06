@@ -46,7 +46,11 @@ class LiveMatchDataset(Dataset):
     def get_sample_ids(self):
         return self.sample_ids
 
-    def _parse(self, df, if_mask_knock_off_matches, selected_tournaments, removed_tournaments):
+    def mask_data(self, df):
+        df['teams_hots'] = [self.max_token - 2, self.max_token - 1]
+        df['continents_hots'] = [self.max_token - 2, self.max_token - 1]
+
+    def _parse(self, df, selected_tournaments, removed_tournaments):
         feature_config = [
             'vod_type_hots',
             'match_stage_hots',
@@ -65,16 +69,16 @@ class LiveMatchDataset(Dataset):
         # print(df['tournament'])
         if selected_tournaments is not None:
             df = df.loc[df['tournament'].isin(selected_tournaments)]
-            if if_mask_knock_off_matches:
-                df['teams_hots'] = []
+            if self.if_mask_knock_off_matches:
+                self.mask_data(df)
 
         if removed_tournaments is not None:
-            keep_tours = {}
-            for tour in df['tournament']:
-                if tour not in removed_tournaments:
-                    keep_tours[tour] = 1
-            keep_list = [tour for tour in keep_tours]
-            df = df.loc[df['tournament'].isin(keep_list)]
+            df = df.loc[~df['tournament'].isin(removed_tournaments)]
+            if self.if_mask_knock_off_matches:
+                mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
+                self.mask_data(mask_df)
+                print(len(mask_df))
+                df = df.
 
         features = {}
         for key in feature_config:
