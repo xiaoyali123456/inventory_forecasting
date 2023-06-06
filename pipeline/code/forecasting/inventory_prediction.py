@@ -69,10 +69,10 @@ def main(mask_tag, config):
     test_df = all_feature_df \
         .where(f"request_id {filter_operator} '{meaningless_request_id}'") \
         .selectExpr('request_id', 'date', 'content_id', 'title', 'rank', 'teams', 'tournament', 'vod_type',
-                    'total_frees_number', 'active_frees_rate as real_active_frees_rate',
+                    'total_frees_number',
                     'frees_watching_match_rate as real_frees_watching_match_rate',
                     'watch_time_per_free_per_match as real_watch_time_per_free_per_match',
-                    'total_subscribers_number', 'active_subscribers_rate as real_active_subscribers_rate',
+                    'total_subscribers_number',
                     'subscribers_watching_match_rate as real_subscribers_watching_match_rate',
                     'watch_time_per_subscriber_per_match as real_watch_time_per_subscriber_per_match') \
         .cache()
