@@ -294,7 +294,7 @@ def generate_prediction_dataset(today, config):
     base_path_suffix = "/prediction/all_features_hots_format"
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
     for col in one_hot_cols:
-        if feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+        if col != "if_contain_india_team" and feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
             print(col)
             feature_df = feature_df \
                 .withColumn(f"{col}_hots_num", F.lit(1)) \
