@@ -48,9 +48,9 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
-        df['teams_hots'] = f"[{self.max_token - 1}, {self.max_token - 1}]"
-        print(df['teams_hots'])
-        df['continents_hots'] = f"[{self.max_token - 1}, {self.max_token - 1}]"
+        df['teams_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
+        # print(df['teams_hots'])
+        df['continents_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
 
     def _parse(self, df, selected_tournaments, removed_tournaments):
         feature_config = [
