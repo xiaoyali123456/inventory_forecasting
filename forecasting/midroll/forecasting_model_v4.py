@@ -372,7 +372,7 @@ res_list = []
 
 
 for test_tournament in test_tournament_list:
-    if test_tournament == "ipl2019":
+    if test_tournament != "wc2022":
         continue
     # previous_tournament = tournament_list[tournament_idx_dic[test_tournament] - 1]
     # if tournament_idx_dic[previous_tournament] == 0:
