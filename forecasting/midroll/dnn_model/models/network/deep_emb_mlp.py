@@ -5,7 +5,7 @@ from torch import nn
 
 class DeepEmbMLP(nn.Module):
     def __init__(self, columns, max_token, emb_dim=6, num_task=1):
-        torch.manual_seed(54321234)
+        torch.manual_seed(12345)
         super().__init__()
         self.emb_dim = emb_dim
         self.mlp = nn.Sequential(
