@@ -518,8 +518,8 @@ prediction_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads
                                           'estimated_free_num', 'estimated_frees_watching_match_rate', 'estimated_watch_time_per_free_per_match',
                                           'total_subscribers_number', 'real_subscribers_watching_match_rate', 'real_watch_time_per_subscriber_per_match',
                                           'estimated_sub_num', 'estimated_subscribers_watching_match_rate', 'estimated_watch_time_per_subscriber_per_match', 'estimated_free_dau', 'estimated_sub_dau')\
-    .withColumn('free_match_AU', F.expr('estimated_free_num * estimated_frees_watching_match_rate'))\
-    .withColumn('sub_match_AU', F.expr('estimated_sub_num * estimated_subscribers_watching_match_rate'))\
+    .withColumn('free_match_AU', F.expr(f'estimated_free_num * estimated_frees_watching_match_rate / {free_pid_did_rate}'))\
+    .withColumn('sub_match_AU', F.expr(f'estimated_sub_num * estimated_subscribers_watching_match_rate / {sub_pid_did_rate}'))\
     .withColumn('free_inventory', F.expr('(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match) / '
                                          '(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match + '
                                          'estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match) * estimated_inventory'))\
@@ -540,7 +540,7 @@ show_cols = ['date', 'title', 'estimated_free_num as avg_free_dau', 'estimated_s
 #     .selectExpr('date', 'title', 'total_frees_number as avg_free_dau', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
 #             'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
 res_df.where(f'tournament in ("{filter}")').selectExpr(*show_cols).show(1000, False)
-res_df.where('date != "2022-08-24" and tournament != "ipl2019"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach').show(1000, False)
+# res_df.where('date != "2022-08-24" and tournament != "ipl2019"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach').show(1000, False)
 # res_df.where('tournament="ac2022"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach',
 #                                           'real_frees_watching_match_rate', 'estimated_frees_watching_match_rate',
 #                                           'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
