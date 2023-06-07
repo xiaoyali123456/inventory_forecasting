@@ -155,6 +155,7 @@ def model_train_and_test(train_df, feature_cols, test_df, label_cols, if_validat
         else:
             path_suffix = "_svod" if if_make_matches_svod else ""
             save_data_frame(prediction_df, pipeline_base_path + f"/xgb_prediction{path_suffix}/future_tournaments/cd={DATE}/label={label}")
+            slack_notification(topic=slack_notification_topic, region=region, message=f"{' | '.join(label_cols)} {path_suffix}prediction on {DATE} is done.")
 
 
 def model_train_and_validation(label_cols, dataset_path):
