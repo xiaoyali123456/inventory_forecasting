@@ -26,6 +26,7 @@ class LiveMatchRegression(object):
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
         self.dataset = LiveMatchDataLoader(dataset=all_df, label_list=self.label_list, test_tournaments=test_tournaments,
                                            if_mask_knock_off_matches=if_mask_knock_off_matches, max_token=max_token)
+        self.if_mask_knock_off_matches_tag = "_masked" if if_mask_knock_off_matches else ""
         self.test_tournament = test_tournaments[0]
 
     def train(self, num_epochs=30):
@@ -86,7 +87,7 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
-        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions/{self.test_tournament}/{self.label_list[0]}")
+        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0
