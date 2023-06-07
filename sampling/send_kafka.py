@@ -1,58 +1,60 @@
-from sampling.send_kafka import KafkaProducer
 import json
 
+from kafka import KafkaProducer
+import pandas as pd
+
+# s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-19/p0.parquet
+path = s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-25/p0.parquet
+df = pd.read_parquet(path)
+
+topic='load.adtech.inventory.forecast'
 producer = KafkaProducer(
     bootstrap_servers='10.15.49.238:9092',
     value_serializer=lambda v: json.dumps(v).encode('utf-8'),
 )
-topic='load.adtech.inventory.forecast'
 
-template = {
-    'tournamentId' : 111,
-    'seasonId' : 222,
-    'matchId' : 333,
-    'adPlacement' : 'MIDROLL',
-    'platform' : 'IOS',
-    # String nccs;
-    # String ageBucket;
-    # String customCohort;
-    'gender': 'female',
-    # Integer devicePrice;
-    # String city;
-    # String state;
-    # String country;
-    # String ssaiCohort;
-    # String locationCluster;
-    # String pincode;
-    # String interest;
-    # String customAudience;
-    # String deviceBrand;
-    # String deviceModel;
-    # String primarySim;
-    # String dataSim;
-    # String appVersion;
-    # String os;
-    # String osVersion;
-    # String subscriptionType;
-    # String subscriptionTag;
-    # String contentType;
-    # String contentGenre;
-    # String contentId;
-    'inventory' : 100,
-    'reach' : 10,
-    'inventoryId' : '125_567',
-    'version' : 'v1',
-}
+def generate(row):
+    return {
+        'tournamentId' : 111,
+        'seasonId' : 222,
+        'matchId' : 333,
+        'adPlacement' : 'MIDROLL',
+        'platform' : row.platform,
+        'nccs': row.nccs,
+        'ageBucket': row.age,
+        'customCohort': 'A_58290825',
+        'gender': row.gender,
+        'devicePrice': row.device,
+        'city': row.city,
+        'state': row.state,
+        'country': row.country,
+        'inventory' : int(row.inventory),
+        'reach' : int(row.reach+0.5),
+        'inventoryId' : '111_333',
+        'version' : 'mlv2',
+    }
 
-future = producer.send(topic, template)
-meta = future.get(timeout=10)
+# # single send
+# future = producer.send(topic, template)
+# meta = future.get(timeout=10)
 
-flush_message_count = 1000
-for i, row in enumerate(df_part):
-    producer.send(topic, value=raw_bytes, key=row.dw_p_id.encode())
+flush_message_count = 2000
+for i, row in tqdm(df.iterrows()):
+    msg = generate(row)
+    producer.send(topic, value=msg)
     if (i + 1) % flush_message_count == 0:
         producer.flush()
 
 producer.flush()
 producer.close()
 
+
+for col in df.columns[:-2]:
+    print('-'*10)
+    print(df[col].value_counts().sort_values(ascending=False)/len(df))
+
+mul = 1
+for col in df.columns[:-2]:
+    t = len(set(df[col]))
+    print(col, t)
+    mul *= t

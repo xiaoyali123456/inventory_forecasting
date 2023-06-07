@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import sys
 from functools import reduce
 import pyspark.sql.functions as F
@@ -31,70 +30,104 @@ def gender(cohort):
 
 @F.udf(returnType=StringType())
 def age(cohort):
-    u30 = {
-        'FB_FEMALE_13-17',
-        'FB_FEMALE_18-24',
-        'FB_FEMALE_25-34',
-        'FB_FEMALE_TV_2-14',
-        'FB_FEMALE_TV_15-21',
-        'FB_FEMALE_TV_22-30',
-        'FB_BARC_FEMALE_15-21',
-        'FB_BARC_FEMALE_22-30',
-        'FB_MALE_13-17',
-        'FB_MALE_18-24',
-        'FB_MALE_25-34',
-        'FB_MALE_TV_2-14',
-        'FB_MALE_TV_15-21',
-        'FB_MALE_TV_22-30',
-        'FB_BARC_MALE_15-21',
-        'FB_BARC_MALE_22-30',
-        'EMAIL_FEMALE_13-17',
-        'EMAIL_FEMALE_18-24',
-        'EMAIL_FEMALE_25-34',
-        'EMAIL_BARC_FEMALE_15-21',
-        'EMAIL_BARC_FEMALE_22-30',
-        'EMAIL_MALE_13-17',
-        'EMAIL_MALE_18-24',
-        'EMAIL_MALE_25-34',
-        'EMAIL_BARC_MALE_15-21',
-        'EMAIL_BARC_MALE_22-30',
-        'PHONE_FEMALE_13-17',
-        'PHONE_FEMALE_18-24',
-        'PHONE_FEMALE_25-34',
-        'PHONE_FEMALE_TV_2-14',
-        'PHONE_FEMALE_TV_15-21',
-        'PHONE_FEMALE_TV_22-30',
-        'PHONE_BARC_FEMALE_15-21',
-        'PHONE_BARC_FEMALE_22-30',
-        'PHONE_MALE_13-17',
-        'PHONE_MALE_18-24',
-        'PHONE_MALE_25-34',
-        'PHONE_BARC_MALE_15-21',
-        'PHONE_BARC_MALE_22-30',
-        'PHONE_MALE_TV_2-14',
-        'PHONE_MALE_TV_15-21',
-        'PHONE_MALE_TV_22-30',
-        'FMD009V0051317SRMLDESTADS',
-        'FMD009V0051317HIGHSRMLDESTADS',
-        'FMD009V0051334HIGHSRMLDESTADS',
-        'FMD009V0051334SRMLDESTADS',
-        'FMD009V0051824HIGHSRMLDESTADS',
-        'FMD009V0051824SRMLDESTADS',
-        'FMD009V0052534HIGHSRMLDESTADS',
-        'FMD009V0052534SRMLDESTADS',
-        'MMD009V0051317HIGHSRMLDESTADS',
-        'MMD009V0051317SRMLDESTADS',
-        'MMD009V0051334HIGHSRMLDESTADS',
-        'MMD009V0051334SRMLDESTADS',
-        'MMD009V0051824HIGHSRMLDESTADS',
-        'MMD009V0051824SRMLDESTADS',
-        'MMD009V0052534HIGHSRMLDESTADS',
-        'MMD009V0052534SRMLDESTADS',
+    map_ = {
+        "EMAIL_FEMALE_13-17": "13-17",
+        "EMAIL_FEMALE_18-24": "18-24",
+        "EMAIL_FEMALE_25-34": "25-34",
+        "EMAIL_FEMALE_35-44": "35-44",
+        "EMAIL_FEMALE_45-54": "45-54",
+        "EMAIL_FEMALE_55-64": "55-64",
+        "EMAIL_FEMALE_65PLUS": "65-99",
+        "EMAIL_MALE_13-17": "13-17",
+        "EMAIL_MALE_18-24": "18-24",
+        "EMAIL_MALE_25-34": "25-34",
+        "EMAIL_MALE_35-44": "35-44",
+        "EMAIL_MALE_45-54": "45-54",
+        "EMAIL_MALE_55-64": "55-64",
+        "EMAIL_MALE_65PLUS": "65-99",
+        "FB_FEMALE_13-17": "13-17",
+        "FB_FEMALE_18-24": "18-24",
+        "FB_FEMALE_25-34": "25-34",
+        "FB_FEMALE_35-44": "35-44",
+        "FB_FEMALE_45-54": "45-54",
+        "FB_FEMALE_55-64": "55-64",
+        "FB_FEMALE_65PLUS": "65-99",
+        "FB_MALE_13-17": "13-17",
+        "FB_MALE_18-24": "18-24",
+        "FB_MALE_25-34": "25-34",
+        "FB_MALE_35-44": "35-44",
+        "FB_MALE_45-54": "45-54",
+        "FB_MALE_55-64": "55-64",
+        "FB_MALE_65PLUS": "65-99",
+        "PHONE_FEMALE_13-17": "13-17",
+        "PHONE_FEMALE_18-24": "18-24",
+        "PHONE_FEMALE_25-34": "25-34",
+        "PHONE_FEMALE_35-44": "35-44",
+        "PHONE_FEMALE_45-54": "45-54",
+        "PHONE_FEMALE_55-64": "55-64",
+        "PHONE_FEMALE_65PLUS": "65-99",
+        "PHONE_MALE_13-17": "13-17",
+        "PHONE_MALE_18-24": "18-24",
+        "PHONE_MALE_25-34": "25-34",
+        "PHONE_MALE_35-44": "35-44",
+        "PHONE_MALE_45-54": "45-54",
+        "PHONE_MALE_55-64": "55-64",
+        "PHONE_MALE_65PLUS": "65-99",
+        "PHONE_BARC_FEMALE_15-21": "15-21",
+        "PHONE_BARC_FEMALE_22-30": "22-30",
+        "PHONE_BARC_FEMALE_31-40": "31-40",
+        "PHONE_BARC_FEMALE_41-50": "41-50",
+        "PHONE_BARC_FEMALE_51+": "51+",
+        "PHONE_BARC_MALE_15-21": "15-21",
+        "PHONE_BARC_MALE_22-30": "22-30",
+        "PHONE_BARC_MALE_31-40": "31-40",
+        "PHONE_BARC_MALE_41-50": "41-50",
+        "PHONE_BARC_MALE_51+": "51-99",
+        "EMAIL_BARC_FEMALE_15-21": "15-21",
+        "EMAIL_BARC_FEMALE_22-30": "22-30",
+        "EMAIL_BARC_FEMALE_31-40": "31-40",
+        "EMAIL_BARC_FEMALE_41-50": "41-50",
+        "EMAIL_BARC_FEMALE_51+": "51-99",
+        "EMAIL_BARC_MALE_15-21": "15-21",
+        "EMAIL_BARC_MALE_22-30": "22-30",
+        "EMAIL_BARC_MALE_31-40": "31-40",
+        "EMAIL_BARC_MALE_41-50": "41-50",
+        "EMAIL_BARC_MALE_51+": "51-99",
+        "FB_BARC_FEMALE_15-21": "15-21",
+        "FB_BARC_FEMALE_22-30": "22-30",
+        "FB_BARC_FEMALE_31-40": "31-40",
+        "FB_BARC_FEMALE_41-50": "41-50",
+        "FB_BARC_FEMALE_51+": "51-99",
+        "FB_BARC_MALE_15-21": "15-21",
+        "FB_BARC_MALE_22-30": "22-30",
+        "FB_BARC_MALE_31-40": "31-40",
+        "FB_BARC_MALE_41-50": "41-50",
+        "FB_BARC_MALE_51+": "51-99",
+        "FMD009V0051317HIGHSRMLDESTADS": "13-17",
+        "FMD009V0051317SRMLDESTADS": "13-17",
+        "FMD009V0051334HIGHSRMLDESTADS": "13-34",
+        "FMD009V0051334SRMLDESTADS": "13-34",
+        "FMD009V0051824HIGHSRMLDESTADS": "18-24",
+        "FMD009V0051824SRMLDESTADS": "18-24",
+        "FMD009V0052534HIGHSRMLDESTADS": "25-34",
+        "FMD009V0052534SRMLDESTADS": "25-34",
+        "FMD009V0053599HIGHSRMLDESTADS": "35-99",
+        "FMD009V0053599SRMLDESTADS": "35-99",
+        "MMD009V0051317HIGHSRMLDESTADS": "13-17",
+        "MMD009V0051317SRMLDESTADS": "13-17",
+        "MMD009V0051334HIGHSRMLDESTADS": "13-34",
+        "MMD009V0051334SRMLDESTADS": "13-34",
+        "MMD009V0051824HIGHSRMLDESTADS": "18-24",
+        "MMD009V0051824SRMLDESTADS": "18-24",
+        "MMD009V0052534HIGHSRMLDESTADS": "25-34",
+        "MMD009V0052534SRMLDESTADS": "25-34",
+        "MMD009V0053599HIGHSRMLDESTADS": "35-99",
+        "MMD009V0053599SRMLDESTADS": "35-99",
     }
     if cohort is not None:
         for x in cohort.split('|'):
-            if x in u30:
-                return 'U30'
+            if x in map_:
+                return map_[x]
     return ''
 
 @F.udf(returnType=StringType())
@@ -122,7 +155,7 @@ def aggregate(df, group_cols, DATE):
 
 
 def moving_avg(df, group_cols, target, alpha=0.2):
-    cohort_cols = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
+    cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age'] # + ['language']
     df2 = df.fillna('')
     df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
     df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
@@ -142,6 +175,7 @@ def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
+    # DATE='2023-05-26'
     iv = load_inventory(DATE)
     giv = aggregate(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(giv, ['cd'], target='ad_time')
