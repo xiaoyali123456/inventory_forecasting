@@ -13,4 +13,4 @@ if __name__ == '__main__':
     ad_time_ratio.to_parquet(f'{FINAL_INVENTORY_PREDICTION_PATH}cd={DATE}/p0.parquet')
     reach_ratio.to_parquet(f'{FINAL_REACH_PREDICTION_PATH}cd={DATE}/p0.parquet')
     common_cols = list(set(reach_ratio.columns)&set(ad_time_ratio.columns))
-    ad_time_ratio.merge(reach_ratio, common_cols, how='left').to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p0.parquet')
+    ad_time_ratio.merge(reach_ratio, on=common_cols, how='left').to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p0.parquet')

@@ -10,8 +10,8 @@ def classify(rank, thd1=0.02, thd2=0.5):
 
 
 INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v4/'
-OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-02/all.json'
-SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v3.json'
+OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-05/all.json'
+SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v5.json'
 
 df = pd.read_parquet(INPUT_PATH) # don't use spark due to limit of master result
 df.reach *= 4
@@ -34,10 +34,10 @@ map_ = {
 inv = {v: k for k,v in map_.items()}
 
 ssai_config['basic'] = ssai_config.tagType.apply(lambda x: map_.get(x, x))
-ssai_config = ssai_config[ssai_config.enabled]
+ssai_config = ssai_config[ssai_config.enabled][ssai_config.tagType != 'GenderTag']
 
 # basic = ['language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
-basic = [x for x in ssai_config['basic'] if x in df.columns] + ['language']
+basic = [x for x in ssai_config['basic'] if x in df.columns] # + ['language']
 
 df2 = df.groupby(basic).reach.sum().reset_index()
 for i in basic:
@@ -75,6 +75,7 @@ df3['den'] = df3.density.map(lambda x: {'dense':1,'super_dense':2,'sparse':0}[x]
 for k, v in df3.groupby('density').index.sum().items():
     df2.loc[v, 'density'] = k
 df2.to_json(OUTPUT_PATH, orient='records')
+df2.to_json('2023-06-05_all.json', orient='records')
 df4 = pd.read_json(OUTPUT_PATH)
 df2
 
@@ -87,3 +88,7 @@ tmp = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
 for col in tmp:
     print('-'*10)
     print(df4.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(df4))
+
+for col in tmp:
+    print('-'*10)
+    print(x.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(x))
