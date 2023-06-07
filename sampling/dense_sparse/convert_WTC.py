@@ -10,8 +10,8 @@ def classify(rank, thd1=0.02, thd2=0.5):
 
 
 INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v4/'
-OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-02/all.json'
-SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v3.json'
+OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-05/all.json'
+SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v5.json'
 
 df = pd.read_parquet(INPUT_PATH) # don't use spark due to limit of master result
 df.reach *= 4
@@ -19,7 +19,7 @@ df.watch_time *= 4
 df = df.loc[df.is_cricket == True]
 ssai_config = pd.read_json(SSAI_CONFIG_PATH)
 
-map = {
+map_ = {
     'AgeTag': 'age',
     'AffluenceTag': 'device',
     'GenderTag': 'gender',
@@ -31,13 +31,13 @@ map = {
     'language': 'language',
     # 'CustomTags': 'custom',
 }
-inv = {v: k for k,v in map.items()}
+inv = {v: k for k,v in map_.items()}
 
-ssai_config['basic'] = ssai_config.tagType.apply(lambda x: map.get(x, x))
-ssai_config = ssai_config[ssai_config.enabled]
+ssai_config['basic'] = ssai_config.tagType.apply(lambda x: map_.get(x, x))
+ssai_config = ssai_config[ssai_config.enabled][ssai_config.tagType != 'GenderTag']
 
 # basic = ['language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
-basic = [x for x in ssai_config['basic'] if x in df.columns] + ['language']
+basic = [x for x in ssai_config['basic'] if x in df.columns] # + ['language']
 
 df2 = df.groupby(basic).reach.sum().reset_index()
 for i in basic:
@@ -70,9 +70,25 @@ for i in basic:
 df3 = df3.groupby(basic).agg({'reach':sum, 'index':list}).reset_index()
 df3['rank'] = df3.reach.rank(method='first', ascending=False, pct=True)
 df3['density'] = df3['rank'].map(lambda x: classify(x, 0.02, 0.5))
+df3['den'] = df3.density.map(lambda x: {'dense':1,'super_dense':2,'sparse':0}[x])
 
 for k, v in df3.groupby('density').index.sum().items():
     df2.loc[v, 'density'] = k
 df2.to_json(OUTPUT_PATH, orient='records')
+df2.to_json('2023-06-05_all.json', orient='records')
 df4 = pd.read_json(OUTPUT_PATH)
 df2
+
+# sanity check each column
+df2['den'] = df2.density.map(lambda x: {'dense':1,'super_dense':2,'sparse':0}[x])
+for col in basic:
+    print(df2.pivot_table(index=col, columns='den', values='reach', aggfunc=sum).sort_values(2, ascending=False)/df2.reach.sum())
+
+tmp = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
+for col in tmp:
+    print('-'*10)
+    print(df4.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(df4))
+
+for col in tmp:
+    print('-'*10)
+    print(x.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(x))
