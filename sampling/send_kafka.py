@@ -2,9 +2,10 @@ import json
 
 from kafka import KafkaProducer
 import pandas as pd
+from tqdm import tqdm
 
 # s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-19/p0.parquet
-path = s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-25/p0.parquet
+path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-25/p0.parquet'
 df = pd.read_parquet(path)
 
 topic='load.adtech.inventory.forecast'
@@ -38,7 +39,7 @@ def generate(row):
 # future = producer.send(topic, template)
 # meta = future.get(timeout=10)
 
-flush_message_count = 2000
+flush_message_count = 1000
 for i, row in tqdm(df.iterrows()):
     msg = generate(row)
     producer.send(topic, value=msg)

@@ -1,5 +1,5 @@
 from common import *
-from datetime import datetime, timedelta
+from datetime import datetime
 import sys
 import pandas as pd
 
@@ -118,7 +118,8 @@ def load_new_matches(cd):
 
 def latest_match_days(cd, n):
     matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
-    return matches[['startdate']].distinct().toPandas().startdate.sort_values().tolist()[-n:]
+    latest_days = matches[['startdate']].distinct().toPandas().startdate.sort_values()
+    return latest_days[latest_days < cd].tolist()[-n:]
 
 
 @F.udf(returnType=StringType())
@@ -126,27 +127,35 @@ def concat(tags: set):
     return '|'.join(sorted(tags))
 
 
-def load_custom_tags(cd):
-    res  = set()
+def load_custom_tags(cd: str) -> dict:
+    res  = {}
     for r in load_requests(cd):
         for x in r.get('customAudiences', []):
             if 'segmentName' in x:
-                res.add(x['segmentName'])
-    return list(res)
+                res[x['segmentName']] = x['customCohort']
+    return res
+
+
+@F.udf(returnType=StringType())
+def convert_custom_cohort(long_tags):
+    long_tags.sort()
+    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]
+    return '|'.join(short_tags)
 
 
 def process_custom_tags(cd):
     # debug: 
     # c_tags=['A_58290825']
-    c_tags = load_custom_tags(cd)
+    global c_tag_dict
+    c_tag_dict = load_custom_tags(cd)
     t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
-    f = lambda x: any(x.endswith(c) for c in c_tags)
+    f = lambda x: any(x.endswith(c) for c in c_tag_dict)
     t3 = ['s3://' + x for x in t + t2 if f(x)]
     if len(t3) > 0:
         ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
-            .withColumn('segments', concat('segments'))
-        matches_days = latest_match_days(cd, 3)
+            .withColumn('segments', convert_custom_cohort('segments'))
+        matches_days = latest_match_days(cd, 5) # TODO: filter 3 month expiration
         sql = ','.join(f'"{x}"' for x in matches_days)
         wt = spark.sql(f'select * from {DAU_TABLE} where cd in ({sql})')
         wt1 = wt[['dw_d_id',
@@ -160,7 +169,7 @@ def process_custom_tags(cd):
     else:
         t = pd.DataFrame([[False, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
         res = spark.createDataFrame(t)
-    res.repartition(1).write.parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
+    res.repartition(1).write.mode('overwrite').parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
 def main(cd):
     # cd = '2023-05-01' # TODO: fix customAudiences typo

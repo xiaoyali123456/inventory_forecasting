@@ -163,6 +163,7 @@ def moving_avg(df, group_cols, target, alpha=0.2):
     df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
     return df4.iloc[-1].rename(target).reset_index()
 
+
 def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     # df = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
     ch = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
@@ -172,6 +173,7 @@ def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     df2 = df.merge(ch2, how='cross')
     df2[dst_col] = df2[dst_col+'_x'] * df2[dst_col+'_y']
     return df2.drop(columns=[dst_col+'_x', dst_col+'_y'])
+
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
