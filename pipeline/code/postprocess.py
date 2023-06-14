@@ -6,9 +6,9 @@ from common import BOOKING_TOOL_URL, FINAL_ALL_PREDICTION_PATH
 if __name__ == '__main__':
     DATE = sys.argv[1]
     df = pd.read_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
-    for row in df.itertuples():
+    for r_id in set(df.request_id):
         r = requests.patch(
-            BOOKING_TOOL_URL + f'inventory/{row.request_id}/ad-placement/MIDROLL/forecast-request',
+            BOOKING_TOOL_URL + f'inventory/{r_id}/ad-placement/MIDROLL/forecast-request',
             json = {
                 "request_status": "SUCCESS",
                 "version": 1,

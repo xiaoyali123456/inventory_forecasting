@@ -24,7 +24,9 @@ df['ssai_tag'] = df['cohort']
 df2 = spark.createDataFrame(df)
 im2 = im.join(df2, on='ssai_tag', how='left')
 cnt = im2.selectExpr('category', 'cast(no_user as float) as num').groupby('category').sum('num').toPandas()
+cnt2 = im2.select('ssai_tag', 'category').distinct().groupby('category').count().toPandas()
 cnt['rate'] = cnt['sum(num)']/cnt['sum(num)'].sum()
+cnt2['rate'] = cnt2['count']/cnt2['count'].sum()
 print(cnt)
 
 '''
@@ -36,5 +38,3 @@ print(cnt)
 '''
 
 im2.where('category is null and ssai_tag !=""').show(10, False)
-
-
