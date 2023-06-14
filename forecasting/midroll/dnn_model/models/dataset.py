@@ -6,11 +6,8 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 class LiveMatchDataLoader(object):
     def __init__(self, dataset, label_list, test_tournaments, if_mask_knock_off_matches, max_token):
-        # self.trainset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
         self.trainset = LiveMatchDataset(dataset, if_mask_knock_off_matches, max_token, label_list, removed_tournaments=test_tournaments+['ac2023', 'wc2023'])
         self.testset = LiveMatchDataset(dataset, if_mask_knock_off_matches, max_token, label_list, selected_tournaments=test_tournaments)
-        # self.testset = LiveMatchDataset(data_paths, label_list, removed_tournaments=['ac2023', 'wc2023'])
-        # self.testset = LiveMatchDataset(data_paths, label_list, selected_tournaments=['ac2023', 'wc2023'])
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
@@ -31,7 +28,6 @@ class LiveMatchDataLoader(object):
 
 class LiveMatchDataset(Dataset):
     def __init__(self, df, if_mask_knock_off_matches, max_token, label_list, selected_tournaments=None, removed_tournaments=None):
-        # df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
         self.label_list = label_list
         self.if_mask_knock_off_matches = if_mask_knock_off_matches
         self.max_token = max_token
@@ -68,8 +64,6 @@ class LiveMatchDataset(Dataset):
             'continents_hots',
             'teams_tier_hots',
         ]
-        # print(df.columns)
-        # print(df['tournament'])
         # for test dataset
         if selected_tournaments is not None:
             df = df.loc[df['tournament'].isin(selected_tournaments)]
