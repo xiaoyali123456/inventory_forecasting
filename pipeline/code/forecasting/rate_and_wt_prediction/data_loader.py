@@ -46,13 +46,11 @@ class LiveMatchDataset(Dataset):
     def _parse(self, df):
         features = {}
         for key in dnn_configuration['used_features']:
-            rawlist = [val for val in df[key]]
-            features[key] = [[int(v) for v in val[1:-1].split(',')] for val in rawlist]
+            features[key] = [val for val in df[key]]
 
         labels = [val for val in df[self.label]]
 
-        names = df['content_id']
-        sample_ids = [name for name in names]
+        sample_ids = [content_id for content_id in df['content_id']]
 
         return features, labels, sample_ids
 
