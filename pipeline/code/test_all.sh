@@ -43,3 +43,6 @@ curl 'https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-serv
 curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/111_222/ad-placement/MIDROLL/forecast-request -XPATCH -H 'content-type:application/json' -d '{ "request_status":"IN_PROGRESS","version":1}'
 
 # kafka
+
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/111_222/ad-placement/MIDROLL/forecast-request -XPATCH -H 'content-type:application/json' -d '{ "request_status":"SUCCESS","version":1}'
+curl https://adtech-blaze-gateway-pp.pp.hotstar-labs.com/inventory-booking-service-eks/api/v1/inventory/112_222/ad-placement/MIDROLL/forecast-request -XPATCH -H 'content-type:application/json' -d '{ "request_status":"SUCCESS","version":1}'
