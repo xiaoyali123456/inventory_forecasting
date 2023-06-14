@@ -1,7 +1,7 @@
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from config import *
+from dnn_configuration import *
 
 pd.options.mode.chained_assignment = None  # default='warn'
 

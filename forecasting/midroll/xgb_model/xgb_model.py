@@ -188,7 +188,7 @@ def load_dataset(tournaments, feature_df, sorting=False, repeat_num_col="", mask
         else:
             new_feature_df = free_df
     if configuration['if_reach_rate']:
-        reach_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all")\
+        reach_df = load_data_frame(spark, reach_rate_path)\
             .select('content_id', 'reach_rate', 'match_num') \
             .cache()
         # print(new_feature_df.count())
@@ -311,6 +311,7 @@ play_out_log_input_path = "s3://hotstar-ads-data-external-us-east-1-prod/run_log
 watchAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
 viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
 live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
+reach_rate_path = live_ads_inventory_forecasting_root_path + "/tournament_level/content_reach_rate/all"
 
 # spark.stop()
 # spark = hive_spark('statistics')
@@ -453,8 +454,8 @@ configuration = {
     # 'tournament_list': "svod",
     # 'tournament_list': "t20",
     # 'task': "rate_prediction",
-    "task": 'test_prediction',
-    # 'task': 'prediction_result_save',
+    # "task": 'test_prediction',
+    'task': 'prediction_result_save',
     # 'mask_tag': "mask_knock_off",
     'mask_tag': "",
     # 'sample_weight': False,
@@ -473,8 +474,8 @@ configuration = {
     # 'if_simple_one_hot': "",
     # 'if_free_timer': "_and_free_timer",
     'if_free_timer': "",
-    # 'if_reach_rate': True,
-    'if_reach_rate': False,
+    'if_reach_rate': True,
+    # 'if_reach_rate': False,
     # 'if_hotstar_influence': False,
     'if_hotstar_influence': True,
     # 'if_teams': False,
@@ -483,21 +484,21 @@ configuration = {
     # 'if_cross_features': False,
     # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots']],
-    # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
-    #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
-    #                    ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
     'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
                        ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'teams_tier_hot_vector', 'tournament_type_hots']],
+                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
+    # 'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots'],
+    #                    ['if_contain_india_team_hots', 'teams_tier_hot_vector', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots'],
     #                    ['if_contain_india_team_hot_vector', 'match_type_hots', 'tournament_type_hots'],
     #                    ['vod_type_hots', 'tournament_type_hots']],
     # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots'],
     #                    ['if_contain_india_team_hot_vector', 'tournament_type_hots'],
     #                    ['match_stage_hots', 'tournament_type_hots']],
-    # 'if_match_num': True,
-    'if_match_num': False,
+    'if_match_num': True,
+    # 'if_match_num': False,
     # 'if_knock_off_rank': True,
     'if_knock_off_rank': False,
     'if_make_match_stage_ranked': False,
@@ -562,8 +563,6 @@ else:
         large_vals = [5]
 
 
-sub_pid_did_rate = 0.94
-free_pid_did_rate = 1.02
 prediction_vod_str = ""
 
 repeat_union = 0.05
@@ -582,7 +581,6 @@ prediction_cols = load_data_frame(spark,
 predict_feature_df = feature_processing(reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/" + tournament
                                               + "/all_features_hots_format" + configuration['if_simple_one_hot']).select(*prediction_cols) for tournament in configuration['predict_tournaments']])
     .withColumn("rand", F.rand(seed=54321)))\
-    .where('if_contain_india_team = 1')\
     .cache()
 
 if len(configuration['cross_features']) >= 3:
@@ -731,7 +729,7 @@ print(feature_cols)
 print(feature_num_cols)
 # feature_df.where('tournament in ("wc2022")').select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
 # predict_feature_df.select('cross_features_2_hots_num', 'cross_features_2_hot_vector', 'if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots').show(20, False)
-feature_df.orderBy('date', 'content_id').select('tournament', 'title', *label_cols).show(100)
+# feature_df.orderBy('date', 'content_id').select('tournament', 'title', *label_cols).show(100)
 
 if configuration['task'] == "rate_prediction":
     for test_tournament in tournament_list:
@@ -827,11 +825,11 @@ if configuration['task'] == "rate_prediction":
     print(best_setting_dic)
     print(time.time() - s_time)
 else:
-    # items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
-    #          ([], ["wc2019"], 2),
-    #          (configuration['predict_tournaments'], [], 1)]
+    items = [([], ["wc2019", "wc2021", "ipl2022", "ac2022", "wc2022"], 1),
+             ([], ["wc2019"], 2),
+             (configuration['predict_tournaments'], [], 1)]
     # items = [([], ["wc2019"], 2)]
-    items = [(configuration['predict_tournaments'], [], 1)]
+    # items = [(configuration['predict_tournaments'], [], 1)]
     for item in items:
         if configuration['prediction_free_timer'] < 1000 and item[0] == []:
             continue
@@ -857,9 +855,9 @@ else:
                 best_setting_dic = {'watch_time_per_match': ['reg:squarederror', '61', '0.1', '11']}
         elif configuration['if_reach_rate']:
             if configuration['if_match_num']:
-                best_setting_dic = {'reach_rate': ['reg:squarederror', '77', '0.2', '3']}
+                best_setting_dic = {'reach_rate': ['reg:squarederror', '97', '0.2', '3']}
             else:
-                best_setting_dic = {'reach_rate': ['reg:squarederror', '97', '0.1', '5']}
+                best_setting_dic = {'reach_rate': ['reg:squarederror', '73', '0.2', '3']}
         elif configuration['au_source'] == "avg_predicted_au":
             if configuration['if_free_timer'] == "":
                 best_setting_dic = {'active_frees_rate': ['reg:squarederror', '93', '0.1', '9'],
@@ -1134,47 +1132,46 @@ else:
             df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
                                 +f"/xgb_prediction{configuration['mask_tag']}{configuration['au_source'].replace('avg', '').replace('_au', '')}{configuration['wc2019_avod_tag']}{prediction_vod_str}/{test_tournament}/{label}")
                                                  for test_tournament in all_tournaments])
-            # df.orderBy('date', 'content_id').show(2000)
-            if configuration['if_reach_rate']:
-                load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all") \
-                    .select('content_id', 'match_reach', 'total_reach', 'reach_rate', 'tournament')\
-                    .join(df.select('content_id', 'estimated_reach_rate'), 'content_id')\
-                    .withColumn('estimated_total_reach', F.expr('match_reach/estimated_reach_rate'))\
-                    .groupBy('tournament')\
-                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
-                         F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num'))\
-                    .withColumn('error', F.expr('estimated_total_reach/total_reach-1'))\
-                    .show()
-                predicted_reach_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
-                                                                                      + f"/test_result_of_{tournament}_using_{version}{prediction_vod_str.replace('_vod_cross', '')}")
-                                            .withColumn('tournament', F.lit(tournament))
-                                     for tournament in all_tournaments])\
-                    .select('content_id', 'estimated_reach', 'tournament')\
-                    .cache()
-                load_data_frame(spark,
-                                live_ads_inventory_forecasting_root_path + "/tournament_level/final_test_dataset/all") \
-                    .select('content_id', 'total_reach', 'tournament') \
-                    .join(df.select('content_id', 'estimated_reach_rate'), 'content_id') \
-                    .join(predicted_reach_df, ['content_id', 'tournament']) \
-                    .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
-                    .groupBy('tournament') \
-                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
-                         F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num')) \
-                    .withColumn('error', F.expr('estimated_total_reach/total_reach-1')) \
-                    .show()
-                df2 = df\
-                    .select('content_id', 'estimated_reach_rate') \
-                    .join(predicted_reach_df, 'content_id')
-                df3 = df2\
-                    .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
-                    .groupBy('tournament') \
-                    .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
-                         F.count('content_id').alias('match_num'))
-                df2\
-                    .join(df3, 'tournament')\
-                    .withColumn('new_estimated_reach_rate', F.expr('estimated_reach/estimated_total_reach'))\
-                    .orderBy('tournament', 'content_id')\
-                    .show(2000, False)
+            df.orderBy('date', 'content_id').show(2000)
+            # if configuration['if_reach_rate']:
+            #     load_data_frame(spark, reach_rate_path) \
+            #         .select('content_id', 'match_reach', 'total_reach', 'reach_rate', 'tournament')\
+            #         .join(df.select('content_id', 'estimated_reach_rate'), 'content_id')\
+            #         .withColumn('estimated_total_reach', F.expr('match_reach/estimated_reach_rate'))\
+            #         .groupBy('tournament')\
+            #         .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+            #              F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num'))\
+            #         .withColumn('error', F.expr('estimated_total_reach/total_reach-1'))\
+            #         .show()
+            #     predicted_reach_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_inventory_forecasting_root_path
+            #                                                                           + f"/test_result_of_{tournament}_using_{version}{prediction_vod_str.replace('_vod_cross', '')}")
+            #                                 .withColumn('tournament', F.lit(tournament))
+            #                          for tournament in all_tournaments])\
+            #         .select('content_id', 'estimated_reach', 'tournament')\
+            #         .cache()
+            #     load_data_frame(spark, reach_rate_path) \
+            #         .select('content_id', 'total_reach', 'tournament') \
+            #         .join(df.select('content_id', 'estimated_reach_rate'), 'content_id') \
+            #         .join(predicted_reach_df, ['content_id', 'tournament']) \
+            #         .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
+            #         .groupBy('tournament') \
+            #         .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+            #              F.avg('total_reach').alias('total_reach'), F.count('content_id').alias('match_num')) \
+            #         .withColumn('error', F.expr('estimated_total_reach/total_reach-1')) \
+            #         .show()
+            #     df2 = df\
+            #         .select('content_id', 'estimated_reach_rate') \
+            #         .join(predicted_reach_df, 'content_id')
+            #     df3 = df2\
+            #         .withColumn('estimated_total_reach', F.expr('estimated_reach/estimated_reach_rate')) \
+            #         .groupBy('tournament') \
+            #         .agg(F.avg('estimated_total_reach').alias('estimated_total_reach'),
+            #              F.count('content_id').alias('match_num'))
+            #     df2\
+            #         .join(df3, 'tournament')\
+            #         .withColumn('new_estimated_reach_rate', F.expr('estimated_reach/estimated_total_reach'))\
+            #         .orderBy('tournament', 'content_id')\
+            #         .show(2000, False)
     if 'wc2019' in error_dic and len(error_dic['wc2019']) > len(label_cols) - len(configuration['unvalid_labels']):
         print('wc2019')
         for idx in range(len(label_cols) - len(configuration['unvalid_labels'])):

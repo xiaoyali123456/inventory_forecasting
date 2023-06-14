@@ -180,21 +180,33 @@ def enumerate_tiers(tiers_list):
         return [tiers_list[0] + tiers_list[1] + 1]
 
 
-def cross_features(dim, *args):
+def cross_features(dim, dim_list, *args):
     res = [0 for i in range(dim)]
-    idx = 1
+    partition_dim = dim
+    dim_idx = 0
+    idx = 0
     for x in args:
-        idx *= x[0] + 1
-    res[idx-1] = 1
+        partition_dim /= dim_list[dim_idx]
+        dim_idx += 1
+        idx += x[0] * partition_dim
+    res[int(idx)] = 1
+    # print(idx)
     return res
 
 
-def empty_cross_features(dim, *args):
+def empty_cross_features(dim, dim_list, *args):
     res = [0 for i in range(dim)]
-    idx = if_contain_india_team_dim + 1
+    partition_dim = dim
+    dim_idx = 0
+    idx = 0
     for x in args:
-        idx *= x[0] + 1
-    res[idx-1] = 1
+        partition_dim /= dim_list[dim_idx]
+        if dim_idx == 0:
+            idx += (dim_list[0] - 1) * partition_dim
+        else:
+            idx += x[0] * partition_dim
+        dim_idx += 1
+    res[int(idx)] = 1
     return res
 
 
@@ -419,17 +431,20 @@ if configuration['if_improve_ties']:
 mask_features = ['if_contain_india_team']
 if configuration['if_cross_features']:
     for idx in range(len(configuration['cross_features'])):
-        feature_dim = reduce(lambda x, y: x * y, [hots_num_dic[feature] for feature in configuration['cross_features'][idx]])
+        feature_dim_list = [hots_num_dic[feature] for feature in configuration['cross_features'][idx]]
+        feature_dim = reduce(lambda x, y: x * y, feature_dim_list)
         print(feature_dim)
         feature_df = feature_df \
+            .withColumn("cross_feature_dim_list", F.array(*map(F.lit, feature_dim_list))) \
             .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *configuration['cross_features'][idx])) \
+            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *(configuration['cross_features'][idx][1:]))) \
             .cache()
         predict_feature_df = predict_feature_df \
+            .withColumn("cross_feature_dim_list", F.array(*map(F.lit, feature_dim_list))) \
             .withColumn(f"cross_features_{idx}_hots_num", F.lit(feature_dim)) \
-            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", *configuration['cross_features'][idx])) \
-            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", *(configuration['cross_features'][idx][1:]))) \
+            .withColumn(f"cross_features_{idx}_hot_vector", cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *configuration['cross_features'][idx])) \
+            .withColumn(f"empty_cross_features_{idx}_hot_vector", empty_cross_features_udf(f"cross_features_{idx}_hots_num", "cross_feature_dim_list", *(configuration['cross_features'][idx][1:]))) \
             .cache()
         one_hot_cols = [f'cross_features_{idx}'] + one_hot_cols
         mask_features.append(f'cross_features_{idx}')
