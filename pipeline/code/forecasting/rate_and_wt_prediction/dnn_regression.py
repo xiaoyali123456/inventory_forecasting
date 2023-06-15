@@ -1,5 +1,6 @@
 import torch
 import pandas as pd
+import numpy as np
 from sklearn.metrics import mean_absolute_error
 from data_loader import LiveMatchDataLoader
 from network import DeepEmbMLP
@@ -42,7 +43,7 @@ class LiveMatchRegression(object):
         test_num = 0
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
-            loss = mean_absolute_error(list(p), y)
+            loss = mean_absolute_error(np.atleast_1d(p), y)  # use np.atleast_1d in case there is only one sample
             mae_loss += loss * len(y)
             test_num += len(y)
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss/test_num}')
@@ -51,7 +52,7 @@ class LiveMatchRegression(object):
         predictions = []
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
-            predictions.extend([v for v in p])
+            predictions.extend([v for v in np.atleast_1d(p)])  # use np.atleast_1d in case there is only one sample
         prediction_results = []
         for idx in range(len(sample_ids)):
             prediction_results.append([sample_ids[idx], predictions[idx]])
