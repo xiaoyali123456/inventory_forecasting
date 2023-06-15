@@ -44,7 +44,7 @@ class LiveMatchRegression(object):
         test_num = 0
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
-            loss = mean_absolute_error(p, y)
+            loss = mean_absolute_error(list(p), y)
             mae_loss += loss * len(y)
             test_num += len(y)
             if sample_ids is not None:

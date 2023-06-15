@@ -38,7 +38,7 @@ class LiveMatchDataset(Dataset):
 
     def __getitem__(self, idx):
         x = [self.features[key][idx] for key in self.features]
-        return x, self.labels
+        return x, self.labels[idx]
 
     def get_sample_ids(self):
         return self.sample_ids
@@ -46,7 +46,7 @@ class LiveMatchDataset(Dataset):
     def _parse(self, df):
         features = {}
         for key in dnn_configuration['used_features']:
-            features[key] = [val for val in df[key]]
+            features[key] = [list(val) for val in df[key]]
 
         labels = [val for val in df[self.label]]
 
