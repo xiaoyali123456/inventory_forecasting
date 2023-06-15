@@ -229,7 +229,11 @@ def save_base_dataset(path_suffix):
             .withColumnRenamed('hostar_influence_hots', 'hotstar_influence_hots')\
             .withColumnRenamed('hostar_influence_hots_num', 'hotstar_influence_hots_num')\
             .withColumnRenamed('hostar_influence_hot_vector', 'hotstar_influence_hot_vector')\
-            .withColumn("hotstar_influence_hots_num", F.lit(1))
+            .withColumn("hotstar_influence_hots_num", F.lit(1)) \
+            .withColumn('frees_watching_match_rate', F.bround(F.col('frees_watching_match_rate'), 2)) \
+            .withColumn('subscribers_watching_match_rate', F.bround(F.col('subscribers_watching_match_rate'), 2)) \
+            .withColumn('watch_time_per_free_per_match', F.bround(F.col('watch_time_per_free_per_match'), 2)) \
+            .withColumn('watch_time_per_subscriber_per_match', F.bround(F.col('watch_time_per_subscriber_per_match'), 2))
         if path_suffix.find('free_timer') > -1:
             res_df = res_df\
                 .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \

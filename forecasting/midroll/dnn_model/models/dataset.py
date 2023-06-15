@@ -13,7 +13,7 @@ class LiveMatchDataLoader(object):
         if mode == 'train':
             return torch.utils.data.DataLoader(dataset=self.trainset,
                                                batch_size=batch_size,
-                                               shuffle=True)
+                                               shuffle=False)
         else:
             return torch.utils.data.DataLoader(dataset=self.testset,
                                                batch_size=batch_size,
