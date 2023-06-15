@@ -7,25 +7,25 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 
 class LiveMatchDataLoader(object):
-    def __init__(self, train_dataset, test_dataset, label):
-        self.trainset = LiveMatchDataset(train_dataset, label)
-        self.testset = LiveMatchDataset(test_dataset, label)
+    def __init__(self, train_dataset, prediction_dataset, label):
+        self.train_dataset = LiveMatchDataset(train_dataset, label)
+        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label)
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
-            return torch.utils.data.DataLoader(dataset=self.trainset,
+            return torch.utils.data.DataLoader(dataset=self.train_dataset,
                                                batch_size=batch_size,
                                                shuffle=True)
         else:
-            return torch.utils.data.DataLoader(dataset=self.testset,
+            return torch.utils.data.DataLoader(dataset=self.prediction_dataset,
                                                batch_size=batch_size,
                                                shuffle=False)
 
     def get_sample_ids(self, mode):
         if mode == 'train':
-            return self.trainset.get_sample_ids()
+            return self.train_dataset.get_sample_ids()
         else:
-            return self.testset.get_sample_ids()
+            return self.prediction_dataset.get_sample_ids()
 
 
 class LiveMatchDataset(Dataset):
