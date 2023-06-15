@@ -4,9 +4,10 @@ from dnn_configuration import *
 
 
 class DeepEmbMLP(nn.Module):
-    def __init__(self, column_num, emb_size):
+    def __init__(self, column_num):
         torch.manual_seed(seed=12345)
         super().__init__()
+        emb_size = dnn_configuration['embedding_table_size']
         emb_dim = dnn_configuration['embedding_dim']
         self.mlp = nn.Sequential(
             nn.Linear((column_num+3)*emb_dim, dnn_configuration['mlp_layer_sizes'][0]),  # there are 3 two-hots vectors
