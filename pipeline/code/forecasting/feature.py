@@ -215,6 +215,7 @@ def main(spark, date, content_id, tournament_name, match_type,
 
 def save_base_dataset(path_suffix):
     df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/all_features_hots_format_with_avg_au_sub_free_num" + path_suffix)\
+        .where('date >= "2019-05-30"')\
         .cache()
     base_path_suffix = "/all_features_hots_format"
     contents = df.select('date', 'content_id').distinct().collect()
@@ -228,10 +229,7 @@ def save_base_dataset(path_suffix):
             .withColumnRenamed('hostar_influence_hots', 'hotstar_influence_hots')\
             .withColumnRenamed('hostar_influence_hots_num', 'hotstar_influence_hots_num')\
             .withColumnRenamed('hostar_influence_hot_vector', 'hotstar_influence_hot_vector')\
-            .withColumn("hotstar_influence_hots_num", F.lit(1)) \
-            .withColumn("if_contain_india_team_hots_num", F.lit(2)) \
-            .withColumn("if_contain_india_team_hots", if_contain_india_team_hot_vector_udf('if_contain_india_team_hots', 'tournament_type')) \
-            .withColumn("if_contain_india_team_hot_vector", generate_hot_vector_udf('if_contain_india_team_hots', 'if_contain_india_team_hots_num'))
+            .withColumn("hotstar_influence_hots_num", F.lit(1))
         if path_suffix.find('free_timer') > -1:
             res_df = res_df\
                 .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
@@ -318,7 +316,7 @@ if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" e
 
 # save_base_dataset("_and_simple_one_hot")
 # save_base_dataset("_and_free_timer_and_simple_one_hot")
-# save_base_dataset("_full_avod_and_simple_one_hot")
+save_base_dataset("_full_avod_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)

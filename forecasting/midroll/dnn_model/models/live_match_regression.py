@@ -6,12 +6,18 @@ import pandas as pd
 
 
 class LiveMatchRegression(object):
-    def __init__(self, all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches):
+    def __init__(self, all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches,
+                 batch_size=16, num_epochs=30, lr=5e-3, weight_decay=1e-3):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
                              "watch_time_per_subscriber_per_match": [1 / 57.9, 1]
         }
+        self.batch_size = batch_size
+        self.num_epochs = num_epochs
+        self.max_token = max_token
+        self.lr = lr
+        self.weight_decay = weight_decay
         label_list_tmp = [label for label in self.label_config]
         self.label_list = [label_list_tmp[label_idx] for label_idx in label_idx_list]
         self.label_num = len(label_idx_list)
@@ -21,7 +27,8 @@ class LiveMatchRegression(object):
         # self.loss_fn = torch.nn.HuberLoss(delta=0.1)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-2)
         #self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=1e-2)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3, weight_decay=1e-3)
+        # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-3, weight_decay=1e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         #self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=1e-2)
         self.dataset = LiveMatchDataLoader(dataset=all_df, label_list=self.label_list, test_tournaments=test_tournaments,
@@ -29,10 +36,10 @@ class LiveMatchRegression(object):
         self.if_mask_knock_off_matches_tag = "_masked" if if_mask_knock_off_matches else ""
         self.test_tournament = test_tournaments[0]
 
-    def train(self, num_epochs=1):
-        data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
+    def train(self):
+        data_loader = self.dataset.get_dataset(batch_size=self.batch_size, mode='train')
         num_steps = len(data_loader)
-        for epoch in range(num_epochs):
+        for epoch in range(self.num_epochs):
             for i, (x, y) in enumerate(data_loader):
                 p = self.model(x)
                 # loss = self.loss_fn(p, y.float())
@@ -48,7 +55,8 @@ class LiveMatchRegression(object):
                     loss += loss_list[idx]
                 # print(loss.dtype)
                 loss /= len(loss_list)
-                print(f"loss = {loss}")
+                loss = loss_list[0]
+                # print(f"loss = {loss}")
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -56,7 +64,7 @@ class LiveMatchRegression(object):
                 #              .format(epoch + 1, num_epochs, i + 1, num_steps, loss.item()))
                 #for wp in self.model.parameters():
                 #    print(wp.data.shape, wp.data)
-            if epoch % 1 == 0:
+            if epoch % 500 == 0:
                 self.eval()
 
     def eval(self):
@@ -90,7 +98,15 @@ class LiveMatchRegression(object):
         if sample_ids is not None:
             for item in res_list:
                 if item[0].find('india vs australia') > -1:
-                    print(item)
+                    # print(item)
+                    if 75.96 < item[1] < 75.99:
+                        print(item)
+                        print(self.batch_size)
+                        print(self.num_epochs)
+                        print(self.lr)
+                        print(self.weight_decay)
+                        print(self.max_token)
+                    #     print()
         # df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
@@ -109,7 +125,7 @@ class LiveMatchRegression(object):
             if sample_ids is not None:
                 result.extend([v for v in p])
                 labels.extend([v.item() for v in y[idx]])
-        print(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
+        # print(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
         sample_ids_logs = []
         if sample_ids is not None:
             for i, item in enumerate(zip(result, labels)):
