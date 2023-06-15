@@ -26,7 +26,7 @@ dnn_configuration = {
             'teams_tier_hots',
         ],
     'train_batch_size': 16,
-    'test_batch_size': 16,
+    'test_batch_size': 64,
     'epoch_num': 30,
     'lr': 5e-3,
     'weight_decay': 1e-3,

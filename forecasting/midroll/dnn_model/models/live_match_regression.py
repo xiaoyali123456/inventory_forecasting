@@ -29,7 +29,7 @@ class LiveMatchRegression(object):
         self.if_mask_knock_off_matches_tag = "_masked" if if_mask_knock_off_matches else ""
         self.test_tournament = test_tournaments[0]
 
-    def train(self, num_epochs=30):
+    def train(self, num_epochs=1):
         data_loader = self.dataset.get_dataset(batch_size=16, mode='train')
         num_steps = len(data_loader)
         for epoch in range(num_epochs):
@@ -48,7 +48,7 @@ class LiveMatchRegression(object):
                     loss += loss_list[idx]
                 # print(loss.dtype)
                 loss /= len(loss_list)
-                # print(loss.dtype)
+                print(f"loss = {loss}")
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -56,8 +56,8 @@ class LiveMatchRegression(object):
                 #              .format(epoch + 1, num_epochs, i + 1, num_steps, loss.item()))
                 #for wp in self.model.parameters():
                 #    print(wp.data.shape, wp.data)
-            # if epoch % 10 == 0:
-            #     self.eval()
+            if epoch % 1 == 0:
+                self.eval()
 
     def eval(self):
         data_loader = self.dataset.get_dataset(batch_size=64, mode='train')
@@ -87,7 +87,11 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
-        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
+        if sample_ids is not None:
+            for item in res_list:
+                if item[0].find('india vs australia') > -1:
+                    print(item)
+        # df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0

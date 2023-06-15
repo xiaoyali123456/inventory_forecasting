@@ -11,8 +11,7 @@ class LiveMatchRegression(object):
     def __init__(self, DATE, train_dataset, prediction_dataset, label):
         self.DATE = DATE
         self.label = label
-        self.model = DeepEmbMLP(column_num=len(dnn_configuration['used_features']),
-                                emb_size=dnn_configuration['embedding_table_size'])
+        self.model = DeepEmbMLP(column_num=len(dnn_configuration['used_features']))
         self.loss_fn = torch.nn.HuberLoss(delta=huber_loss_parameter_dic[label])
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr=dnn_configuration['lr'], weight_decay=dnn_configuration['weight_decay'])

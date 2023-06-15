@@ -21,19 +21,19 @@ def main():
     filename = 'data/LiveMatch/data.csv'
     all_df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
     label_split_list = [[0], [2], [1], [3]]
-    test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]
-    # test_tournaments_list = [['wc2022']]
+    # test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]
+    test_tournaments_list = [['wc2023']]
     for label_idx_list in label_split_list:
         for test_tournaments in test_tournaments_list:
             print(label_idx_list, test_tournaments)
-            if_mask_knock_off_matches = True
-            model = LiveMatchRegression(all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches)
-            model.train()
-            model.test()
             if_mask_knock_off_matches = False
             model = LiveMatchRegression(all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches)
             model.train()
             model.test()
+            # if_mask_knock_off_matches = True
+            # model = LiveMatchRegression(all_df, label_idx_list, test_tournaments, max_token, if_mask_knock_off_matches)
+            # model.train()
+            # model.test()
 
 
 if __name__ == '__main__':
