@@ -164,26 +164,67 @@ watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/
 #         .show(1000, False)
 #     rate = 4
 
-rate = 4
-filter_str = "if(tag in ('2', '8', 'a', 'e'), 0, if(tag in ('0', '4', '7', 'c'), 1, if(tag in ('1', '6', '9', 'd'), 2, 3)))"
-for wd_path in [watch_video_path]:
-    print(wd_path)
-    reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{wd_path}/cd={date}").select('dw_p_id', 'dw_d_id', 'watch_time', 'dw_device_id') for date in get_date_list("2023-03-16", 30)]) \
-        .withColumn('tournament', F.lit("2023"))\
-        .withColumn('tag', F.col("dw_p_id").substr(-1, 1))\
-        .withColumn('tag_set', F.expr(filter_str))\
-        .groupBy('tag_set')\
-        .agg(F.countDistinct('dw_p_id').alias('content_reach_p'),
-             F.countDistinct('dw_d_id').alias('content_reach_d'),
-             F.countDistinct('dw_device_id').alias('content_reach_device'),
-             F.sum('watch_time').alias('watch_time')) \
-        .withColumn('content_reach_p', F.expr(f'content_reach_p*{rate}')) \
-        .withColumn('content_reach_d', F.expr(f'content_reach_d*{rate}')) \
-        .withColumn('content_reach_device', F.expr(f'content_reach_device*{rate}')) \
-        .withColumn('watch_time', F.expr(f'watch_time*{rate}')) \
-        .show(1000, False)
-    # rate = 4
+# rate = 4
+# filter_str = "if(tag in ('2', '8', 'a', 'e'), 0, if(tag in ('0', '4', '7', 'c'), 1, if(tag in ('1', '6', '9', 'd'), 2, 3)))"
+# for wd_path in [watch_video_path]:
+#     print(wd_path)
+#     reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{wd_path}/cd={date}").select('dw_p_id', 'dw_d_id', 'watch_time', 'dw_device_id') for date in get_date_list("2023-03-16", 30)]) \
+#         .withColumn('tournament', F.lit("2023"))\
+#         .withColumn('tag', F.col("dw_p_id").substr(-1, 1))\
+#         .withColumn('tag_set', F.expr(filter_str))\
+#         .groupBy('tag_set')\
+#         .agg(F.countDistinct('dw_p_id').alias('content_reach_p'),
+#              F.countDistinct('dw_d_id').alias('content_reach_d'),
+#              F.countDistinct('dw_device_id').alias('content_reach_device'),
+#              F.sum('watch_time').alias('watch_time')) \
+#         .withColumn('content_reach_p', F.expr(f'content_reach_p*{rate}')) \
+#         .withColumn('content_reach_d', F.expr(f'content_reach_d*{rate}')) \
+#         .withColumn('content_reach_device', F.expr(f'content_reach_device*{rate}')) \
+#         .withColumn('watch_time', F.expr(f'watch_time*{rate}')) \
+#         .show(1000, False)
+#     # rate = 4
 
+
+df1 = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/all_features_hots_format_full_avod_and_simple_one_hot_overall/")\
+    .orderBy('date', 'content_id')\
+    .cache()
+
+save_data_frame(df1.select(*feature_cols).union(predict_df).repartition(1).orderBy('date', 'content_id'), "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/train_dataset")
+
+df2 = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/data.csv", "csv", True)\
+    .where('tournament not in ("ac2023", "wc2023")')\
+    .cache()
+
+print(df1.count())
+print(df2.count())
+
+
+free_rate_label = "frees_watching_match_rate"
+free_wt_label = "watch_time_per_free_per_match"
+sub_rate_label = "subscribers_watching_match_rate"
+sub_wt_label = "watch_time_per_subscriber_per_match"
+label_list = [free_rate_label, free_wt_label, sub_rate_label, sub_wt_label]
+
+for label in label_list:
+    # print(df1.select('content_id', label).join(df2.withColumn(label, F.expr(f"cast({label} as float)")), ['content_id', label]).count())
+    df1.select('content_id', label).show()
+    df2.withColumn(label, F.expr(f"cast({label} as float)")).select('content_id', label).show()
+
+
+fea_list = [
+            'vod_type_hots',
+            'match_stage_hots',
+            'tournament_name_hots',
+            'match_type_hots',
+            'if_contain_india_team_hots',
+            'if_holiday_hots',
+            'match_time_hots',
+            'if_weekend_hots',
+            'tournament_type_hots',
+            'teams_hots',
+            'continents_hots',
+            'teams_tier_hots',
+        ]
 
 
 

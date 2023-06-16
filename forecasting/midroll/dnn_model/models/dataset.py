@@ -13,7 +13,7 @@ class LiveMatchDataLoader(object):
         if mode == 'train':
             return torch.utils.data.DataLoader(dataset=self.trainset,
                                                batch_size=batch_size,
-                                               shuffle=False)
+                                               shuffle=True)
         else:
             return torch.utils.data.DataLoader(dataset=self.testset,
                                                batch_size=batch_size,
@@ -87,6 +87,7 @@ class LiveMatchDataset(Dataset):
             # df = pd.concat([df, mask_df])
             # print(len(df))
 
+        print(len(df))
         features = {}
         for key in feature_config:
             rawlist = [val for val in df[key]]
@@ -95,8 +96,9 @@ class LiveMatchDataset(Dataset):
             # print(rawlist[0][1:-1])
             # print(rawlist[0][1:-1].split(','))
             # print([int(v) for v in rawlist[0][1:-1].split(',')])
-            features[key] = [[int(v) for v in val[1:-1].split(',')] for val in rawlist]
+            # features[key] = [[int(v) for v in val[1:-1].split(',')] for val in rawlist]
             #print(key, len(features[key]), features[key][:16])
+            features[key] = [list(val) for val in df[key]]
 
         # labels = [val for val in df['frees_watching_match_rate']]
         labels = {}

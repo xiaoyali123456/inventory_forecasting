@@ -7,7 +7,7 @@ import pandas as pd
 
 class LiveMatchRegression(object):
     def __init__(self, all_df, label_idx_list, test_tournaments, if_mask_knock_off_matches,
-                 batch_size=16, num_epochs=1, lr=5e-3, weight_decay=1e-3, max_token=100):
+                 batch_size=16, num_epochs=30, lr=5e-3, weight_decay=1e-3, max_token=100):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
@@ -56,7 +56,7 @@ class LiveMatchRegression(object):
                 # print(loss.dtype)
                 loss /= len(loss_list)
                 loss = loss_list[0]
-                print(f"loss = {loss}")
+                # print(f"loss = {loss}")
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -64,7 +64,7 @@ class LiveMatchRegression(object):
                 #              .format(epoch + 1, num_epochs, i + 1, num_steps, loss.item()))
                 #for wp in self.model.parameters():
                 #    print(wp.data.shape, wp.data)
-            if epoch % 500 == 0:
+            if epoch % 3 == 0:
                 self.eval()
 
     def eval(self):
@@ -130,7 +130,7 @@ class LiveMatchRegression(object):
             if sample_ids is not None:
                 result.extend([v for v in p])
                 labels.extend([v.item() for v in y[idx]])
-        # print(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
+        print(f'Test mae error of {data_loader.dataset.label_list[idx]}: {accloss}, {accloss/test_num}')
         sample_ids_logs = []
         if sample_ids is not None:
             for i, item in enumerate(zip(result, labels)):
