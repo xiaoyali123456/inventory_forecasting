@@ -73,40 +73,8 @@ def age(cohort):
         "PHONE_MALE_45-54": "45-54",
         "PHONE_MALE_55-64": "55-64",
         "PHONE_MALE_65PLUS": "65-99",
-        "PHONE_BARC_FEMALE_15-21": "15-21",
-        "PHONE_BARC_FEMALE_22-30": "22-30",
-        "PHONE_BARC_FEMALE_31-40": "31-40",
-        "PHONE_BARC_FEMALE_41-50": "41-50",
-        "PHONE_BARC_FEMALE_51+": "51+",
-        "PHONE_BARC_MALE_15-21": "15-21",
-        "PHONE_BARC_MALE_22-30": "22-30",
-        "PHONE_BARC_MALE_31-40": "31-40",
-        "PHONE_BARC_MALE_41-50": "41-50",
-        "PHONE_BARC_MALE_51+": "51-99",
-        "EMAIL_BARC_FEMALE_15-21": "15-21",
-        "EMAIL_BARC_FEMALE_22-30": "22-30",
-        "EMAIL_BARC_FEMALE_31-40": "31-40",
-        "EMAIL_BARC_FEMALE_41-50": "41-50",
-        "EMAIL_BARC_FEMALE_51+": "51-99",
-        "EMAIL_BARC_MALE_15-21": "15-21",
-        "EMAIL_BARC_MALE_22-30": "22-30",
-        "EMAIL_BARC_MALE_31-40": "31-40",
-        "EMAIL_BARC_MALE_41-50": "41-50",
-        "EMAIL_BARC_MALE_51+": "51-99",
-        "FB_BARC_FEMALE_15-21": "15-21",
-        "FB_BARC_FEMALE_22-30": "22-30",
-        "FB_BARC_FEMALE_31-40": "31-40",
-        "FB_BARC_FEMALE_41-50": "41-50",
-        "FB_BARC_FEMALE_51+": "51-99",
-        "FB_BARC_MALE_15-21": "15-21",
-        "FB_BARC_MALE_22-30": "22-30",
-        "FB_BARC_MALE_31-40": "31-40",
-        "FB_BARC_MALE_41-50": "41-50",
-        "FB_BARC_MALE_51+": "51-99",
         "FMD009V0051317HIGHSRMLDESTADS": "13-17",
         "FMD009V0051317SRMLDESTADS": "13-17",
-        "FMD009V0051334HIGHSRMLDESTADS": "13-34",
-        "FMD009V0051334SRMLDESTADS": "13-34",
         "FMD009V0051824HIGHSRMLDESTADS": "18-24",
         "FMD009V0051824SRMLDESTADS": "18-24",
         "FMD009V0052534HIGHSRMLDESTADS": "25-34",
@@ -115,8 +83,6 @@ def age(cohort):
         "FMD009V0053599SRMLDESTADS": "35-99",
         "MMD009V0051317HIGHSRMLDESTADS": "13-17",
         "MMD009V0051317SRMLDESTADS": "13-17",
-        "MMD009V0051334HIGHSRMLDESTADS": "13-34",
-        "MMD009V0051334SRMLDESTADS": "13-34",
         "MMD009V0051824HIGHSRMLDESTADS": "18-24",
         "MMD009V0051824SRMLDESTADS": "18-24",
         "MMD009V0052534HIGHSRMLDESTADS": "25-34",
@@ -155,7 +121,7 @@ def aggregate(df, group_cols, DATE):
 
 
 def moving_avg(df, group_cols, target, alpha=0.2):
-    cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age'] # + ['language']
+    cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age', 'language']
     df2 = df.fillna('')
     df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
     df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)

@@ -4,8 +4,8 @@ from kafka import KafkaProducer
 import pandas as pd
 from tqdm import tqdm
 
-# s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-19/p0.parquet
-path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-25/p0.parquet'
+# path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-05-25/p0.parquet'
+path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/cd=2023-06-14/p0.parquet'
 df = pd.read_parquet(path)
 
 topic='load.adtech.inventory.forecast'
@@ -16,31 +16,36 @@ producer = KafkaProducer(
 
 def generate(row):
     return {
-        'tournamentId' : 111,
+        'tournamentId' : 112,
         'seasonId' : 222,
         'matchId' : 333,
         'adPlacement' : 'MIDROLL',
         'platform' : row.platform,
         'nccs': row.nccs,
         'ageBucket': row.age,
-        'customCohort': 'A_58290825',
+        'customCohort': row.custom_cohorts,
         'gender': row.gender,
         'devicePrice': row.device,
         'city': row.city,
         'state': row.state,
         'country': row.country,
         'inventory' : int(row.inventory),
-        'reach' : int(row.reach+0.5),
-        'inventoryId' : '111_333',
-        'version' : 'mlv2',
+        'reach' : int(row.reach),
+        'language': int(row.language),
+        'inventoryId' : '112_222',
+        'version' : 'mlv6',
     }
 
-# # single send
-# future = producer.send(topic, template)
-# meta = future.get(timeout=10)
+
+allow_dict = {
+    'country': ['in'],
+    'platform': [''],
+}
+
+df2 = df[(df.inventory >= 1)&(df.reach >= 1)].reset_index()
 
 flush_message_count = 1000
-for i, row in tqdm(df.iterrows()):
+for i, row in tqdm(df2.iterrows()):
     msg = generate(row)
     producer.send(topic, value=msg)
     if (i + 1) % flush_message_count == 0:
@@ -48,7 +53,6 @@ for i, row in tqdm(df.iterrows()):
 
 producer.flush()
 producer.close()
-
 
 for col in df.columns[:-2]:
     print('-'*10)
