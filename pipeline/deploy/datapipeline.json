@@ -53,7 +53,7 @@
             "id": "Ec2_2",
             "type": "Ec2Resource",
             "imageId": "ami-0705983c654abda59",
-            "instanceType": "p3.4xlarge"
+            "instanceType": "c5.xlarge"
         },
         {
             "id": "Preprocess",
