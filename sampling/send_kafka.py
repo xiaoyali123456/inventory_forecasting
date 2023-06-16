@@ -31,16 +31,20 @@ def generate(row):
         'country': row.country,
         'inventory' : int(row.inventory),
         'reach' : int(row.reach),
+        'language': int(row.language),
         'inventoryId' : '112_222',
-        'version' : 'mlv4',
+        'version' : 'mlv6',
     }
 
-# # single send
-# future = producer.send(topic, template)
-# meta = future.get(timeout=10)
+
+allow_dict = {
+    'country': ['in'],
+    'platform': [''],
+}
+
+df2 = df[(df.inventory >= 1)&(df.reach >= 1)].reset_index()
 
 flush_message_count = 1000
-df2 = df[(df.inventory >= 1)&(df.reach >= 1)].reset_index()
 for i, row in tqdm(df2.iterrows()):
     msg = generate(row)
     producer.send(topic, value=msg)
