@@ -50,6 +50,12 @@
             "instanceType": "t2.medium"
         },
         {
+            "id": "Ec2_2",
+            "type": "Ec2Resource",
+            "imageId": "ami-0705983c654abda59",
+            "instanceType": "p3.4xlarge"
+        },
+        {
             "id": "Preprocess",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/preprocess.sh",
@@ -62,6 +68,36 @@
             }
         },
         {
+            "id": "ForecastingFeature",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/forecast_feature.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "dependsOn": {
+                "ref": "Preprocess"
+            },
+            "runsOn": {
+                "ref": "Emr1"
+            }
+        },
+        {
+            "id": "ForecastingRatePrediction",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/forecast_rate_prediction.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "dependsOn": {
+                "ref": "ForecastingFeature"
+            },
+            "runsOn": {
+                "ref": "Ec2_2"
+            }
+        },
+        {
             "id": "Forecasting",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/forecast.sh",
@@ -70,7 +106,7 @@
                 "#{myProjectFolder}/code/"
             ],
             "dependsOn": {
-                "ref": "Preprocess"
+                "ref": "ForecastingRatePrediction"
             },
             "runsOn": {
                 "ref": "Emr1"

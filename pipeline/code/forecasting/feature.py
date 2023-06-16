@@ -129,7 +129,7 @@ def add_categorical_features(feature_df, type="train", root_path=""):
     return df
 
 
-def main(spark, date, content_id, tournament_name, match_type,
+def add_new_matches_to_train_dataset(spark, date, content_id, tournament_name, match_type,
          venue, match_stage, gender_type, vod_type, match_start_time_ist):
     spark.stop()
     spark = hive_spark('statistics')
@@ -244,7 +244,7 @@ def save_base_dataset(path_suffix):
 def generate_prediction_dataset(today, config):
     res = []
     cols = ['request_id', 'tournament_name', 'tournament', 'match_type', 'vod_type', 'venue_detail', 'free_timer',
-            'content_id', 'match_stage', 'date', 'year', 'match_start_time', 'title', 'if_holiday', 'match_duration', 'break_duration']
+            'match_id', 'content_id', 'match_stage', 'date', 'year', 'match_start_time', 'title', 'if_holiday', 'match_duration', 'break_duration']
     for request in config:
         request_id = request['id']
         tournament_name = request['tournamentName'].lower()
@@ -253,6 +253,7 @@ def generate_prediction_dataset(today, config):
         venue_detail = request['tournamentLocation'].lower()
         free_timer = request['svodFreeTimeDuration']
         for match in request['matchDetails']:
+            match_id = match['matchId']
             content_id = f"{request_id}-{match['matchId']}"
             date = match['matchDate']
             year = int(date[:4])
@@ -267,7 +268,7 @@ def generate_prediction_dataset(today, config):
             match_duration = int(match['estimatedMatchDuration'])
             break_duration = float(match['fixedBreak'] * match['averageBreakDuration'] + match['adhocBreak'] * match['adhocBreakDuration'])
             res.append((request_id, tournament_name, tournament, match_type, vod_type, venue_detail, free_timer,
-                        content_id, match_stage, date, year, match_start_time, title, if_holiday, match_duration, break_duration))
+                        match_id, content_id, match_stage, date, year, match_start_time, title, if_holiday, match_duration, break_duration))
     feature_df = spark.createDataFrame(res, cols) \
         .withColumn('total_frees_number', F.lit(-1)) \
         .withColumn('total_subscribers_number', F.lit(-1)) \
@@ -296,17 +297,17 @@ def generate_prediction_dataset(today, config):
     feature_df = add_categorical_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
     base_path_suffix = "/prediction/all_features_hots_format"
     save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
-    for col in one_hot_cols:
-        if col != "if_contain_india_team" and feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
-            print(col)
-            feature_df = feature_df \
-                .withColumn(f"{col}_hots_num", F.lit(1)) \
-                .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
-    cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + numerical_cols]
-    df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
-        .drop(*cols)
-    df.orderBy('date', 'content_id').show(3000, False)
+    # for col in one_hot_cols:
+    #     if col != "if_contain_india_team" and feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
+    #         print(col)
+    #         feature_df = feature_df \
+    #             .withColumn(f"{col}_hots_num", F.lit(1)) \
+    #             .withColumn(f"{col}_hot_vector", F.col(f"{col}_hots"))
+    # save_data_frame(feature_df, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}")
+    # cols = [col + "_hot_vector" for col in one_hot_cols + multi_hot_cols + numerical_cols]
+    # df = load_data_frame(spark, pipeline_base_path + base_path_suffix + "_and_simple_one_hot" + f"/cd={today}") \
+    #     .drop(*cols)
+    # df.orderBy('date', 'content_id').show(3000, False)
     return feature_df
 
 
@@ -320,7 +321,7 @@ if_contain_india_team_hot_vector_udf = F.udf(lambda x, y: x if y != "national" e
 
 # save_base_dataset("_and_simple_one_hot")
 # save_base_dataset("_and_free_timer_and_simple_one_hot")
-save_base_dataset("_full_avod_and_simple_one_hot")
+# save_base_dataset("_full_avod_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 # print("argv", sys.argv)
