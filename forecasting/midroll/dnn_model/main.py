@@ -16,8 +16,11 @@ def main():
     # runner_class, model_class = runner_map[model_name]
     # runner = runner_class(model=model_class)
     # runner.run(argv)
-    filename = 'data/LiveMatch/data.csv'
-    all_df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
+    # filename = 'data/LiveMatch/data.csv'
+    # all_df = pd.read_csv(filename).rename(columns=lambda x: x.strip())
+    filename = 'data/LiveMatch/dataset.snappy.parquet'
+    all_df = pd.read_parquet(filename).sort_values(['date', 'content_id'])
+    # print(all_df)
     label_split_list = [[0], [2], [1], [3]]
     # label_split_list = [[1]]
     # test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]

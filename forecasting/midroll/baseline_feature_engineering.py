@@ -1134,7 +1134,8 @@ for path_suffix_tmp in [path_suffix]:
 
 cols = [col+"_hot_vector" for col in one_hot_cols+multi_hot_cols+additional_cols]
 df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/all_features_hots_format_with_avg_au_sub_free_num_full_avod_and_simple_one_hot")\
-    .drop(*cols, 'rand', 'languages_hots',	'languages_hots_num',	'platforms_hots',	'platforms_hots_num',
+    .drop(*cols, 'rand', 'languages_hots',	'languages_hots_num',	'platforms_hots',	'platforms_hots_num', 'hostar_influence',
+          'hostar_influence_hots', 'hostar_influence_hots_num',
           'active_free_num',	'active_sub_num', 'active_frees_rate',	'active_subscribers_rate')
 feature_cols = df.columns
 # df.orderBy('date', 'content_id').show(3000, False)
@@ -1144,6 +1145,7 @@ predict_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, live_ads_in
                                               + "/all_features_hots_format_and_simple_one_hot").select(*feature_cols) for tournament in ["ac2023", "wc2023"]]).cache()
 
 df.union(predict_df).orderBy('date', 'content_id').show(3000, False)
+df1.select(*feature_cols).union(predict_df).orderBy('date', 'content_id').count()
 
 
 # save_data_frame(df, live_ads_inventory_forecasting_root_path + f"/baseline_features_final/all_features_hots_format_csv", "csv", True, '###')
