@@ -35,7 +35,7 @@ def main(DATE):
         .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}"), common_cols) \
         .cache()
     total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = match_configuration
-    res_df = prediction_df \
+    res_df = new_prediction_df \
         .withColumn('estimated_avg_concurrency', F.expr(
         f'(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
         f'+ estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
