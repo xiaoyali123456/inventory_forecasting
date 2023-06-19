@@ -52,7 +52,7 @@
         {
             "id": "Ec2_2",
             "type": "Ec2Resource",
-            "imageId": "ami-0705983c654abda59",
+            "imageId": "ami-0203a7b2413c553de",
             "instanceType": "c5.xlarge"
         },
         {
@@ -70,7 +70,7 @@
         {
             "id": "ForecastingFeature",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/forecast_feature.sh",
+            "scriptUri": "#{myProjectFolder}/code/midroll_feature.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
@@ -85,7 +85,7 @@
         {
             "id": "ForecastingRatePrediction",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/forecast_rate_prediction.sh",
+            "scriptUri": "#{myProjectFolder}/code/midroll_rate_prediction.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
@@ -100,7 +100,7 @@
         {
             "id": "Forecasting",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/forecast.sh",
+            "scriptUri": "#{myProjectFolder}/code/midroll_inventory_forecast.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
