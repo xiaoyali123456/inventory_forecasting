@@ -272,10 +272,10 @@ def generate_prediction_dataset(today, config):
     feature_df = spark.createDataFrame(res, cols) \
         .withColumn('total_frees_number', F.lit(-1)) \
         .withColumn('total_subscribers_number', F.lit(-1)) \
-        .withColumn('frees_watching_match_rate', F.lit(-1.0)) \
-        .withColumn('subscribers_watching_match_rate', F.lit(-1.0)) \
-        .withColumn('watch_time_per_free_per_match', F.lit(-1.0)) \
-        .withColumn('watch_time_per_subscriber_per_match', F.lit(-1.0)) \
+        .withColumn(free_rate_label, F.lit(-1.0)) \
+        .withColumn(free_wt_label, F.lit(-1.0)) \
+        .withColumn(sub_rate_label, F.lit(-1.0)) \
+        .withColumn(sub_wt_label, F.lit(-1.0)) \
         .withColumn('gender_type', F.lit("men")) \
         .withColumn("if_contain_india_team", F.locate('india', F.col('title'))) \
         .withColumn('if_contain_india_team', F.expr('if(if_contain_india_team > 0, 1, 0)')) \
@@ -294,8 +294,7 @@ def generate_prediction_dataset(today, config):
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, free_timer)')) \
         .cache()
     feature_df = add_categorical_features(feature_df, type="test", root_path=pipeline_base_path + f"/dataset")
-    base_path_suffix = "/prediction/all_features_hots_format"
-    save_data_frame(feature_df, pipeline_base_path + base_path_suffix + f"/cd={today}")
+    save_data_frame(feature_df, prediction_feature_path + f"/cd={today}")
     # for col in one_hot_cols:
     #     if col != "if_contain_india_team" and feature_df.select(f"{col}_hots_num").distinct().collect()[0][0] == 2:
     #         print(col)
