@@ -5,7 +5,7 @@ from config import *
 
 def load_dataset(DATE):
     # load features
-    predict_feature_df = load_data_frame(spark, pipeline_base_path + f"/prediction/all_features_hots_format/cd={DATE}")\
+    predict_feature_df = load_data_frame(spark, prediction_feature_path + f"/cd={DATE}")\
         .select('request_id', 'match_id', 'content_id', 'date', 'tournament')\
         .cache()
     # load avg dau data
@@ -22,17 +22,15 @@ def load_dataset(DATE):
 
 def main(DATE):
     prediction_df = load_dataset(DATE)
-    label_cols = ['frees_watching_match_rate', "watch_time_per_free_per_match",
-                  'subscribers_watching_match_rate', "watch_time_per_subscriber_per_match"]
     label_path = f"{pipeline_base_path}/dnn_predictions/cd={DATE}"
     common_cols = ['content_id']
     partition_col = "request_id"
     # load parameters predicted by dnn models
     new_prediction_df = prediction_df \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[0]}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[1]}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[2]}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={label_cols[3]}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={free_rate_label}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={free_wt_label}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={sub_rate_label}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={sub_wt_label}"), common_cols) \
         .cache()
     total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = match_configuration
     res_df = new_prediction_df \

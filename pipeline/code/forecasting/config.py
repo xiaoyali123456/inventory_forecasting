@@ -88,7 +88,7 @@ xgb_configuration = {
 }
 
 free_rate_label = "frees_watching_match_rate"
-free_wt_label = "watch_time_per_free_per_match_with_free_timer"
+free_wt_label = "watch_time_per_free_per_match"
 sub_rate_label = "subscribers_watching_match_rate"
 sub_wt_label = "watch_time_per_subscriber_per_match"
 
