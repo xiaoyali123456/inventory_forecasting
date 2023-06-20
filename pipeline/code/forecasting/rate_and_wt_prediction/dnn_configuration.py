@@ -1,4 +1,6 @@
 pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
+training_data_path = f"{pipeline_base_path}/all_features_hots_format_full_avod_and_simple_one_hot_overall"
+prediction_feature_path = f"{pipeline_base_path}/prediction/all_features_hots_format"
 
 slack_notification_topic = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
 region = "us-east-1"
