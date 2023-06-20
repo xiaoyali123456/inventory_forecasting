@@ -130,6 +130,8 @@ viewAggregatedInputPath = "s3://hotstar-dp-datalake-processed-us-east-1-prod/agg
 live_ads_inventory_forecasting_complete_feature_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 watch_video_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/"
 watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
+reach_rate_path = live_ads_inventory_forecasting_root_path + "/tournament_level/content_reach_rate/all"
 
 # spark.stop()
 # spark = SparkSession.builder \
@@ -190,6 +192,20 @@ df1 = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/liv
     .cache()
 
 save_data_frame(df1.select(*feature_cols).union(predict_df).repartition(1).orderBy('date', 'content_id'), "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/train_dataset")
+
+all_df = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/train_dataset").cache()
+all_df.groupBy('tournament').count().show()
+reach_rate_df = load_data_frame(spark, reach_rate_path).cache()
+reach_rate_df.groupBy('tournament').count().show()
+save_data_frame(all_df, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset")
+save_data_frame(all_df.join(reach_rate_df.select('content_id', 'reach_rate'), 'content_id', 'left').fillna(-1.0, ['reach_rate']),
+                "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset_with_reach_rate")
+
+pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
+training_data_path = f"{pipeline_base_path}/all_features_hots_format_full_avod_and_simple_one_hot_overall"
+all_df = load_data_frame(spark, training_data_path).join(reach_rate_df.select('content_id', 'reach_rate'), 'content_id', 'left').fillna(-1.0, ['reach_rate'])
+save_data_frame(all_df, training_data_path + "_with_reach_rate")
+
 
 df2 = load_data_frame(spark, "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/data.csv", "csv", True)\
     .where('tournament not in ("ac2023", "wc2023")')\

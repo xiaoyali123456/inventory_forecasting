@@ -79,6 +79,7 @@ class LiveMatchDataset(Dataset):
         if removed_tournaments is not None:
             # df = df.loc[~df['tournament'].isin(['ac2023', 'wc2023'])]
             df = df.loc[~df['tournament'].isin(removed_tournaments)]
+            df = df.loc[df[self.label_list[0]] > 0]
             # print(len(df))
             # if self.if_mask_knock_off_matches:
             # mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
@@ -109,7 +110,7 @@ class LiveMatchDataset(Dataset):
         # names = df['tournament'] +'|'+ df['title'] +'|'+ df['vod_type'].map(str) +'|'+ df['match_type'].map(str)
         # names = df['tournament'] +'|'+ df['title']
         # names = df['content_id']
-        names = df['content_id'] +'|'+ df['title']
+        names = df['content_id'] +' | '+ df['title']
         sample_ids = [name for name in names]
 
         return features, labels, sample_ids
