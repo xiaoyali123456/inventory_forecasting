@@ -22,11 +22,12 @@ def main():
     # all_df = pd.read_parquet(filename).sort_values(['date', 'content_id'])
     # all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/all_features_hots_format_full_avod_and_simple_one_hot_overall")
     all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset/").sort_values(['date', 'content_id'])
+    all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset_with_reach_rate/").sort_values(['date', 'content_id'])
     # print(all_df)
-    label_split_list = [[0], [2], [1], [3]]
-    # label_split_list = [[1]]
+    label_split_list = [[0], [2], [1], [3], [4]]
+    label_split_list = [[4]]
     # test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]
-    test_tournaments_list = [['wc2023']]
+    test_tournaments_list = [['ac2023'], ['wc2023']]
     for label_idx_list in label_split_list:
         for test_tournaments in test_tournaments_list:
             print(label_idx_list, test_tournaments)
