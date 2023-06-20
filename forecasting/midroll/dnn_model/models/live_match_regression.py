@@ -3,6 +3,7 @@ from sklearn.metrics import mean_absolute_error
 from models.dataset import LiveMatchDataLoader
 from models.network.deep_emb_mlp import DeepEmbMLP
 import pandas as pd
+import numpy as np
 
 
 class LiveMatchRegression(object):
@@ -127,7 +128,7 @@ class LiveMatchRegression(object):
                 p = self.model(x).detach().numpy()
             else:
                 p = self.model(x)[:, idx].detach().numpy()
-            loss = mean_absolute_error(p, y[idx])
+            loss = mean_absolute_error(np.atleast_1d(p), y[idx])
             accloss += loss * len(y[idx])
             test_num += len(y[idx])
             if sample_ids is not None:

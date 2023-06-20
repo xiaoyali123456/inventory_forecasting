@@ -21,8 +21,9 @@ def main():
     # filename = 'data/LiveMatch/dataset.snappy.parquet'
     # all_df = pd.read_parquet(filename).sort_values(['date', 'content_id'])
     # all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/all_features_hots_format_full_avod_and_simple_one_hot_overall")
-    all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset/").sort_values(['date', 'content_id'])
+    # all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset/").sort_values(['date', 'content_id'])
     all_df = pd.read_parquet(f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/dataset/all_dataset_with_reach_rate/").sort_values(['date', 'content_id'])
+    print(len(all_df))
     # print(all_df)
     label_split_list = [[0], [2], [1], [3], [4]]
     label_split_list = [[4]]
