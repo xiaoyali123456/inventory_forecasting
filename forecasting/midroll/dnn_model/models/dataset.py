@@ -44,10 +44,11 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
-        df['if_contain_india_team_hots'] = f"[{self.max_token - 1}]"
-        df['teams_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
+        df['if_contain_india_team_hots'] = [self.max_token - 1]
+        df['teams_hots'] = [self.max_token - 2, self.max_token - 1]
         # print(df['teams_hots'])
-        df['continents_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
+        df['continents_hots'] = [self.max_token - 2, self.max_token - 1]
+        return df
 
     def _parse(self, df, selected_tournaments, removed_tournaments):
         feature_config = [
@@ -70,7 +71,7 @@ class LiveMatchDataset(Dataset):
             # print(len(df))
             if self.if_mask_knock_off_matches:
                 mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
-                self.mask_data(mask_df)
+                mask_df = self.mask_data(mask_df)
                 # print(len(mask_df))
                 df = pd.concat([df[~df['match_stage'].isin(['semi-final', 'final'])], mask_df])
                 print(len(df))
@@ -82,10 +83,10 @@ class LiveMatchDataset(Dataset):
             df = df.loc[df[self.label_list[0]] > 0]
             # print(len(df))
             # if self.if_mask_knock_off_matches:
-            # mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
-            # self.mask_data(mask_df)
+            mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
+            mask_df = self.mask_data(mask_df)
             # # print(len(mask_df))
-            # df = pd.concat([df, mask_df])
+            df = pd.concat([df, mask_df])
             # print(len(df))
 
         print(len(df))
@@ -109,8 +110,8 @@ class LiveMatchDataset(Dataset):
 
         # names = df['tournament'] +'|'+ df['title'] +'|'+ df['vod_type'].map(str) +'|'+ df['match_type'].map(str)
         # names = df['tournament'] +'|'+ df['title']
-        # names = df['content_id']
-        names = df['content_id'] +' | '+ df['title']
+        names = df['content_id']
+        # names = df['content_id'] +' | '+ df['title']
         sample_ids = [name for name in names]
 
         return features, labels, sample_ids

@@ -46,7 +46,7 @@ def generate_hot_vector(hots, hots_num):
     return res
 
 
-def update_feature_dic(df, col):
+def update_feature_dic_by_col(df, col, YESTERDAY, DATE):
     previous_col_df = load_data_frame(spark, feature_dic_path + f"/cd={YESTERDAY}/col={col}")
     new_col_df = previous_col_df\
         .select(col)\
@@ -60,8 +60,21 @@ def update_feature_dic(df, col):
     save_data_frame(new_col_df, feature_dic_path + f"/cd={DATE}/col={col}")
 
 
+def update_feature_dic(df, YESTERDAY, DATE):
+    for col in multi_hot_cols:
+        print(col)
+        exploded_df = df \
+            .withColumn(f"{col}_list", F.split(F.col(col), " vs "))\
+            .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))
+        update_feature_dic(exploded_df, f"{col}_item", YESTERDAY, DATE)
+    for col in one_hot_cols:
+        print(col)
+        update_feature_dic(df, col, YESTERDAY, DATE)
+
+
 # convert string-based features to vector-based features
 def update_categorical_features(feature_df):
+    update_feature_dic(feature_df, YESTERDAY, DATE)
     col_num_dic = {}
     df = feature_df\
         .withColumn('match_id', F.expr('row_number() over (partition by tournament order by date)'))\
@@ -76,23 +89,19 @@ def update_categorical_features(feature_df):
             .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))\
             .cache()
         # save the feature mappings from string to index
-        update_feature_dic(df2, f"{col}_item")
-        col_df = load_data_frame(spark, feature_dic_path + f"/cd={DATE}/col={col}").cache()
-        col_num = col_df.count()
+        feature_dic_df = load_data_frame(spark, feature_dic_path + f"/cd={DATE}/col={col}").cache()
+        col_num = feature_dic_df.count()
         col_num_dic[col] = col_num
         df = df\
             .join(df2
                   .select('tournament', 'match_id', f"{col}_item")
-                  .join(col_df, f"{col}_item")
+                  .join(feature_dic_df, f"{col}_item")
                   .groupBy('tournament', 'match_id')
                   .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'match_id']) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
     save_data_frame(df, pipeline_data_tmp_path + "/features_with_multi_hots_simple")
     print("multi hots feature simple processed done!")
     df = load_data_frame(spark, pipeline_data_tmp_path + "/features_with_multi_hots_simple").cache()
-    for col in multi_hot_cols:
-        print(col)
-        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
     save_data_frame(df, pipeline_data_tmp_path + "/features_with_multi_hots")
     print("multi hots feature processed done!")
     df = load_data_frame(spark, pipeline_data_tmp_path + "/features_with_multi_hots").cache()
@@ -102,16 +111,13 @@ def update_categorical_features(feature_df):
         # save the feature mappings from string to index
         df2 = df.select(col).cache()
         update_feature_dic(df2, col)
-        col_df = load_data_frame(spark, feature_dic_path + f"/cd={DATE}/col={col}").cache()
-        col_num = col_df.count()
-        col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
+        feature_dic_df = load_data_frame(spark, feature_dic_path + f"/cd={DATE}/col={col}").cache()
+        col_num = feature_dic_df.count()
+        feature_dic_df = feature_dic_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
         col_num_dic[col] = col_num
         df = df\
-            .join(col_df, col) \
+            .join(feature_dic_df, col) \
             .withColumn(f"{col}_hots_num", F.lit(col_num))
-    for col in one_hot_cols:
-        print(col)
-        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
     for col in numerical_cols:
         print(col)
         df = df\

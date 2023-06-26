@@ -98,25 +98,25 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
-        if sample_ids is not None:
-            for item in res_list:
-                print(item)
-                # if item[0].find('india vs australia') > -1:
-                #     print(item)
-                    # 64
-                    # 100
-                    # 0.01
-                    # 0
-                    # 32
-                    # if 75.96 < item[1] < 75.99:
-                    #     print(item)
-                    #     print(self.batch_size)
-                    #     print(self.num_epochs)
-                    #     print(self.lr)
-                    #     print(self.weight_decay)
-                    #     print(self.max_token)
-                    # #     print()
-        # df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
+        # if sample_ids is not None:
+        #     for item in res_list:
+        #         print(item)
+        #         # if item[0].find('india vs australia') > -1:
+        #         #     print(item)
+        #             # 64
+        #             # 100
+        #             # 0.01
+        #             # 0
+        #             # 32
+        #             # if 75.96 < item[1] < 75.99:
+        #             #     print(item)
+        #             #     print(self.batch_size)
+        #             #     print(self.num_epochs)
+        #             #     print(self.lr)
+        #             #     print(self.weight_decay)
+        #             #     print(self.max_token)
+        #             # #     print()
+        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0

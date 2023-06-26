@@ -48,59 +48,37 @@ def generate_hot_vector(hots, hots_num):
 
 # convert string-based features to vector-based features
 def add_categorical_features(feature_df):
-    col_num_dic = {}
+    # Add rank column
     df = feature_df\
         .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
         .cache()
-    df.groupBy('tournament').count().orderBy('tournament').show()
-    print(df.count())
-    # multi_hot_cols = ['teams', 'continents', 'teams_tier'], which means the hot number > 1
+    # Process multi-hot columns
     for col in multi_hot_cols:
         print(col)
-        df2 = df\
-            .select('tournament', 'rank', f"{col}")\
-            .withColumn(f"{col}_list", F.split(F.col(col), " vs "))\
-            .withColumn(f"{col}_item", F.explode(F.col(f"{col}_list")))\
-            .cache()
-        col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
-        col_num = col_df.count()
-        col_num_dic[col] = col_num
-        df = df\
-            .join(df2
-                  .select('tournament', 'rank', f"{col}_item")
-                  .join(col_df, f"{col}_item", 'left')
-                  .fillna(-1, [f'{col}_hots'])
-                  .groupBy('tournament', 'rank')
-                  .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots")), ['tournament', 'rank']) \
-            .withColumn(f"{col}_hots_num", F.lit(col_num))
-    save_data_frame(df, pipeline_data_tmp_path + "/features_with_multi_hots_simple")
-    print("multi hots feature simple processed done!")
-    df = load_data_frame(spark, pipeline_data_tmp_path + "/features_with_multi_hots_simple").cache()
-    for col in multi_hot_cols:
-        print(col)
-        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
-    save_data_frame(df, pipeline_data_tmp_path + "/features_with_multi_hots")
-    print("multi hots feature processed done!")
-    df = load_data_frame(spark, pipeline_data_tmp_path + "/features_with_multi_hots").cache()
-    # one hot means the hot number = 1
-    for col in one_hot_cols:
-        print(col)
-        col_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
-        col_num = col_df.count()
-        col_df = col_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
-        col_num_dic[col] = col_num
-        df = df\
-            .join(col_df, col, 'left') \
+        feature_dic_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
+        exploded_df = df\
+            .select('tournament', 'rank', F.split(col, " vs ").alias(f"{col}_list")) \
+            .select('tournament', 'rank', F.explode(f"{col}_list").alias(f"{col}_item")) \
+            .join(feature_dic_df, f"{col}_item", 'left') \
             .fillna(-1, [f'{col}_hots']) \
-            .withColumn(f"{col}_hots_num", F.lit(col_num))
+            .groupBy('tournament', 'rank') \
+            .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots"))
+        df = df.join(exploded_df, ['tournament', 'rank'])
+    print("multi hots feature processed done!")
+    # Process one-hot columns
     for col in one_hot_cols:
         print(col)
-        df = df.withColumn(f"{col}_hot_vector", generate_hot_vector_udf(f"{col}_hots", f"{col}_hots_num"))
+        feature_dic_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
+        df = df\
+            .join(feature_dic_df, col, 'left') \
+            .fillna(-1, [f'{col}_hots']) \
+            .withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
+    print("one hot feature processed done!")
+    # Process numerical columns
     for col in numerical_cols:
         print(col)
         df = df\
-            .withColumn(f"{col}_hot_vector", F.array(F.col(f"{col}"))) \
-            .withColumn(f"{col}_hots_num", F.lit(1))
+            .withColumn(f"{col}_hots", F.array(F.col(f"{col}")))
     print("all hots feature processed done!")
     return df
 
