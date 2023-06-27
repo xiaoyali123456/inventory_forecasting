@@ -450,8 +450,7 @@ for test_tournament in test_tournament_list:
                     .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
                     .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
                     .where('total_inventory > 0') \
-                    .drop('teams') \
-                    .cache()
+                    .drop('teams')
                 cols = res_df.columns
                 important_cols = ["real_avg_concurrency", "estimated_avg_concurrency", "avg_concurrency_bias",
                                   "total_did_reach", 'estimated_reach', "reach_bias",
@@ -550,6 +549,6 @@ res_df\
 #                                           'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
 #                                           'real_subscribers_watching_match_rate', 'estimated_subscribers_watching_match_rate',
 #                                           'real_watch_time_per_subscriber_per_match', 'estimated_watch_time_per_subscriber_per_match').show(1000, False)
-
+spark.catalog.clearCache()
 
 
