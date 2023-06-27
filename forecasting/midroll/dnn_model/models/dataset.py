@@ -85,7 +85,7 @@ class LiveMatchDataset(Dataset):
             mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
             mask_df = self.mask_data(mask_df)
             # # print(len(mask_df))
-            # df = pd.concat([df, mask_df])
+            df = pd.concat([df, mask_df])
             # print(len(df))
 
         print(len(df))
