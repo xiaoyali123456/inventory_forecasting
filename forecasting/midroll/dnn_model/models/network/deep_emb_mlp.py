@@ -9,13 +9,13 @@ class DeepEmbMLP(nn.Module):
         super().__init__()
         self.emb_dim = emb_dim
         self.mlp = nn.Sequential(
-            nn.Linear(15*emb_dim, 64),
+            nn.Linear(columns*emb_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 64),
             nn.ReLU(),
             nn.Linear(64, num_task),
         )
-        self.encoder = [nn.Embedding(max_token, emb_dim, padding_idx=max_token-1) for i in range(columns)]
+        self.encoder = [nn.Embedding(max_token, emb_dim) for i in range(columns)]
         for emb in self.encoder:
             # nn.init.normal_(emb.weight, mean=0, std=0.5)
             # nn.init.xavier_uniform_(emb.weight.data)
@@ -23,11 +23,14 @@ class DeepEmbMLP(nn.Module):
 
     def embedding_lookup(self, x):
         input_layer = []
+        # print(x)
         for i, seq_fea in enumerate(x):
-            #print(len(seq_fea))
+            # print(len(seq_fea))
+            # print(seq_fea)
             xembs = [self.encoder[i](fea) for fea in seq_fea]
-            #print(i, xembs)
-            input_layer.extend(xembs)
+            # print(i, xembs)
+            # print(torch.mean(torch.stack(xembs), dim=0))
+            input_layer.append(torch.mean(torch.stack(xembs), dim=0))
         return input_layer
 
     def forward(self, x):

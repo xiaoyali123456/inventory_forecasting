@@ -26,6 +26,7 @@ def main():
     print(len(all_df))
     # print(all_df)
     label_split_list = [[0], [2], [1], [3]]
+    # label_split_list = [[0]]
     # label_split_list = [[4]]
     test_tournaments_list = [['wc2019'], ['wc2021'], ['ipl2022'], ['ac2022'], ['wc2022'], ['ac2023'], ['wc2023']]
     # test_tournaments_list = [['ac2023'], ['wc2023']]

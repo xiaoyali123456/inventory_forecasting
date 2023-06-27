@@ -91,14 +91,14 @@ class LiveMatchDataset(Dataset):
         print(len(df))
         features = {}
         for key in feature_config:
-            rawlist = [val for val in df[key]]
+            # rawlist = [val for val in df[key]]
             # print(rawlist[0])
             # print(len(rawlist[0]))
             # print(rawlist[0][1:-1])
             # print(rawlist[0][1:-1].split(','))
             # print([int(v) for v in rawlist[0][1:-1].split(',')])
             # features[key] = [[int(v) for v in val[1:-1].split(',')] for val in rawlist]
-            #print(key, len(features[key]), features[key][:16])
+            # print(key, len(features[key]), features[key][:16])
             features[key] = [list(val) for val in df[key]]
 
         # labels = [val for val in df['frees_watching_match_rate']]
