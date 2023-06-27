@@ -418,6 +418,7 @@ for test_tournament in test_tournament_list:
             label_cols = ['frees_watching_match_rate', 'watch_time_per_free_per_match', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match']
             # print(first_match_date)
             label_path = f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{if_mask_knock_off_matches_tag}/{test_tournament}"
+            print(label_path)
             new_test_label_df = test_df \
                 .withColumn('estimated_variables', F.lit(0)) \
                 .join(load_data_frame(spark, f"{label_path}/{label_cols[0]}").drop('real_' + label_cols[0]), ['content_id']) \
