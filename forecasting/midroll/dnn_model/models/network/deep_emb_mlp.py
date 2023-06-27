@@ -18,8 +18,8 @@ class DeepEmbMLP(nn.Module):
         self.encoder = [nn.Embedding(max_token, emb_dim) for i in range(columns)]
         for emb in self.encoder:
             # nn.init.normal_(emb.weight, mean=0, std=0.5)
-            # nn.init.xavier_uniform_(emb.weight.data)
-            nn.init.trunc_normal_(emb.weight.data)
+            nn.init.xavier_uniform_(emb.weight.data)
+            # nn.init.trunc_normal_(emb.weight.data)
 
     def embedding_lookup(self, x):
         input_layer = []
