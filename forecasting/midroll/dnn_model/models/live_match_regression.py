@@ -8,7 +8,7 @@ import numpy as np
 
 class LiveMatchRegression(object):
     def __init__(self, all_df, label_idx_list, test_tournaments, if_mask_knock_off_matches,
-                 batch_size=16, num_epochs=30, lr=5e-3, weight_decay=1e-3, max_token=64):
+                 batch_size=16, num_epochs=30, lr=5e-3, weight_decay=1e-3, max_token=50):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
