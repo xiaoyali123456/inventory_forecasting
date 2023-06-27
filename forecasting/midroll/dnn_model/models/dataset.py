@@ -44,10 +44,9 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
-        df['if_contain_india_team_hots'] = [self.max_token - 1]
-        df['teams_hots'] = [self.max_token - 2, self.max_token - 1]
-        # print(df['teams_hots'])
-        df['continents_hots'] = [self.max_token - 2, self.max_token - 1]
+        df['if_contain_india_team_hots'] = df['if_contain_india_team_hots'].apply(lambda x: [self.max_token - 1])
+        df['teams_hots'] = df['teams_hots'].apply(lambda x: [self.max_token - 2, self.max_token - 1])
+        df['continents_hots'] = df['continents_hots'].apply(lambda x: [self.max_token - 2, self.max_token - 1])
         return df
 
     def _parse(self, df, selected_tournaments, removed_tournaments):
