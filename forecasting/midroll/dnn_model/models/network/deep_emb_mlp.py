@@ -15,7 +15,7 @@ class DeepEmbMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(64, num_task),
         )
-        self.encoder = [nn.Embedding(max_token, emb_dim) for i in range(columns)]
+        self.encoder = [nn.Embedding(max_token, emb_dim, padding_idx=max_token-1) for i in range(columns)]
         for emb in self.encoder:
             # nn.init.normal_(emb.weight, mean=0, std=0.5)
             # nn.init.xavier_uniform_(emb.weight.data)
