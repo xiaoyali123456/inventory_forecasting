@@ -9,7 +9,7 @@ class DeepEmbMLP(nn.Module):
         super().__init__()
         self.emb_dim = emb_dim
         self.mlp = nn.Sequential(
-            nn.Linear(columns*emb_dim, 64),
+            nn.Linear((columns+3)*emb_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 64),
             nn.ReLU(),
@@ -30,7 +30,8 @@ class DeepEmbMLP(nn.Module):
             xembs = [self.encoder[i](fea) for fea in seq_fea]
             # print(i, xembs)
             # print(torch.mean(torch.stack(xembs), dim=0))
-            input_layer.append(torch.mean(torch.stack(xembs), dim=0))
+            input_layer.extend(xembs)
+            # input_layer.append(torch.mean(torch.stack(xembs), dim=0))
         return input_layer
 
     def forward(self, x):
