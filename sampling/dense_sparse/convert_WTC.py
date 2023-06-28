@@ -10,8 +10,8 @@ def classify(rank, thd1=0.02, thd2=0.5):
 
 
 INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v4/'
-OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-05/all.json'
-SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v5.json'
+OUTPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/final/cd=2023-06-08/all.json'
+SSAI_CONFIG_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/ssai_configuration_v6.json'
 
 df = pd.read_parquet(INPUT_PATH) # don't use spark due to limit of master result
 df.reach *= 4
@@ -75,20 +75,17 @@ df3['den'] = df3.density.map(lambda x: {'dense':1,'super_dense':2,'sparse':0}[x]
 for k, v in df3.groupby('density').index.sum().items():
     df2.loc[v, 'density'] = k
 df2.to_json(OUTPUT_PATH, orient='records')
-df2.to_json('2023-06-05_all.json', orient='records')
+
 df4 = pd.read_json(OUTPUT_PATH)
-df2
+df4
 
 # sanity check each column
 df2['den'] = df2.density.map(lambda x: {'dense':1,'super_dense':2,'sparse':0}[x])
 for col in basic:
+    print('-'*10)
     print(df2.pivot_table(index=col, columns='den', values='reach', aggfunc=sum).sort_values(2, ascending=False)/df2.reach.sum())
 
-tmp = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
+tmp = ['age', 'device', 'state', 'city', 'platform', 'nccs']
 for col in tmp:
     print('-'*10)
-    print(df4.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(df4))
-
-for col in tmp:
-    print('-'*10)
-    print(x.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(x))
+    print(df2.pivot_table(index=col, columns='den', aggfunc='size').sort_values(2, ascending=False)/len(df2))
