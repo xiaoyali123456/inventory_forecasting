@@ -3,15 +3,17 @@ from sklearn.metrics import mean_absolute_error
 from models.dataset import LiveMatchDataLoader
 from models.network.deep_emb_mlp import DeepEmbMLP
 import pandas as pd
+import numpy as np
 
 
 class LiveMatchRegression(object):
     def __init__(self, all_df, label_idx_list, test_tournaments, if_mask_knock_off_matches,
-                 batch_size=16, num_epochs=30, lr=5e-3, weight_decay=1e-3, max_token=100):
+                 batch_size=64, num_epochs=100, lr=1e-2, weight_decay=1e-4, max_token=32):
         self.label_config = {'frees_watching_match_rate': [1 / 0.24, 0.1],
                              "watch_time_per_free_per_match": [1 / 10.3, 1],
                              'subscribers_watching_match_rate': [1 / 0.56, 0.1],
-                             "watch_time_per_subscriber_per_match": [1 / 57.9, 1]
+                             "watch_time_per_subscriber_per_match": [1 / 57.9, 1],
+                             "reach_rate": [1 / 57.9, 0.1]
         }
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -20,6 +22,7 @@ class LiveMatchRegression(object):
         self.weight_decay = weight_decay
         label_list_tmp = [label for label in self.label_config]
         self.label_list = [label_list_tmp[label_idx] for label_idx in label_idx_list]
+        print(self.label_list)
         self.label_num = len(label_idx_list)
         self.model = DeepEmbMLP(columns=12, max_token=self.max_token, num_task=self.label_num)
         # print(self.model)
@@ -95,24 +98,25 @@ class LiveMatchRegression(object):
             # print(items)
             res_list.append(items)
         df = pd.DataFrame(res_list, columns=cols)
-        if sample_ids is not None:
-            for item in res_list:
-                if item[0].find('india vs australia') > -1:
-                    print(item)
-                    # 64
-                    # 100
-                    # 0.01
-                    # 0
-                    # 32
-                    # if 75.96 < item[1] < 75.99:
-                    #     print(item)
-                    #     print(self.batch_size)
-                    #     print(self.num_epochs)
-                    #     print(self.lr)
-                    #     print(self.weight_decay)
-                    #     print(self.max_token)
-                    # #     print()
-        # df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
+        # if sample_ids is not None:
+        #     for item in res_list:
+        #         print(item)
+        #         # if item[0].find('india vs australia') > -1:
+        #         #     print(item)
+        #             # 64
+        #             # 100
+        #             # 0.01
+        #             # 0
+        #             # 32
+        #             # if 75.96 < item[1] < 75.99:
+        #             #     print(item)
+        #             #     print(self.batch_size)
+        #             #     print(self.num_epochs)
+        #             #     print(self.lr)
+        #             #     print(self.weight_decay)
+        #             #     print(self.max_token)
+        #             # #     print()
+        df.to_parquet(f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{self.if_mask_knock_off_matches_tag}/{self.test_tournament}/{self.label_list[0]}")
 
     def test_inner(self, data_loader, idx, sample_ids=None):
         accloss = 0
@@ -124,7 +128,7 @@ class LiveMatchRegression(object):
                 p = self.model(x).detach().numpy()
             else:
                 p = self.model(x)[:, idx].detach().numpy()
-            loss = mean_absolute_error(p, y[idx])
+            loss = mean_absolute_error(np.atleast_1d(p), y[idx])
             accloss += loss * len(y[idx])
             test_num += len(y[idx])
             if sample_ids is not None:

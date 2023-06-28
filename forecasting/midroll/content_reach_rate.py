@@ -296,7 +296,6 @@ output_folder = "/tournament_level"
 #
 
 
-
 data_source = "watched_video"
 tournament = "wc2019"
 match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")\

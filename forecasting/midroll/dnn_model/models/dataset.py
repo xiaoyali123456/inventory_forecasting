@@ -44,10 +44,10 @@ class LiveMatchDataset(Dataset):
         return self.sample_ids
 
     def mask_data(self, df):
-        df['if_contain_india_team_hots'] = f"[{self.max_token - 1}]"
-        df['teams_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
-        # print(df['teams_hots'])
-        df['continents_hots'] = f"[{self.max_token - 2}, {self.max_token - 1}]"
+        df['if_contain_india_team_hots'] = df['if_contain_india_team_hots'].apply(lambda x: [self.max_token - 1])
+        df['teams_hots'] = df['teams_hots'].apply(lambda x: [self.max_token - 2, self.max_token - 1])
+        df['continents_hots'] = df['continents_hots'].apply(lambda x: [self.max_token - 2, self.max_token - 1])
+        return df
 
     def _parse(self, df, selected_tournaments, removed_tournaments):
         feature_config = [
@@ -70,7 +70,7 @@ class LiveMatchDataset(Dataset):
             # print(len(df))
             if self.if_mask_knock_off_matches:
                 mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
-                self.mask_data(mask_df)
+                mask_df = self.mask_data(mask_df)
                 # print(len(mask_df))
                 df = pd.concat([df[~df['match_stage'].isin(['semi-final', 'final'])], mask_df])
                 print(len(df))
@@ -79,10 +79,11 @@ class LiveMatchDataset(Dataset):
         if removed_tournaments is not None:
             # df = df.loc[~df['tournament'].isin(['ac2023', 'wc2023'])]
             df = df.loc[~df['tournament'].isin(removed_tournaments)]
+            df = df.loc[df[self.label_list[0]] > 0]
             # print(len(df))
             # if self.if_mask_knock_off_matches:
-            # mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
-            # self.mask_data(mask_df)
+            mask_df = df[df['match_stage'].isin(['semi-final', 'final'])]
+            mask_df = self.mask_data(mask_df)
             # # print(len(mask_df))
             # df = pd.concat([df, mask_df])
             # print(len(df))
@@ -90,14 +91,14 @@ class LiveMatchDataset(Dataset):
         print(len(df))
         features = {}
         for key in feature_config:
-            rawlist = [val for val in df[key]]
+            # rawlist = [val for val in df[key]]
             # print(rawlist[0])
             # print(len(rawlist[0]))
             # print(rawlist[0][1:-1])
             # print(rawlist[0][1:-1].split(','))
             # print([int(v) for v in rawlist[0][1:-1].split(',')])
             # features[key] = [[int(v) for v in val[1:-1].split(',')] for val in rawlist]
-            #print(key, len(features[key]), features[key][:16])
+            # print(key, len(features[key]), features[key][:16])
             features[key] = [list(val) for val in df[key]]
 
         # labels = [val for val in df['frees_watching_match_rate']]
@@ -108,8 +109,8 @@ class LiveMatchDataset(Dataset):
 
         # names = df['tournament'] +'|'+ df['title'] +'|'+ df['vod_type'].map(str) +'|'+ df['match_type'].map(str)
         # names = df['tournament'] +'|'+ df['title']
-        # names = df['content_id']
-        names = df['content_id'] +'|'+ df['title']
+        names = df['content_id']
+        # names = df['content_id'] +' | '+ df['title']
         sample_ids = [name for name in names]
 
         return features, labels, sample_ids

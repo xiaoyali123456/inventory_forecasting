@@ -107,7 +107,7 @@ additional_cols = ["languages", "platforms"]
 
 # duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
 match_configuration = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
-drop_off_rate = 0.85
+retention_rate = 0.85
 
 default_predict_tournament = "wc2023"
 sub_pid_did_rate = 0.94

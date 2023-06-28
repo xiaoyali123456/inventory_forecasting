@@ -219,7 +219,8 @@ if_use_predict_au_to_predict_inventory = False
 # version = "save_free_and_sub_number_predictions"
 # sub_version = 3
 feature_weights_list = []
-if_mask_knock_off_matches = True
+# if_mask_knock_off_matches = True
+if_mask_knock_off_matches = False
 if_mask_knock_off_matches_tag = "_masked" if if_mask_knock_off_matches else ""
 
 predict_tournaments = ["ac2023", "wc2023"]
@@ -417,6 +418,7 @@ for test_tournament in test_tournament_list:
             label_cols = ['frees_watching_match_rate', 'watch_time_per_free_per_match', 'subscribers_watching_match_rate', 'watch_time_per_subscriber_per_match']
             # print(first_match_date)
             label_path = f"{live_ads_inventory_forecasting_root_path}/dnn_predictions{if_mask_knock_off_matches_tag}/{test_tournament}"
+            print(label_path)
             new_test_label_df = test_df \
                 .withColumn('estimated_variables', F.lit(0)) \
                 .join(load_data_frame(spark, f"{label_path}/{label_cols[0]}").drop('real_' + label_cols[0]), ['content_id']) \
@@ -448,8 +450,7 @@ for test_tournament in test_tournament_list:
                     .withColumn('inventory_bias_abs', F.expr('abs(estimated_inventory - total_inventory)')) \
                     .withColumn('inventory_bias_abs_rate', F.expr('inventory_bias_abs / total_inventory')) \
                     .where('total_inventory > 0') \
-                    .drop('teams') \
-                    .cache()
+                    .drop('teams')
                 cols = res_df.columns
                 important_cols = ["real_avg_concurrency", "estimated_avg_concurrency", "avg_concurrency_bias",
                                   "total_did_reach", 'estimated_reach', "reach_bias",
@@ -537,10 +538,10 @@ res_df = reduce(lambda x, y: x.union(y), [load_labels(tournament, all_feature_df
 show_cols = ['date', 'title', 'estimated_free_num as avg_free_dau', 'estimated_sub_num as avg_sub_dau', 'estimated_free_dau', 'estimated_sub_dau',
              'free_match_AU', 'sub_match_AU', 'estimated_reach', 'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match',
              'free_inventory', 'sub_inventory', 'estimated_inventory', 'estimated_frees_watching_match_rate', 'estimated_subscribers_watching_match_rate']
-# res_df\
-#     .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("wc2021", "ac2022", "wc2022"))')\
-#     .selectExpr('date', 'title', 'total_frees_number as avg_free_dau', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
-#             'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
+res_df\
+    .where('date != "2022-08-24" and (total_pid_reach > 0 and tournament in ("ac2022", "wc2022"))')\
+    .selectExpr('date', 'title', 'total_frees_number as avg_free_dau', 'total_subscribers_number', 'free_match_AU', 'sub_match_AU', 'estimated_reach',
+            'estimated_watch_time_per_free_per_match', 'estimated_watch_time_per_subscriber_per_match', 'free_inventory', 'sub_inventory', 'estimated_inventory').show(1000, False)
 # res_df.where(f'tournament in ("{filter}")').selectExpr(*show_cols).show(1000, False)
 # res_df.where('date != "2022-08-24" and tournament != "ipl2019"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach').show(1000, False)
 # res_df.where('tournament="ac2022"').selectExpr('date', 'title', 'tournament', 'total_inventory', 'estimated_inventory', 'total_did_reach as total_reach', 'estimated_reach',
@@ -548,6 +549,6 @@ show_cols = ['date', 'title', 'estimated_free_num as avg_free_dau', 'estimated_s
 #                                           'real_watch_time_per_free_per_match', 'estimated_watch_time_per_free_per_match',
 #                                           'real_subscribers_watching_match_rate', 'estimated_subscribers_watching_match_rate',
 #                                           'real_watch_time_per_subscriber_per_match', 'estimated_watch_time_per_subscriber_per_match').show(1000, False)
-
+spark.catalog.clearCache()
 
 
