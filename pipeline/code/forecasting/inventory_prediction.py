@@ -46,6 +46,7 @@ def main(DATE):
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .cache()
+    res_df.show(1000, False)
     save_data_frame(res_df, pipeline_base_path + f"/inventory_prediction/future_tournaments/cd={DATE}/", partition_col=partition_col)
 
 
@@ -53,4 +54,7 @@ if __name__ == '__main__':
     DATE = sys.argv[1]
     if check_s3_path_exist(f"{prediction_feature_path}/cd={DATE}/"):
         main(DATE)
+        slack_notification(topic=slack_notification_topic, region=region,
+                           message=f"inventory forecasting on {DATE} is done.")
+
 
