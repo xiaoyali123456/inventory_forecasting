@@ -69,7 +69,7 @@ def update_feature_dic(df, YESTERDAY, DATE):
         update_feature_dic(exploded_df, f"{col}_item", YESTERDAY, DATE)
     for col in one_hot_cols:
         print(col)
-        update_feature_dic(df, col, YESTERDAY, DATE)
+        update_feature_dic_by_col(df, col, YESTERDAY, DATE)
 
 
 # convert string-based features to vector-based features
@@ -109,8 +109,6 @@ def update_categorical_features(feature_df):
     for col in one_hot_cols:
         print(col)
         # save the feature mappings from string to index
-        df2 = df.select(col).cache()
-        update_feature_dic(df2, col)
         feature_dic_df = load_data_frame(spark, feature_dic_path + f"/cd={DATE}/col={col}").cache()
         col_num = feature_dic_df.count()
         feature_dic_df = feature_dic_df.withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
@@ -198,6 +196,7 @@ def add_new_matches_to_train_dataset(spark, date, content_id, tournament_name, m
         .withColumn('teams_tier', get_teams_tier_udf('teams')) \
         .withColumn('free_timer', F.expr('if(vod_type="avod", 1000, 5)')) \
         .cache()
+    update_feature_dic(feature_df, YESTERDAY, DATE)
     feature_df = update_categorical_features(feature_df)
     save_data_frame(feature_df, training_data_path + f"/cd={date}/contentid={content_id}")
 

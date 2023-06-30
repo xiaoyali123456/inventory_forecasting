@@ -6,7 +6,7 @@ from config import *
 def load_dataset(DATE):
     # load features of prediction samples
     prediction_feature_df = load_data_frame(spark, prediction_feature_path + f"/cd={DATE}")\
-        .select('request_id', 'match_id', 'content_id', 'date', 'tournament')\
+        .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament')\
         .cache()
     # load avg dau data
     estimated_dau_df = load_data_frame(spark, f'{dau_prediction_path}cd={DATE}/')\

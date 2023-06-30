@@ -104,6 +104,18 @@ multi_hot_cols = ['teams', 'continents', 'teams_tier']
 numerical_cols = ['hotstar_influence', 'free_timer']
 additional_cols = ["languages", "platforms"]
 
+context_cols = ["date", "tournament", "content_id"]
+feature_cols = ["vod_type", "match_stage", "tournament_name", "match_type",
+                "if_contain_india_team", "if_holiday", "match_time", "if_weekend",
+                "tournament_type", "teams", "continents", "teams_tier", "free_timer"]
+array_feature_cols = ["teams", "continents", "teams_tier"]
+label_cols = ["frees_watching_match_rate", "watch_time_per_free_per_match",
+              "subscribers_watching_match_rate", "watch_time_per_subscriber_per_match",
+              "reach_rate", "total_reach", "total_inventory",
+              "total_frees_number", "match_active_free_num",
+              "total_subscribers_number", "match_active_sub_num"]
+
+match_table_cols = context_cols + feature_cols + label_cols
 
 # duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
 match_configuration = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
@@ -121,3 +133,4 @@ meaningless_request_id = "0"
 jio_user_rate_of_wc2019 = 0.75
 slack_notification_topic = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
 region = "us-east-1"
+unknown_token = "<unk>"
