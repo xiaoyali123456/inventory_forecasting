@@ -10,6 +10,9 @@ dau_prediction_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_
 dau_truth_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
 pipeline_data_tmp_path = f"{pipeline_base_path}/dataset/tmp"
 feature_dic_path = f"{pipeline_base_path}/dataset/feature_dic"
+train_match_table_path = f"{pipeline_base_path}/match_table/train"
+prediction_match_table_path = f"{pipeline_base_path}/match_table/prediction"
+inventory_forecast_request_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_forecast_input"
 
 concurrency_root_path = "s3://hotstar-dp-datalake-processed-us-east-1-prod/hive_internal_database/concurrency.db/"
 ssai_concurrency_path = f"{concurrency_root_path}/users_by_live_sports_content_by_ssai"

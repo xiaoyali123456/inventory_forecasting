@@ -11,8 +11,8 @@ def check_s3_path_exist(s3_path: str) -> bool:
 
 
 def main(DATE):
-    train_dataset = pd.read_parquet(training_data_path)
-    prediction_dataset = pd.read_parquet(f"{prediction_feature_path}/cd={DATE}/")
+    train_dataset = pd.read_parquet(f"{train_match_table_path}/cd={DATE}")
+    prediction_dataset = pd.read_parquet(f"{prediction_match_table_path}/cd={DATE}/")
     for label in label_list:
         print(label)
         model = LiveMatchRegression(DATE, train_dataset, prediction_dataset, label)
@@ -22,6 +22,6 @@ def main(DATE):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    if check_s3_path_exist(f"{prediction_feature_path}/cd={DATE}/"):
+    if check_s3_path_exist(f"{prediction_match_table_path}/cd={DATE}/"):
         main(DATE)
 

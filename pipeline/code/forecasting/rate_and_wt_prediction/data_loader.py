@@ -1,15 +1,24 @@
 import pandas as pd
 import torch
+import torchtext
 from torch.utils.data import Dataset
 from dnn_configuration import *
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
+def generate_feature_mapping(df):
+    feature_mapping = {}
+    for key in dnn_configuration['used_features']:
+        feature_mapping[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000, specials=['<unk>']).get_stoi()
+    return feature_mapping
+
+
 class LiveMatchDataLoader(object):
     def __init__(self, train_dataset, prediction_dataset, label):
-        self.train_dataset = LiveMatchDataset(train_dataset, label)
-        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label)
+        feature_mapping = generate_feature_mapping(train_dataset)
+        self.train_dataset = LiveMatchDataset(train_dataset, label, feature_mapping)
+        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, feature_mapping)
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
@@ -29,8 +38,9 @@ class LiveMatchDataLoader(object):
 
 
 class LiveMatchDataset(Dataset):
-    def __init__(self, df, label):
+    def __init__(self, df, label, feature_mapping):
         self.label = label
+        self.feature_mapping = feature_mapping
         self.features, self.labels, self.sample_ids = self._parse(df)
 
     def __len__(self):
@@ -46,11 +56,14 @@ class LiveMatchDataset(Dataset):
     def _parse(self, df):
         features = {}
         for key in dnn_configuration['used_features']:
-            features[key] = [list(val) for val in df[key]]
+            df[f"{key}_hots"] = df[key].apply(lambda x: [self.feature_mapping[key][a] for a in x])
+            features[key] = [list(val) for val in df[f"{key}_hots"]]
 
+        print(features)
         labels = [val for val in df[self.label]]
 
         sample_ids = [content_id for content_id in df['content_id']]
+        print(sample_ids)
 
         return features, labels, sample_ids
 
