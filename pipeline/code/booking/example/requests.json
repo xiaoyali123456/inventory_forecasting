@@ -2,9 +2,9 @@
     "results": [
         {
             "id": "123_586",
-            "tournamentId": 123,
+            "tournamentId": 111,
             "tournamentName": "World Cup",
-            "seasonId": 586,
+            "seasonId": 333,
             "seasonName": "World Cup 2023",
             "requestStatus": "INIT",
             "tournamentType": "AVOD",
@@ -14,7 +14,7 @@
             "tournamentLocation": "India",
             "matchDetails": [
                 {
-                    "matchId": 1235,
+                    "matchId": 1,
                     "matchName": "",
                     "tournamentCategory": "ODI",
                     "estimatedMatchDuration": 420,
