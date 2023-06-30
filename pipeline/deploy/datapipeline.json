@@ -98,7 +98,7 @@
             }
         },
         {
-            "id": "Forecasting",
+            "id": "ForecastingInventory",
             "type": "ShellCommandActivity",
             "scriptUri": "#{myProjectFolder}/code/midroll_inventory_forecast.sh",
             "scriptArgument": [

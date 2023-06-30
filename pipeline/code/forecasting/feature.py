@@ -171,7 +171,6 @@ def generate_prediction_dataset(DATE):
         save_data_frame(load_data_frame(spark, train_match_table_path + f"/cd={YESTERDAY}"), train_match_table_path + f"/cd={DATE}")
     else:
         pass
-    return prediction_df
 
 
 def check_holiday(date):
@@ -210,7 +209,8 @@ check_holiday_udf = F.udf(check_holiday, IntegerType())
 if __name__ == '__main__':
     DATE = sys.argv[1]
     # DATE = "2023-06-30"
-    if check_s3_path_exist(f"{inventory_forecast_request_path}/cd={DATE}/"):
-        generate_prediction_dataset(DATE)
+    generate_prediction_dataset(DATE)
+    slack_notification(topic=slack_notification_topic, region=region,
+                       message=f"feature processing on {DATE} is done.")
 
 
