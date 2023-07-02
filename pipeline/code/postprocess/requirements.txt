@@ -6,7 +6,6 @@ anyio==3.6.2
 async-timeout==4.0.2
 asynctest==0.13.0
 attrs==23.1.0
-aws-cfn-bootstrap==2.0
 botocore==1.27.59
 certifi==2022.12.7
 charset-normalizer==3.1.0
