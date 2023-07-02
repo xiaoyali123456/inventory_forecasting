@@ -1,176 +1,199 @@
-[
-    {
-        "id": "111_1",
-        "tournamentName": "Asian Cup",
-        "seasonId": 333,
-        "seasonName": "Asian Cup 2023",
-        "requestStatus": "INIT",
-        "tournamentType": "AVOD",
-        "svodFreeTimeDuration": 5,
-        "svodSubscriptionPlan": "free",
-        "sportType": "CRICKET",
-        "tournamentLocation": "India",
-        "customAudiences": [
-            {
-                "uploadSource": "ap_tool",
-                "segmentName": "A_58290825",
-                "customCohort": "C_14_1",
-                "upload_date": "2023-05-05"
-            }
-        ],
-        "adPlacements": [
-            {
-                "adPlacement": "MIDROLL",
-                "version": 1,
-                "forecastSize": 15236523
-            }
-        ],
-        "matchDetails": [
-            {
-                "matchId": 1,
-                "matchCategory": "ODI",
-                "matchDate": "2023-09-03",
-                "matchStartHour": 13,
-                "estimatedMatchDuration": 300,
-                "matchType": "group",
-                "team1": "India",
-                "tierOfTeam1": "tier1",
-                "team2": "Pakistan",
-                "tierOfTeam2": "tier1",
-                "fixedBreak": 150,
-                "averageBreakDuration": 30,
-                "adhocBreak": 20,
-                "adhocBreakDuration": 10,
-                "contentLanguage": [
-                    "english",
-                    "hindi",
-                    "telugu"
-                ],
-                "platformSuported": [
-                    "android",
-                    "ios",
-                    "AndroidTv",
-                    "FireStick",
-                    "web",
-                    "jio-lyf",
-                    "mweb",
-                    "TizenTV",
-                    "webOS",
-                    "Roku"
-                ]
-            },
-        ],
-        "tournamentStartDate": "2023-08-30",
-        "tournamentEndDate": "2023-09-30",
-        "userName": "Navin Kumar",
-        "emailId": "navin.kumar@hotstar.com",
-        "creationDate": "2021-04-08T06:08:45.717+00:00",
-        "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
-        "error": null,
-        "tournamentId": 111,
-    },
-    {
-        "requestId": "222_2",
-        "tournamentName": "World Cup",
-        "seasonId": 444,
-        "seasonName": "World Cup 2023",
-        "requestStatus": "INIT",
-        "tournamentType": "AVOD",
-        "svodFreeTimeDuration": 5,
-        "svodSubscriptionPlan": "free",
-        "sportType": "CRICKET",
-        "tournamentLocation": "India",
-        "customAudiences": [
-            {
-                "uploadSource": "ap_tool",
-                "segmentName": "A_58290825",
-                "customCohort": "C_14_1",
-                "upload_date": "2023-05-05"
-            }
-        ],
-        "adPlacements": [
-            {
-                "adPlacement": "MIDROLL",
-                "version": 1,
-                "forecastSize": 15236523
-            }
-        ],
-        "tournamentStartDate": "2023-10-01",
-        "tournamentEndDate": "2023-12-01",
-        "userName": "Navin Kumar",
-        "emailId": "navin.kumar@hotstar.com",
-        "creationDate": "2021-04-08T06:08:45.717+00:00",
-        "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
-        "error": null,
-        "tournamentId": 222,
-        "matchDetails": [
-            {
-                "matchId": 2,
-                "matchCategory": "ODI",
-                "matchDate": "2023-11-17",
-                "matchStartHour": 13,
-                "estimatedMatchDuration": 300,
-                "matchType": "semi-final",
-                "team1": "",
-                "tierOfTeam1": "",
-                "team2": "",
-                "tierOfTeam2": "",
-                "fixedBreak": 150,
-                "averageBreakDuration": 30,
-                "adhocBreak": 20,
-                "adhocBreakDuration": 10,
-                "contentLanguage": [
-                    "english",
-                    "hindi",
-                    "kannada",
-                    "telugu"
-                ],
-                "platformSuported": [
-                    "android",
-                    "ios",
-                    "AndroidTv",
-                    "FireStick",
-                    "web",
-                    "jio-lyf",
-                    "mweb",
-                    "TizenTV",
-                    "webOS"
-                ],
-            },
-            {
-                "matchId": 3,
-                "matchCategory": "ODI",
-                "matchDate": "2023-11-19",
-                "matchStartHour": 13,
-                "estimatedMatchDuration": 300,
-                "matchType": "final",
-                "team1": "",
-                "tierOfTeam1": "",
-                "team2": "",
-                "tierOfTeam2": "",
-                "fixedBreak": 150,
-                "averageBreakDuration": 30,
-                "adhocBreak": 20,
-                "adhocBreakDuration": 10,
-                "contentLanguage": [
-                    "english",
-                    "hindi",
-                    "bengali",
-                    "telugu",
-                    "kannada"
-                ],
-                "platformSuported": [
-                    "android",
-                    "ios",
-                    "AndroidTv",
-                    "FireStick",
-                    "web",
-                    "mweb",
-                    "TizenTV",
-                    "webOS",
-                    "Roku"
-                ]
-            }
-        ]
-    }
-]
+{
+    "results": [
+        {
+            "id": "111_1",
+            "tournamentName": "Asian Cup",
+            "seasonId": 333,
+            "seasonName": "Asian Cup 2023",
+            "requestStatus": "INIT",
+            "tournamentType": "AVOD",
+            "svodFreeTimeDuration": 5,
+            "svodSubscriptionPlan": "free",
+            "sportType": "CRICKET",
+            "tournamentLocation": "India",
+            "customAudiences": [
+                {
+                    "uploadSource": "ap_tool",
+                    "segmentName": "A_58290825",
+                    "customCohort": "C_14_1",
+                    "upload_date": "2023-05-05"
+                }
+            ],
+            "adPlacements": [
+                {
+                    "adPlacement": "MIDROLL",
+                    "version": 1,
+                    "forecastSize": 15236523
+                }
+            ],
+            "matchDetailsResponses": [
+                {
+                    "matchId": 1,
+                    "matchCategory": "ODI",
+                    "matchDate": "2023-09-03",
+                    "matchStartHour": 13,
+                    "estimatedMatchDuration": 300,
+                    "matchType": "group",
+                    "team": [
+                        {
+                            "name": "India",
+                            "tier": "tier1"
+                        },
+                        {
+                            "name": "Pakistan",
+                            "tier": "tier1"
+                        }
+                    ],
+                    "fixedBreak": 150,
+                    "averageBreakDuration": 30,
+                    "adhocBreak": 20,
+                    "adhocBreakDuration": 10,
+                    "contentLanguage": [
+                        "english",
+                        "hindi",
+                        "telugu"
+                    ],
+                    "platformSuported": [
+                        "android",
+                        "ios",
+                        "AndroidTv",
+                        "FireStick",
+                        "web",
+                        "jio-lyf",
+                        "mweb",
+                        "TizenTV",
+                        "webOS",
+                        "Roku"
+                    ]
+                }
+            ],
+            "tournamentStartDate": "2023-08-30",
+            "tournamentEndDate": "2023-09-30",
+            "userName": "Navin Kumar",
+            "emailId": "navin.kumar@hotstar.com",
+            "creationDate": "2021-04-08T06:08:45.717+00:00",
+            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
+            "error": null,
+            "tournamentId": 111
+        },
+        {
+            "id": "222_2",
+            "tournamentName": "World Cup",
+            "seasonId": 444,
+            "seasonName": "World Cup 2023",
+            "requestStatus": "INIT",
+            "tournamentType": "AVOD",
+            "svodFreeTimeDuration": 5,
+            "svodSubscriptionPlan": "free",
+            "sportType": "CRICKET",
+            "tournamentLocation": "India",
+            "customAudiences": [
+                {
+                    "uploadSource": "ap_tool",
+                    "segmentName": "A_58290825",
+                    "customCohort": "C_14_1",
+                    "upload_date": "2023-05-05"
+                }
+            ],
+            "adPlacements": [
+                {
+                    "adPlacement": "MIDROLL",
+                    "version": 1,
+                    "forecastSize": 15236523
+                }
+            ],
+            "tournamentStartDate": "2023-10-01",
+            "tournamentEndDate": "2023-12-01",
+            "userName": "Navin Kumar",
+            "emailId": "navin.kumar@hotstar.com",
+            "creationDate": "2021-04-08T06:08:45.717+00:00",
+            "lastModifiedDate": "2021-04-08T06:08:45.717+00:00",
+            "error": null,
+            "tournamentId": 222,
+            "matchDetailsResponses": [
+                {
+                    "matchId": 2,
+                    "matchCategory": "ODI",
+                    "matchDate": "2023-11-17",
+                    "matchStartHour": 13,
+                    "estimatedMatchDuration": 300,
+                    "matchType": "semi-final",
+                    "team": [
+                        {
+                            "name": "",
+                            "tier": ""
+                        },
+                        {
+                            "name": "",
+                            "tier": ""
+                        }
+                    ],
+                    "fixedBreak": 150,
+                    "averageBreakDuration": 30,
+                    "adhocBreak": 20,
+                    "adhocBreakDuration": 10,
+                    "contentLanguage": [
+                        "english",
+                        "hindi",
+                        "kannada",
+                        "telugu"
+                    ],
+                    "platformSuported": [
+                        "android",
+                        "ios",
+                        "AndroidTv",
+                        "FireStick",
+                        "web",
+                        "jio-lyf",
+                        "mweb",
+                        "TizenTV",
+                        "webOS"
+                    ]
+                },
+                {
+                    "matchId": 3,
+                    "matchCategory": "ODI",
+                    "matchDate": "2023-11-19",
+                    "matchStartHour": 13,
+                    "estimatedMatchDuration": 300,
+                    "matchType": "final",
+                    "team": [
+                        {
+                            "name": "",
+                            "tier": ""
+                        },
+                        {
+                            "name": "",
+                            "tier": ""
+                        }
+                    ],
+                    "fixedBreak": 150,
+                    "averageBreakDuration": 30,
+                    "adhocBreak": 20,
+                    "adhocBreakDuration": 10,
+                    "contentLanguage": [
+                        "english",
+                        "hindi",
+                        "bengali",
+                        "telugu",
+                        "kannada"
+                    ],
+                    "platformSuported": [
+                        "android",
+                        "ios",
+                        "AndroidTv",
+                        "FireStick",
+                        "web",
+                        "mweb",
+                        "TizenTV",
+                        "webOS",
+                        "Roku"
+                    ]
+                }
+            ]
+        }
+    ],
+    "current_page": 1,
+    "total_items": 1,
+    "total_pages": 1
+}
