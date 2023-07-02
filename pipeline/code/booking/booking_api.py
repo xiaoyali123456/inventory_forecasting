@@ -20,7 +20,7 @@ class Payload(BaseModel):
     version: int
 
 app = FastAPI()
-example = 'example/requests.json'
+example = 'example/requests2.json'
 
 @app.get('/inventory/forecast-request')
 def get_by_status(

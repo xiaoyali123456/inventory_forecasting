@@ -54,23 +54,24 @@ def convert_list_to_df(lst):
     return df
 
 def main(cd):
-    req_lst = []
+    req_list = []
     page_size = 10
     i, total = 1, 1
     while i <= total:
-        # url = (f'{BOOKING_TOOL_URL}inventory/forecast-request?status=INIT'
-        #        f'&page-number={i}'
-        #        f'&page-size={page_size}')
+        url = (f'{BOOKING_TOOL_URL}inventory/forecast-request?status=INIT'
+               f'&page-number={i}'
+               f'&page-size={page_size}')
         df = pd.read_json(url)
-        req_lst += df.results.tolist()
+        req_list += df.results.tolist()
         total = df.total_pages[0]
         i += 1
     with s3.open(REQUESTS_PATH_TEMPL % cd, 'w') as f:
-        json.dump(req_lst, f)
-    df_new = convert_list_to_df(req_lst)
+        json.dump(req_list, f)
+    df_new = convert_list_to_df(req_list)
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
+    df_uni[['adPlacements', 'customAudiences', 'contentLanguage', 'platformSuported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguage', 'platformSuported']].applymap(json.dumps)
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 
