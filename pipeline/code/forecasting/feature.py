@@ -1,20 +1,7 @@
 from path import *
 from util import *
 from config import *
-
-
-# remove invalid char in title
-def simple_title(title):
-    title = title.strip().lower()
-    if title.find(": ") > -1:
-        title = title.split(": ")[-1]
-    if title.find(", ") > -1:
-        title = title.split(", ")[0]
-    teams = sorted(title.split(" vs "))
-    for i in range(len(teams)):
-        if teams[i] in invalid_team_mapping:
-            teams[i] = invalid_team_mapping[teams[i]]
-    return teams[0] + " vs " + teams[1]
+from ..common import get_last_cd
 
 
 # get continent for team
@@ -25,72 +12,6 @@ def get_continent(team, tournament_type):
         return {continent_dic[team]}
     else:
         return unknown_token
-
-
-# get continents for teams
-def get_continents(teams, tournament_type):
-    teams = teams.split(" vs ")
-    if tournament_type == "national":
-        return "AS vs AS"
-    elif teams[0] in continent_dic and teams[1] in continent_dic:
-        return f"{continent_dic[teams[0]]} vs {continent_dic[teams[1]]}"
-    else:
-        return ""
-
-
-# get tiers for teams
-def get_teams_tier(teams):
-    teams = teams.split(" vs ")
-    if teams[0] in tiers_dic and teams[1] in tiers_dic:
-        return f"{tiers_dic[teams[0]]} vs {tiers_dic[teams[1]]}"
-    else:
-        return ""
-
-
-# hots_num indicates the dimension of the vector
-def generate_hot_vector(hots, hots_num):
-    res = [0 for i in range(hots_num)]
-    for hot in hots:
-        if hot >= 0:
-            res[hot] += 1
-    return res
-
-
-# convert string-based features to vector-based features
-def add_categorical_features(feature_df):
-    # Add rank column
-    df = feature_df\
-        .withColumn('rank', F.expr('row_number() over (partition by tournament order by date)'))\
-        .cache()
-    # Process multi-hot columns
-    for col in multi_hot_cols:
-        print(col)
-        feature_dic_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
-        exploded_df = df\
-            .select('tournament', 'rank', F.split(col, " vs ").alias(f"{col}_list")) \
-            .select('tournament', 'rank', F.explode(f"{col}_list").alias(f"{col}_item")) \
-            .join(feature_dic_df, f"{col}_item", 'left') \
-            .fillna(-1, [f'{col}_hots']) \
-            .groupBy('tournament', 'rank') \
-            .agg(F.collect_list(f"{col}_hots").alias(f"{col}_hots"))
-        df = df.join(exploded_df, ['tournament', 'rank'])
-    print("multi hots feature processed done!")
-    # Process one-hot columns
-    for col in one_hot_cols:
-        print(col)
-        feature_dic_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + "/feature_mapping/" + col).cache()
-        df = df\
-            .join(feature_dic_df, col, 'left') \
-            .fillna(-1, [f'{col}_hots']) \
-            .withColumn(f"{col}_hots", F.array(F.col(f"{col}_hots")))
-    print("one hot feature processed done!")
-    # Process numerical columns
-    for col in numerical_cols:
-        print(col)
-        df = df\
-            .withColumn(f"{col}_hots", F.array(F.col(f"{col}")))
-    print("all hots feature processed done!")
-    return df
 
 
 def save_base_dataset(path_suffix):
@@ -160,15 +81,22 @@ def generate_prediction_dataset(DATE):
         feature_df = feature_df\
             .withColumn(col, F.lit(-1))
     save_data_frame(feature_df, prediction_feature_path + f"/cd={DATE}")
+    # save future match data for inventory prediction
     prediction_df = feature_df\
         .where('matchShouldUpdate=true')\
         .select(*match_table_cols)
     prediction_df.show(20, False)
     save_data_frame(prediction_df, prediction_match_table_path + f"/cd={DATE}")
-    new_match_df = feature_df.where('matchHaveFinished=true').select(*match_table_cols).cache()
+    # save avg dau
+    last_update_date = get_last_cd(train_match_table_path)
+    previous_train_df = load_data_frame(spark, train_match_table_path + f"/cd={last_update_date}")
+    # update training dataset according to recently finished match data
+    new_match_df = feature_df\
+        .where('matchHaveFinished=true')\
+        .select(*match_table_cols)\
+        .cache()
     if new_match_df.count() == 0:
-        YESTERDAY = get_date_list(DATE, -2)[0]
-        save_data_frame(load_data_frame(spark, train_match_table_path + f"/cd={YESTERDAY}"), train_match_table_path + f"/cd={DATE}")
+        save_data_frame(previous_train_df, train_match_table_path + f"/cd={DATE}")
     else:
         pass
 
@@ -192,11 +120,7 @@ def check_holiday(date):
     return 1 if date in india_holidays else 0
 
 
-simple_title_udf = F.udf(simple_title, StringType())
-get_teams_tier_udf = F.udf(get_teams_tier, StringType())
 get_continent_udf = F.udf(get_continent, StringType())
-get_continents_udf = F.udf(get_continents, StringType())
-generate_hot_vector_udf = F.udf(generate_hot_vector, ArrayType(IntegerType()))
 check_holiday_udf = F.udf(check_holiday, IntegerType())
 
 # save_base_dataset("_and_simple_one_hot")
@@ -204,7 +128,6 @@ check_holiday_udf = F.udf(check_holiday, IntegerType())
 # save_base_dataset("_full_avod_and_simple_one_hot")
 # main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
-# print("argv", sys.argv)
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
