@@ -48,7 +48,7 @@ def combine(rundate):
     forecast_df = spark\
         .read\
         .parquet(f'{DAU_FORECAST_PATH}cd={rundate}/')\
-        .where(f'ds >= {rundate}')\
+        .where(f'ds >= "{rundate}"')\
         .select(cols)
     truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={rundate}/')
 

@@ -1,6 +1,5 @@
 from path import *
 from util import *
-from config import *
 
 
 def get_wt_data(spark, DATE):
@@ -33,13 +32,14 @@ def get_inventory_data(spark, DATE):
     pass
 
 
-def add_new_matches_to_train_dataset(spark, DATE, new_match_df):
+def add_labels_to_new_matches(spark, DATE, new_match_df):
     match_sub_df, match_free_df = get_wt_data(spark, DATE)
     inventory_df = get_inventory_data(spark, DATE)
     res_df = new_match_df\
-        .drop(*label_cols)\
+        .drop("match_active_free_num", "watch_time_per_free_per_match",
+              "match_active_sub_num", "watch_time_per_subscriber_per_match",
+              "total_reach", "total_inventory")\
         .join(match_sub_df, 'content_id')\
         .join(match_free_df, 'content_id') \
-        .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
-        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))\
-        .cache()
+        .join(inventory_df, 'content_id')
+    return res_df

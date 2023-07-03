@@ -1,6 +1,5 @@
-from path import *
-from util import *
 from config import *
+from new_match import *
 from common import get_last_cd
 
 
@@ -125,9 +124,16 @@ def generate_prediction_dataset(DATE):
         .select(*match_table_cols)\
         .cache()
     if new_match_df.count() == 0:
-        save_data_frame(previous_train_df, train_match_table_path + f"/cd={DATE}")
+        new_train_df = previous_train_df
     else:
-        pass
+        new_match_df = add_labels_to_new_matches(spark, DATE, new_match_df)
+        new_train_df = previous_train_df.select(*match_table_cols).union(new_match_df.select(*match_table_cols))
+    new_train_df = new_train_df\
+        .drop('total_frees_number', 'total_subscribers_number')\
+        .join(avg_dau_df, 'tournament') \
+        .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
+        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))
+    save_data_frame(new_train_df, train_match_table_path + f"/cd={DATE}")
 
 
 def check_holiday(date):
