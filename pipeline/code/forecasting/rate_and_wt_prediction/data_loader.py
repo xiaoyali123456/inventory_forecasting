@@ -59,11 +59,11 @@ class LiveMatchDataset(Dataset):
             df[f"{key}_hots"] = df[key].apply(lambda x: [self.feature_mapping[key][a] for a in x])
             features[key] = [list(val) for val in df[f"{key}_hots"]]
 
-        print(features)
+        # print(features)
         labels = [val for val in df[self.label]]
 
         sample_ids = [content_id for content_id in df['content_id']]
-        print(sample_ids)
+        # print(sample_ids)
 
         return features, labels, sample_ids
 
