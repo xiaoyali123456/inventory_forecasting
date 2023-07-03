@@ -39,16 +39,16 @@ if __name__ == '__main__':
         languages = parse(meta_info.contentLanguages)
         if languages:
             combine.reach *= combine.reach.sum()/combine[combine.language.isin(languages)].reach.sum()
-            combine.inventory *= combine.inventory.sum()/combine[combine.platform.isin(languages)].inventory.sum()
+            combine.inventory *= combine.inventory.sum()/combine[combine.language.isin(languages)].inventory.sum()
             combine = combine[combine.language.isin(languages)].reset_index(drop=True)
         platforms = parse(meta_info.platformsSupported)
         if platforms:
-            combine.reach *= combine.reach.sum()/combine[combine.language.isin(platforms)].reach.sum()
+            combine.reach *= combine.reach.sum()/combine[combine.platform.isin(platforms)].reach.sum()
             combine.inventory *= combine.inventory.sum()/combine[combine.platform.isin(platforms)].inventory.sum()
             combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
         combine.inventory = combine.inventory.astype(int)
         combine.reach = combine.reach.astype(int)
-        combine['version'] = 'v1'
+        combine.replace({'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}}, inplace=True)
         combine = combine.rename(columns={
             'age': 'ageBucket',
             'device': 'devicePrice',
