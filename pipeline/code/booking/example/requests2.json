@@ -2,9 +2,9 @@
     "results": [
         {
             "id": "111_1",
-            "tournamentName": "Asian Cup",
+            "tournamentName": "Asia Cup",
             "seasonId": 333,
-            "seasonName": "Asian Cup 2023",
+            "seasonName": "Asia Cup 2023",
             "requestStatus": "INIT",
             "tournamentType": "AVOD",
             "svodFreeTimeDuration": 5,
