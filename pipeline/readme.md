@@ -2,7 +2,7 @@
 
 ```mermaid
 graph LR
-  subgraph prprocess.sh
+  subgraph preprocess.sh
     direction TB
     A(fetch_requests.py) --> B(check_matches_snapshot.py)
   end
@@ -17,5 +17,5 @@ graph LR
   subgraph postprocess.sh
     H(postprocess.py)
   end
-  prprocess.sh --> forecast.sh --> sampling.sh --> postprocess.sh
+  preprocess.sh --> forecast.sh --> sampling.sh --> postprocess.sh
 ```

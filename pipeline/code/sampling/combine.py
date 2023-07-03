@@ -18,4 +18,12 @@ if __name__ == '__main__':
         common_cols = list(set(reach.columns)&set(inventory.columns))
         combine = inventory.merge(reach, on=common_cols, how='left')
         combine['request_id'] = str(row.request_id)
+        combine['match_id'] = str(row.match_id)
+        combine.to_parquet(f'{FINAL_ALL_BACKUP_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
+        # reformat
+        combine['adPlacement'] = 'MIDROLL'
+        combine.inventory = combine.inventory.astype(int)
+        combine.reach = combine.reach.astype(int)
+        combine['version'] = 'v1'
+        combine = combine[(combine.inventory >= 1)&(combine.reach >= 1)].reset_index()
         combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
