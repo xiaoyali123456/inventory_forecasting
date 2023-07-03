@@ -100,7 +100,7 @@ def generate_prediction_dataset(DATE):
     # feature processing
     feature_df = feature_processing(request_df)
     # save avg dau
-    last_update_date = get_last_cd(train_match_table_path)
+    last_update_date = get_last_cd(train_match_table_path, invalid_cd=DATE)
     previous_train_df = load_data_frame(spark, train_match_table_path + f"/cd={last_update_date}")
     dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
         .union(feature_df.select('date', 'tournament')) \
@@ -126,13 +126,15 @@ def generate_prediction_dataset(DATE):
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
-        new_match_df = add_labels_to_new_matches(spark, DATE, new_match_df)
+        YESTERDAY = get_date_list(DATE, -2)[0]
+        new_match_df = add_labels_to_new_matches(spark, YESTERDAY, new_match_df)
         new_train_df = previous_train_df.select(*match_table_cols).union(new_match_df.select(*match_table_cols))
     new_train_df = new_train_df\
         .drop('total_frees_number', 'total_subscribers_number')\
         .join(avg_dau_df, 'tournament') \
         .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
-        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))
+        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))\
+        .cache()
     save_data_frame(new_train_df, train_match_table_path + f"/cd={DATE}")
 
 

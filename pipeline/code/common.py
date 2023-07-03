@@ -53,7 +53,7 @@ def load_requests(cd):
         return json.load(fp)
 
 # end is exclusive
-def get_last_cd(path, end=None, n=1):
+def get_last_cd(path, end=None, n=1, invalid_cd=None):
     # df = spark.read.parquet(path)
     # if end is not None:
     #     df = df.where('cd < "{end}"')
@@ -62,6 +62,8 @@ def get_last_cd(path, end=None, n=1):
     lst = [x for x in lst if '$' not in x]
     if end is not None:
         lst = [x for x in lst if x < end]
+    if invalid_cd is not None:
+        lst.remove(invalid_cd)
     return lst[-n:] if n > 1 else lst[-1]
 
 # importing will fail on pure python application
