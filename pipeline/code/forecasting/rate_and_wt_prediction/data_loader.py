@@ -56,7 +56,7 @@ class LiveMatchDataset(Dataset):
     def _parse(self, df):
         features = {}
         for key in dnn_configuration['used_features']:
-            df[f"{key}_hots"] = df[key].apply(lambda x: [self.feature_mapping[key][a] for a in x])
+            df[f"{key}_hots"] = df[key].apply(lambda x: [self.feature_mapping[key][a] if a in self.feature_mapping[key] else 0 for a in x])
             features[key] = [list(val) for val in df[f"{key}_hots"]]
 
         # print(features)
