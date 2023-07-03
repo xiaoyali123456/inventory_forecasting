@@ -48,12 +48,12 @@
                     "averageBreakDuration": 30,
                     "adhocBreak": 20,
                     "adhocBreakDuration": 10,
-                    "contentLanguage": [
+                    "contentLanguages": [
                         "english",
                         "hindi",
                         "telugu"
                     ],
-                    "platformSuported": [
+                    "platformsSupported": [
                         "android",
                         "ios",
                         "AndroidTv",
@@ -132,13 +132,13 @@
                     "averageBreakDuration": 30,
                     "adhocBreak": 20,
                     "adhocBreakDuration": 10,
-                    "contentLanguage": [
+                    "contentLanguages": [
                         "english",
                         "hindi",
                         "kannada",
                         "telugu"
                     ],
-                    "platformSuported": [
+                    "platformsSupported": [
                         "android",
                         "ios",
                         "AndroidTv",
@@ -171,14 +171,14 @@
                     "averageBreakDuration": 30,
                     "adhocBreak": 20,
                     "adhocBreakDuration": 10,
-                    "contentLanguage": [
+                    "contentLanguages": [
                         "english",
                         "hindi",
                         "bengali",
                         "telugu",
                         "kannada"
                     ],
-                    "platformSuported": [
+                    "platformsSupported": [
                         "android",
                         "ios",
                         "AndroidTv",

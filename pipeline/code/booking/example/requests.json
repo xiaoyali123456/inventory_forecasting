@@ -38,8 +38,8 @@
                     "adhocBreak": 30,
                     "adhocBreakDuration": 10,
                     "publicHoliday": "false",
-                    "contentLanguage": "",
-                    "PlatformSuported": [
+                    "contentLanguages": "",
+                    "platformsSupported": [
                         "android",
                         "IOS",
                         "web"
