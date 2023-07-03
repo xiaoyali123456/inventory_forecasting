@@ -146,7 +146,7 @@ def get_inventory_data(spark, DATE):
         .withColumn('small_end_time', F.expr('if(wv_end_time_int < break_end_time_int, wv_end_time_int, break_end_time_int)'))\
         .withColumn('valid_duration', F.expr('small_end_time - big_start_time'))\
         .where('valid_duration > 0')\
-        .groupBy('date', 'content_id')\
+        .groupBy('content_id')\
         .agg(F.sum('valid_duration').alias('total_duration'),
              F.countDistinct("dw_d_id").alias('total_reach'))\
         .withColumn('total_inventory', F.expr(f'cast((total_duration / 10) as bigint)')) \
