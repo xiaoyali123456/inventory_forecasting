@@ -1,7 +1,7 @@
 from path import *
 from util import *
 from config import *
-from ..common import get_last_cd
+from common import get_last_cd
 
 
 # get continent for team
@@ -42,44 +42,76 @@ def save_base_dataset(path_suffix):
         save_data_frame(res_df, pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
 
 
-def generate_prediction_dataset(DATE):
-    request_df = load_data_frame(spark, f"{inventory_forecast_request_path}/cd={DATE}").cache()
-    feature_df = request_df\
-        .withColumn('date', F.col('matchDate'))\
-        .withColumn('tournament', F.expr('lower(seasonName)'))\
+def feature_processing(df):
+    feature_df = df \
+        .withColumn('date', F.col('matchDate')) \
+        .withColumn('tournament', F.expr('lower(seasonName)')) \
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
-        .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId')))\
-        .withColumn('vod_type', F.expr('lower(tournamentType)'))\
-        .withColumn('match_stage', F.expr('lower(matchType)'))\
-        .withColumn('tournament_name', F.expr('lower(tournamentName)'))\
-        .withColumn('match_type', F.expr('lower(matchCategory)'))\
-        .withColumn('team1', F.expr('lower(team1)'))\
-        .withColumn('team2', F.expr('lower(team2)'))\
+        .withColumn('requestId', F.expr('cast(requestId as string)')) \
+        .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
+        .withColumn('vod_type', F.expr('lower(tournamentType)')) \
+        .withColumn('match_stage', F.expr('lower(matchType)')) \
+        .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
+        .withColumn('match_type', F.expr('lower(matchCategory)')) \
+        .withColumn('team1', F.expr('lower(team1)')) \
+        .withColumn('team2', F.expr('lower(team2)')) \
         .withColumn('if_contain_india_team', F.expr(f'if(team1="india" or team2="india", "1", '
-                                                    f'if(team1="{unknown_token}" or team2="{unknown_token}", "{unknown_token}", "0"))'))\
-        .withColumn('if_holiday', check_holiday_udf('matchDate'))\
+                                                    f'if(team1="{unknown_token}" or team2="{unknown_token}", "{unknown_token}", "0"))')) \
+        .withColumn('if_holiday', check_holiday_udf('matchDate')) \
         .withColumn('match_time', F.expr('cast(matchStartHour/6 as int)')) \
         .withColumn('if_weekend', F.dayofweek(F.col('matchDate'))) \
         .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
-        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))'))\
+        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
         .withColumn('teams', F.array(F.col('team1'), F.col('team2'))) \
         .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \
         .withColumn('continent2', get_continent_udf('team2', 'tournament_type')) \
         .withColumn('tierOfTeam1', F.expr('lower(tierOfTeam1)')) \
         .withColumn('tierOfTeam2', F.expr('lower(tierOfTeam2)')) \
-        .withColumn('continents', F.array(F.col('continent1'), F.col('continent2')))\
-        .withColumn('teams_tier', F.array(F.col('tierOfTeam1'), F.col('tierOfTeam2')))\
-        .withColumn('free_timer', F.col('svodFreeTimeDuration'))\
-        .withColumn('match_duration', F.col('estimatedMatchDuration'))\
+        .withColumn('continents', F.array(F.col('continent1'), F.col('continent2'))) \
+        .withColumn('teams_tier', F.array(F.col('tierOfTeam1'), F.col('tierOfTeam2'))) \
+        .withColumn('free_timer', F.col('svodFreeTimeDuration')) \
+        .withColumn('match_duration', F.col('estimatedMatchDuration')) \
         .withColumn('break_duration', F.expr('fixedBreak * averageBreakDuration + adhocBreak * adhocBreakDuration'))
     for col in feature_cols:
         if col not in array_feature_cols:
-            feature_df = feature_df\
-                .withColumn(col, F.expr(f'cast({col} as string)'))\
+            feature_df = feature_df \
+                .withColumn(col, F.expr(f'cast({col} as string)')) \
                 .withColumn(col, F.array(F.col(col)))
     for col in label_cols:
-        feature_df = feature_df\
+        feature_df = feature_df \
             .withColumn(col, F.lit(-1))
+    return feature_df
+
+
+def save_avg_dau_for_each_tournament(dates_for_each_tournament_df, DATE):
+    dau_df = load_data_frame(spark, f'{dau_combine_path}cd={DATE}/') \
+        .withColumn('free_vv', F.expr('vv - sub_vv')) \
+        .selectExpr('ds as date', 'free_vv', 'sub_vv') \
+        .cache()
+    res_df = dates_for_each_tournament_df\
+        .join(dau_df, 'date') \
+        .groupBy('tournament') \
+        .agg(F.avg('free_vv').alias('total_frees_number'),
+             F.avg('sub_vv').alias('total_subscribers_number'))
+    save_data_frame(res_df, f"{avg_dau_path}/cd={DATE}")
+
+
+def generate_prediction_dataset(DATE):
+    request_df = load_data_frame(spark, f"{inventory_forecast_request_path}/cd={DATE}").cache()
+    # feature processing
+    feature_df = feature_processing(request_df)
+    # save avg dau
+    last_update_date = get_last_cd(train_match_table_path)
+    previous_train_df = load_data_frame(spark, train_match_table_path + f"/cd={last_update_date}")
+    dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
+        .union(feature_df.select('date', 'tournament')) \
+        .distinct()
+    save_avg_dau_for_each_tournament(dates_for_each_tournament_df, DATE)
+    # update total_frees_number and total_subscribers_number by new dau predictions
+    avg_dau_df = load_data_frame(spark, f"{avg_dau_path}/cd={DATE}")
+    feature_df = feature_df\
+        .drop('total_frees_number', 'total_subscribers_number')\
+        .join(avg_dau_df, 'tournament')
     save_data_frame(feature_df, prediction_feature_path + f"/cd={DATE}")
     # save future match data for inventory prediction
     prediction_df = feature_df\
@@ -87,9 +119,6 @@ def generate_prediction_dataset(DATE):
         .select(*match_table_cols)
     prediction_df.show(20, False)
     save_data_frame(prediction_df, prediction_match_table_path + f"/cd={DATE}")
-    # save avg dau
-    last_update_date = get_last_cd(train_match_table_path)
-    previous_train_df = load_data_frame(spark, train_match_table_path + f"/cd={last_update_date}")
     # update training dataset according to recently finished match data
     new_match_df = feature_df\
         .where('matchHaveFinished=true')\

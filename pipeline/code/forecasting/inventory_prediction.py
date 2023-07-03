@@ -6,20 +6,9 @@ from config import *
 def load_dataset(DATE):
     # load features of prediction samples
     prediction_feature_df = load_data_frame(spark, prediction_feature_path + f"/cd={DATE}")\
-        .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament')\
+        .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'total_frees_number', 'total_subscribers_number')\
         .cache()
-    # load avg dau data
-    estimated_dau_df = load_data_frame(spark, f'{dau_prediction_path}cd={DATE}/')\
-        .withColumn('estimated_free_num', F.expr('DAU - subs_DAU'))\
-        .selectExpr('cd as date', 'estimated_free_num', 'subs_DAU as estimated_sub_num')\
-        .join(prediction_feature_df.select('date', 'tournament').distinct(), 'date')\
-        .groupBy('tournament')\
-        .agg(F.avg('estimated_free_num').alias('estimated_free_num'),
-             F.avg('estimated_sub_num').alias('estimated_sub_num'))\
-        .cache()
-    prediction_feature_with_dau_df = prediction_feature_df\
-        .join(estimated_dau_df, 'tournament')
-    return prediction_feature_with_dau_df
+    return prediction_feature_df
 
 
 def main(DATE):
@@ -37,12 +26,12 @@ def main(DATE):
     total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds = match_configuration
     res_df = new_prediction_df \
         .withColumn('estimated_avg_concurrency', F.expr(
-        f'(estimated_free_num * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
-        f'+ estimated_sub_num * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
+        f'(total_frees_number * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match '
+        f'+ total_subscribers_number * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match)/{total_match_duration_in_minutes}')) \
         .withColumn('estimated_inventory', F.expr(
         f'estimated_avg_concurrency * {retention_rate} * ({number_of_ad_breaks * average_length_of_a_break_in_seconds} / 10.0)')) \
         .withColumn('estimated_reach', F.expr(
-        f"(estimated_free_num * estimated_frees_watching_match_rate / {free_pid_did_rate}) + (estimated_sub_num * estimated_subscribers_watching_match_rate / {sub_pid_did_rate})")) \
+        f"(total_frees_number * estimated_frees_watching_match_rate / {free_pid_did_rate}) + (total_subscribers_number * estimated_subscribers_watching_match_rate / {sub_pid_did_rate})")) \
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .cache()

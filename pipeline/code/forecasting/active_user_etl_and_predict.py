@@ -4,6 +4,7 @@ import pandas as pd
 from prophet import Prophet
 from common import *
 
+
 # XXX: due to historical reason, `AU` in this project means `VV`
 # TODO: we should consider whether we should refactor this
 # generate for [begin+1, end]
@@ -21,6 +22,7 @@ def truth(end, new_path):
     new = new_vv.join(new_sub_vv, on='ds')
     old.union(new).repartition(1).write.mode('overwrite').parquet(new_path)
 
+
 def predict(df, holidays):
     model = Prophet(holidays=holidays)
     model.add_country_holidays(country_name='IN')
@@ -29,14 +31,27 @@ def predict(df, holidays):
     forecast = model.predict(future)
     return model, forecast
 
+
 def forecast(end, new_path):
     # df = pd.read_parquet(new_path) # pandas read has problem
     df = spark.read.parquet(new_path).toPandas()
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
-    pd.concat([f.ds.rename('cd'), f.yhat.rename('DAU'), f2.yhat.rename('subs_DAU')], axis=1) \
+    pd.concat([f.ds, f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1) \
         .to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
+
+
+def combine(rundate):
+    truth_df = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={rundate}/')
+    cols = truth_df.columns
+    forecast_df = spark\
+        .read\
+        .parquet(f'{DAU_FORECAST_PATH}cd={rundate}/')\
+        .where(f'ds >= {rundate}')\
+        .select(cols)
+    truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={rundate}/')
+
 
 if __name__ == '__main__':
     rundate = sys.argv[1]
@@ -44,3 +59,4 @@ if __name__ == '__main__':
     if not s3.isfile(new_path + '_SUCCESS'):
         truth(rundate, new_path)
     forecast(rundate, new_path)
+    combine(rundate)
