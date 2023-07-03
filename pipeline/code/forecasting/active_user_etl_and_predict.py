@@ -1,4 +1,5 @@
 import sys
+import pyspark.sql.functions as F
 
 import pandas as pd
 from prophet import Prophet
@@ -48,6 +49,7 @@ def combine(rundate):
     forecast_df = spark\
         .read\
         .parquet(f'{DAU_FORECAST_PATH}cd={rundate}/')\
+        .withColumn('ds', F.substring(F.col('ds'), 1, 10))\
         .where(f'ds >= "{rundate}"')\
         .select(cols)
     truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={rundate}/')
