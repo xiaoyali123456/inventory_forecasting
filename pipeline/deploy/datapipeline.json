@@ -121,7 +121,7 @@
                 "#{myProjectFolder}/code/"
             ],
             "dependsOn": {
-                "ref": "Forecasting"
+                "ref": "ForecastingInventory"
             },
             "runsOn": {
                 "ref": "Emr2"
