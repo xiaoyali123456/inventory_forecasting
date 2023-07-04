@@ -48,9 +48,12 @@ FOCAL_TOURNAMENTS = [
 ]
 
 s3 = s3fs.S3FileSystem()
+
+
 def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
         return json.load(fp)
+
 
 # end is exclusive
 def get_last_cd(path, end=None, n=1, invalid_cd=None):
@@ -65,6 +68,7 @@ def get_last_cd(path, end=None, n=1, invalid_cd=None):
     if invalid_cd is not None and invalid_cd in lst:
         lst.remove(invalid_cd)
     return lst[-n:] if n > 1 else lst[-1]
+
 
 # importing will fail on pure python application
 try:

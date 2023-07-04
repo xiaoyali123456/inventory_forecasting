@@ -1,5 +1,6 @@
+# Dnn configuration
+
 pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
-# training_data_path = f"{pipeline_base_path}/all_features_hots_format_full_avod_and_simple_one_hot_overall"
 training_data_path = f"{pipeline_base_path}/all_features_hots_format_full_avod_and_simple_one_hot_overall_with_reach_rate"
 prediction_feature_path = f"{pipeline_base_path}/prediction/all_features_hots_format"
 train_match_table_path = f"{pipeline_base_path}/match_table/train"

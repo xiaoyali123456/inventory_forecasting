@@ -2,23 +2,25 @@ import pandas as pd
 import torch
 import torchtext
 from torch.utils.data import Dataset
+
 from dnn_configuration import *
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
 
-def generate_feature_mapping(df):
-    feature_mapping = {}
+# generate vocabulary to map features to embedding index
+def generate_vocabulary(df):
+    vocabulary = {}
     for key in dnn_configuration['used_features']:
-        feature_mapping[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000, specials=['<unk>']).get_stoi()
-    return feature_mapping
+        vocabulary[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000, specials=['<unk>']).get_stoi()
+    return vocabulary
 
 
 class LiveMatchDataLoader(object):
     def __init__(self, train_dataset, prediction_dataset, label):
-        feature_mapping = generate_feature_mapping(train_dataset)
-        self.train_dataset = LiveMatchDataset(train_dataset, label, feature_mapping)
-        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, feature_mapping)
+        vocabulary = generate_vocabulary(train_dataset)
+        self.train_dataset = LiveMatchDataset(train_dataset, label, vocabulary)
+        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, vocabulary)
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
@@ -38,9 +40,9 @@ class LiveMatchDataLoader(object):
 
 
 class LiveMatchDataset(Dataset):
-    def __init__(self, df, label, feature_mapping):
+    def __init__(self, df, label, vocabulary):
         self.label = label
-        self.feature_mapping = feature_mapping
+        self.vocabulary = vocabulary
         self.features, self.labels, self.sample_ids = self._parse(df)
 
     def __len__(self):
@@ -56,7 +58,7 @@ class LiveMatchDataset(Dataset):
     def _parse(self, df):
         features = {}
         for key in dnn_configuration['used_features']:
-            df[f"{key}_hots"] = df[key].apply(lambda x: [self.feature_mapping[key][a] if a in self.feature_mapping[key] else 0 for a in x])
+            df[f"{key}_hots"] = df[key].apply(lambda x: [self.vocabulary[key][a] if a in self.vocabulary[key] else 0 for a in x])
             features[key] = [list(val) for val in df[f"{key}_hots"]]
 
         # print(features)

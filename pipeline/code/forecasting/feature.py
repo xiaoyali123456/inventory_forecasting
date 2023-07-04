@@ -13,34 +13,7 @@ def get_continent(team, tournament_type):
         return unknown_token
 
 
-def save_base_dataset(path_suffix):
-    df = load_data_frame(spark, live_ads_inventory_forecasting_complete_feature_path + "/all_features_hots_format_with_avg_au_sub_free_num" + path_suffix)\
-        .where('date >= "2019-05-30"')\
-        .cache()
-    base_path_suffix = "/all_features_hots_format"
-    contents = df.select('date', 'content_id').distinct().collect()
-    for content in contents:
-        print(content)
-        date = content[0]
-        content_id = content[1]
-        res_df = df\
-            .where(f'date="{date}" and content_id="{content_id}"') \
-            .withColumnRenamed('hostar_influence', 'hotstar_influence')\
-            .withColumnRenamed('hostar_influence_hots', 'hotstar_influence_hots')\
-            .withColumnRenamed('hostar_influence_hots_num', 'hotstar_influence_hots_num')\
-            .withColumnRenamed('hostar_influence_hot_vector', 'hotstar_influence_hot_vector')\
-            .withColumn("hotstar_influence_hots_num", F.lit(1)) \
-            .withColumn('frees_watching_match_rate', F.bround(F.col('frees_watching_match_rate'), 2)) \
-            .withColumn('subscribers_watching_match_rate', F.bround(F.col('subscribers_watching_match_rate'), 2)) \
-            .withColumn('watch_time_per_free_per_match', F.bround(F.col('watch_time_per_free_per_match'), 2)) \
-            .withColumn('watch_time_per_subscriber_per_match', F.bround(F.col('watch_time_per_subscriber_per_match'), 2))
-        if path_suffix.find('free_timer') > -1:
-            res_df = res_df\
-                .withColumn("free_timer_hot_vector", F.array(F.col('free_timer'))) \
-                .withColumn("free_timer_hots_num", F.lit(1))
-        save_data_frame(res_df, pipeline_base_path + base_path_suffix + path_suffix + f"/cd={date}/contentid={content_id}")
-
-
+# feature processing of request data
 def feature_processing(df):
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
@@ -71,53 +44,62 @@ def feature_processing(df):
         .withColumn('free_timer', F.col('svodFreeTimeDuration')) \
         .withColumn('match_duration', F.col('estimatedMatchDuration')) \
         .withColumn('break_duration', F.expr('fixedBreak * averageBreakDuration + adhocBreak * adhocBreakDuration'))
+
     for col in feature_cols:
         if col not in array_feature_cols:
             feature_df = feature_df \
                 .withColumn(col, F.expr(f'cast({col} as string)')) \
                 .withColumn(col, F.array(F.col(col)))
+
     for col in label_cols:
         feature_df = feature_df \
             .withColumn(col, F.lit(-1))
+
     return feature_df
 
 
-def save_avg_dau_for_each_tournament(dates_for_each_tournament_df, DATE):
-    dau_df = load_data_frame(spark, f'{dau_combine_path}cd={DATE}/') \
+# calculate and save avg vv at tournament level
+def save_avg_vv_for_each_tournament(dates_for_each_tournament_df, run_date):
+    vv_df = load_data_frame(spark, f'{dau_combine_path}cd={run_date}/') \
         .withColumn('free_vv', F.expr('vv - sub_vv')) \
         .selectExpr('ds as date', 'free_vv', 'sub_vv') \
         .cache()
     res_df = dates_for_each_tournament_df\
-        .join(dau_df, 'date') \
+        .join(vv_df, 'date') \
         .groupBy('tournament') \
         .agg(F.avg('free_vv').alias('total_frees_number'),
              F.avg('sub_vv').alias('total_subscribers_number'))
-    save_data_frame(res_df, f"{avg_dau_path}/cd={DATE}")
+    save_data_frame(res_df, f"{avg_dau_path}/cd={run_date}")
 
 
-def generate_prediction_dataset(DATE):
-    request_df = load_data_frame(spark, f"{inventory_forecast_request_path}/cd={DATE}").cache()
+# update train dataset and prediction dataset from request data
+def update_dataset(run_date):
+    request_df = load_data_frame(spark, f"{inventory_forecast_request_path}/cd={run_date}").cache()
     # feature processing
     feature_df = feature_processing(request_df)
-    # save avg dau
-    last_update_date = get_last_cd(train_match_table_path, invalid_cd=DATE)
+
+    # save avg dau of each tournament
+    last_update_date = get_last_cd(train_match_table_path, invalid_cd=run_date)
     previous_train_df = load_data_frame(spark, train_match_table_path + f"/cd={last_update_date}")
     dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
         .union(feature_df.select('date', 'tournament')) \
         .distinct()
-    save_avg_dau_for_each_tournament(dates_for_each_tournament_df, DATE)
+    save_avg_vv_for_each_tournament(dates_for_each_tournament_df, run_date)
+
     # update total_frees_number and total_subscribers_number by new dau predictions
-    avg_dau_df = load_data_frame(spark, f"{avg_dau_path}/cd={DATE}")
+    avg_dau_df = load_data_frame(spark, f"{avg_dau_path}/cd={run_date}")
     feature_df = feature_df\
         .drop('total_frees_number', 'total_subscribers_number')\
         .join(avg_dau_df, 'tournament')
-    save_data_frame(feature_df, prediction_feature_path + f"/cd={DATE}")
+    save_data_frame(feature_df, prediction_feature_path + f"/cd={run_date}")
+
     # save future match data for inventory prediction
     prediction_df = feature_df\
         .where('matchShouldUpdate=true')\
         .select(*match_table_cols)
     prediction_df.show(20, False)
-    save_data_frame(prediction_df, prediction_match_table_path + f"/cd={DATE}")
+    save_data_frame(prediction_df, prediction_match_table_path + f"/cd={run_date}")
+
     # update training dataset according to recently finished match data
     new_match_df = feature_df\
         .where('matchHaveFinished=true')\
@@ -126,8 +108,8 @@ def generate_prediction_dataset(DATE):
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
-        YESTERDAY = get_date_list(DATE, -2)[0]
-        new_match_df = add_labels_to_new_matches(spark, YESTERDAY, new_match_df)
+        the_day_before_run_date = get_date_list(run_date, -2)[0]
+        new_match_df = add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
         new_train_df = previous_train_df.select(*match_table_cols).union(new_match_df.select(*match_table_cols))
     new_train_df = new_train_df\
         .drop('total_frees_number', 'total_subscribers_number')\
@@ -135,7 +117,7 @@ def generate_prediction_dataset(DATE):
         .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
         .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))\
         .cache()
-    save_data_frame(new_train_df, train_match_table_path + f"/cd={DATE}")
+    save_data_frame(new_train_df, train_match_table_path + f"/cd={run_date}")
 
 
 def check_holiday(date):
@@ -160,17 +142,14 @@ def check_holiday(date):
 get_continent_udf = F.udf(get_continent, StringType())
 check_holiday_udf = F.udf(check_holiday, IntegerType())
 
-# save_base_dataset("_and_simple_one_hot")
-# save_base_dataset("_and_free_timer_and_simple_one_hot")
 # save_base_dataset("_full_avod_and_simple_one_hot")
-# main(spark, date, content_id, tournament_name, match_type, venue, match_stage, gender_type, vod_type, match_start_time_ist)
 
 
 if __name__ == '__main__':
-    DATE = sys.argv[1]
-    # DATE = "2023-06-30"
-    generate_prediction_dataset(DATE)
+    run_date = sys.argv[1]
+    # run_date = "2023-06-30"
+    update_dataset(run_date)
     slack_notification(topic=slack_notification_topic, region=region,
-                       message=f"feature processing on {DATE} is done.")
+                       message=f"feature processing on {run_date} is done.")
 
 

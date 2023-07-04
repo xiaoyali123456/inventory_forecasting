@@ -1,15 +1,13 @@
 import sys
-import pyspark.sql.functions as F
 
 import pandas as pd
 from prophet import Prophet
+
 from common import *
 
 
-# XXX: due to historical reason, `AU` in this project means `VV`
-# TODO: we should consider whether we should refactor this
-# generate for [begin+1, end]
-def truth(end, new_path):
+# generate daily vv/sub_vv between [begin+1, end)
+def truth(end, true_vv_path):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
     last = get_last_cd(DAU_TRUTH_PATH, end)
     old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
@@ -21,9 +19,10 @@ def truth(end, new_path):
     new_sub_vv = base.where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
         .groupby('ds').agg(F.countDistinct('dw_p_id').alias('sub_vv'))
     new = new_vv.join(new_sub_vv, on='ds')
-    old.union(new).repartition(1).write.mode('overwrite').parquet(new_path)
+    old.union(new).repartition(1).write.mode('overwrite').parquet(true_vv_path)
 
 
+# make predictions by Prophet model
 def predict(df, holidays):
     model = Prophet(holidays=holidays)
     model.add_country_holidays(country_name='IN')
@@ -33,9 +32,10 @@ def predict(df, holidays):
     return model, forecast
 
 
-def forecast(end, new_path):
+# predict daily vv/sub_vv by Prophet model
+def forecast(end, true_vv_path):
     # df = pd.read_parquet(new_path) # pandas read has problem
-    df = spark.read.parquet(new_path).toPandas()
+    df = spark.read.parquet(true_vv_path).toPandas()
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
@@ -43,22 +43,23 @@ def forecast(end, new_path):
         .to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
 
 
-def combine(rundate):
-    truth_df = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={rundate}/')
+# combine true vv of (, run_date) and predicted vv of [run_date, )
+def combine(run_date):
+    truth_df = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={run_date}/')
     cols = truth_df.columns
     forecast_df = spark\
         .read\
-        .parquet(f'{DAU_FORECAST_PATH}cd={rundate}/')\
+        .parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
         .withColumn('ds', F.substring(F.col('ds'), 1, 10))\
-        .where(f'ds >= "{rundate}"')\
+        .where(f'ds >= "{run_date}"')\
         .select(cols)
-    truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={rundate}/')
+    truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={run_date}/')
 
 
 if __name__ == '__main__':
-    rundate = sys.argv[1]
-    new_path = f'{DAU_TRUTH_PATH}cd={rundate}/'
-    if not s3.isfile(new_path + '_SUCCESS'):
-        truth(rundate, new_path)
-    forecast(rundate, new_path)
-    combine(rundate)
+    run_date = sys.argv[1]
+    true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
+    if not s3.isfile(true_vv_path + '_SUCCESS'):
+        truth(run_date, true_vv_path)
+    forecast(run_date, true_vv_path)
+    combine(run_date)

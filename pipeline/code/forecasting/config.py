@@ -1,3 +1,5 @@
+# Forecasting module configuration
+
 continent_dic = {
     'australia': 'OC',
     'england': 'EU',

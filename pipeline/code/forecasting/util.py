@@ -1,7 +1,10 @@
+# common api definition
+
 import datetime
 import os
 import sys
 from functools import reduce
+
 import pyspark.sql.functions as F
 from pyspark.shell import spark
 import holidays

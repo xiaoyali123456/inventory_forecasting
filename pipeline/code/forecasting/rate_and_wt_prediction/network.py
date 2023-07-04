@@ -1,5 +1,8 @@
+# Pytorch network api
+
 import torch
 from torch import nn
+
 from dnn_configuration import *
 
 
