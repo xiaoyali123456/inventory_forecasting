@@ -23,7 +23,8 @@ def load_yesterday_inputs(cd):
        'contentLanguage', 'platformSuported'])
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = df.matchDate < cd
-    df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & df.matchHaveFinished
+    finish_on_yesterday = any(df.matchDate == str(yesterday))
+    df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & finish_on_yesterday
     return df
 
 def unify_format(df):
