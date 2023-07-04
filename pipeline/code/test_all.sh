@@ -1,6 +1,6 @@
 set -exu
 
-DATE="2023-05-22"
+DATE="2023-07-04"
 CODE="s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/pipeline/code/"
 SPARK="spark-submit --deploy-mode client \
     --conf spark.dynamicAllocation.enabled=true \

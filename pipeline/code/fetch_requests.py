@@ -5,6 +5,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
 
+def backfill_from_google_sheet():
+    pass
+
 def load_yesterday_inputs(cd):
     yesterday = datetime.fromisoformat(cd) - timedelta(1)
     snapshot_path = PREPROCESSED_INPUT_PATH + f'cd={str(yesterday.date())}/'
@@ -20,7 +23,7 @@ def load_yesterday_inputs(cd):
        'matchDate', 'matchStartHour', 'estimatedMatchDuration', 'matchType',
        'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak',
        'averageBreakDuration', 'adhocBreak', 'adhocBreakDuration',
-       'contentLanguage', 'platformSuported'])
+       'contentLanguages', 'platformsSupported'])
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = df.matchDate < cd
     finish_on_yesterday = any(df.matchDate == str(yesterday))
@@ -72,7 +75,7 @@ def main(cd):
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
-    df_uni[['adPlacements', 'customAudiences', 'contentLanguage', 'platformSuported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguage', 'platformSuported']].applymap(json.dumps)
+    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']].applymap(json.dumps)
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 
