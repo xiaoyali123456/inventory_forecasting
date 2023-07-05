@@ -3,14 +3,27 @@
 """
 import json
 import sys
+import os
 
 import pandas as pd
 from datetime import datetime, timedelta
 from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
+import gspread
+
+def read_google_sheet(name):
+    os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json .')
+    gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
+    x = gc.open('Inventory forecast inputs')
+    df = pd.DataFrame(x.sheet1.get_all_records())
+    return df
+
 
 def backfill_from_google_sheet(df):
-    match_level_features = ['']
+    sheet = read_google_sheet('Inventory forecast inputs')
+    match_level_features = ['matchId','matchName','matchDate','matchStartHour','matchType','matchCategory',
+                            'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak','averageBreakDuration','fixedAdPodsPerBreak','adhocBreak','adhocBreakDuration','estimatedMatchDuration','publicHoliday','contentLanguages','platformsSupported']
     return df
+
 
 def load_yesterday_inputs(cd):
     yesterday = datetime.fromisoformat(cd) - timedelta(1)
@@ -28,7 +41,7 @@ def load_yesterday_inputs(cd):
        'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak',
        'averageBreakDuration', 'adhocBreak', 'adhocBreakDuration',
        'contentLanguages', 'platformsSupported'])
-    df['fromOldRequest'] = False
+    df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
     finish_on_yesterday = any(df.matchDate == str(yesterday))
     df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & finish_on_yesterday
@@ -80,6 +93,8 @@ def main(cd):
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     backfill_from_google_sheet(df_uni)
+    # df_old: string
+    # df_new: object #TODO: this is a type bug
     df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']].applymap(json.dumps)
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 

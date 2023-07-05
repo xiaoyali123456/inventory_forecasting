@@ -120,7 +120,7 @@ def match_filter(s):
     if isinstance(s, str):
         s = s.lower()
         for t in FOCAL_TOURNAMENTS:
-            if t in s:
+            if t in s: # sportseasonname is a superstring
                 return True
     return False
 
