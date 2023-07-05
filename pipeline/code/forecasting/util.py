@@ -7,7 +7,6 @@ from functools import reduce
 
 import pyspark.sql.functions as F
 from pyspark.shell import spark
-import holidays
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel

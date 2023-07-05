@@ -1,6 +1,10 @@
+import holidays
+
 from config import *
 from new_match import *
 from common import get_last_cd
+
+holiday_list = []
 
 
 # get continent for team
@@ -13,10 +17,15 @@ def get_continent(team, tournament_type):
         return UNKNOWN_TOKEN
 
 
+def get_holidays(country, year):
+    return [str(x) for x in list(holidays.country_holidays(country, years=year).keys())]
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
-    run_year = run_date[:4]
-    holidays
+    run_year = int(run_date[:4])
+    global holiday_list
+    holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
@@ -122,30 +131,9 @@ def update_dataset(run_date):
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
 
 
-def check_holiday(date):
-    india_holidays = ["2019-1-26", "2019-3-4", "2019-3-21", "2019-4-17", "2019-4-19", "2019-5-18", "2019-6-5",
-                      "2019-8-12", "2019-8-15", "2019-8-24", "2019-9-10", "2019-10-2", "2019-10-8", "2019-10-27",
-                      "2019-11-10", "2019-11-12", "2019-12-25",
-                      "2020-1-26", "2020-3-10", "2020-4-2", "2020-4-6", "2020-4-10", "2020-5-7", "2020-5-25",
-                      "2020-8-1", "2020-8-11", "2020-8-15", "2020-8-30", "2020-10-2",
-                      "2020-10-25", "2020-10-30", "2020-11-14", "2020-11-30", "2020-12-25",
-                      "2021-1-26", "2021-3-29", "2021-4-2", "2021-4-21", "2021-4-25", "2021-5-14",
-                      "2021-5-26", "2021-7-21", "2021-8-15", "2021-8-19", "2021-8-30", "2021-10-2",
-                      "2021-10-15", "2021-10-19", "2021-11-4", "2021-11-19", "2021-12-25",
-                      "2022-1-26", "2022-3-1", "2022-3-18", "2022-4-14", "2022-4-15", "2022-5-3",
-                      "2022-5-16", "2022-7-10", "2022-8-9", "2022-8-15", "2022-8-19", "2022-10-2",
-                      "2022-10-5", "2022-10-9", "2022-10-24", "2022-11-8", "2022-12-25",
-                      "2023-1-26", "2023-3-8", "2023-3-30", "2023-4-4", "2023-4-7", "2023-4-22",
-                      "2023-5-5", "2023-6-29", "2023-7-29", "2023-8-15", "2023-8-19", "2023-9-7",
-                      "2023-9-28", "2023-10-2", "2023-10-24", "2023-11-12", "2023-11-27", "2023-12-25"]
-    return 1 if date in india_holidays else 0
-
-
 get_continent_udf = F.udf(get_continent, StringType())
-check_holiday_udf = F.udf(check_holiday, IntegerType())
+check_holiday_udf = F.udf(lambda date: 1 if date in holiday_list else 0, IntegerType())
 
-a = list(holidays.IN(years=2023).keys())
-a = [str(x) for x in list(holidays.IN(years=2023).keys())]
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
