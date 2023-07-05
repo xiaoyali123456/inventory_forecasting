@@ -1,12 +1,12 @@
 """
  1. generate table ('content_id', 'playout_id', 'language', 'platform', 'country', 'city', 'state', 'cohort', 'ad_time', 'reach')
- for regular cohorts distribution for finished matches
+ for regular cohorts distribution in terms of finished matches
     1.1. filter the matches that are not calculated and belongs to important tournaments
     1.2. load playout table and watch_video table
     1.3. parse user segments col in watch_video table to get the cohort info
     1.4. join these 2 tåbles to calculate ad_time and reach
 
- 2. generate table ('is_cricket', 'segments', 'watch_time', 'reach') for custom cohorts distribution for recent five days
+ 2. generate table ('is_cricket', 'segments', 'watch_time', 'reach') for custom cohorts distribution in terms of recent five days
     2.1. load segment-ssai mapping from request
     2.2. load user-segment table and convert segments to ssai tag
     2.3. load watch_video table for recent 5 days
