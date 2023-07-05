@@ -8,19 +8,21 @@ from network import DeepEmbMLP
 from dnn_configuration import *
 
 
+# dnn regression model for live matches prediction
 class LiveMatchRegression(object):
     def __init__(self, run_date, train_dataset, prediction_dataset, label):
         self.run_date = run_date
         self.label = label
-        self.model = DeepEmbMLP(column_num=len(dnn_configuration['used_features']))
-        self.loss_fn = torch.nn.HuberLoss(delta=huber_loss_parameter_dic[label])
+        self.model = DeepEmbMLP(column_num=len(DNN_CONFIGURATION['used_features']))
+        self.loss_fn = torch.nn.HuberLoss(delta=HUBER_LOSS_PARAMETER_DIC[label])
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=dnn_configuration['lr'], weight_decay=dnn_configuration['weight_decay'])
-        self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset, label=label)
+                                          lr=DNN_CONFIGURATION['lr'], weight_decay=DNN_CONFIGURATION['weight_decay'])
+        self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset,
+                                           label=label)
 
     def train(self):
-        data_loader = self.dataset.get_dataset(batch_size=dnn_configuration['train_batch_size'], mode='train')
-        for epoch in range(dnn_configuration['epoch_num']):
+        data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['train_batch_size'], mode='train')
+        for epoch in range(DNN_CONFIGURATION['epoch_num']):
             for i, (x, y) in enumerate(data_loader):
                 p = self.model(x)
                 loss = self.loss_fn(p, y.float())
@@ -31,11 +33,11 @@ class LiveMatchRegression(object):
                 self.eval()
 
     def eval(self):
-        data_loader = self.dataset.get_dataset(batch_size=dnn_configuration['test_batch_size'], mode='train')
+        data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='train')
         self.eval_inner(data_loader)
 
     def prediction(self):
-        data_loader = self.dataset.get_dataset(batch_size=dnn_configuration['test_batch_size'], mode='prediction')
+        data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='prediction')
         self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'))
 
     def eval_inner(self, data_loader):
@@ -46,7 +48,7 @@ class LiveMatchRegression(object):
             loss = mean_absolute_error(np.atleast_1d(p), y)  # use np.atleast_1d in case there is only one sample
             mae_loss += loss * len(y)
             test_num += len(y)
-        print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss/test_num}')
+        print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
 
     def prediction_inner(self, data_loader, sample_ids):
         predictions = []
@@ -60,7 +62,7 @@ class LiveMatchRegression(object):
         cols = ["content_id", f"estimated_{self.label}"]
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
-        df.to_parquet(f"{pipeline_base_path}/dnn_predictions/cd={self.run_date}/label={self.label}")
+        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions/cd={self.run_date}/label={self.label}")
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)

@@ -7,6 +7,11 @@ from dnn_regression import LiveMatchRegression
 from dnn_configuration import *
 
 
+def slack_notification(topic, region, message):
+    cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
+    os.system(cmd)
+
+
 def check_s3_path_exist(s3_path: str) -> bool:
     if not s3_path.endswith("/"):
         s3_path += "/"
@@ -14,17 +19,19 @@ def check_s3_path_exist(s3_path: str) -> bool:
 
 
 def main(run_date):
-    train_dataset = pd.read_parquet(f"{train_match_table_path}/cd={run_date}")
-    prediction_dataset = pd.read_parquet(f"{prediction_match_table_path}/cd={run_date}/")
-    for label in label_list:
+    train_dataset = pd.read_parquet(f"{TRAIN_MATCH_TABLE_PATH}/cd={run_date}")
+    prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
+    for label in LABEL_LIST:
         print(label)
         model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
         model.train()
         model.prediction()
+    slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                       message=f"rate and wt predictions on {run_date} are done.")
 
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
-    if check_s3_path_exist(f"{prediction_match_table_path}/cd={run_date}/"):
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
 

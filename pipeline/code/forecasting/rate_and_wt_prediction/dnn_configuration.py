@@ -1,37 +1,36 @@
-# Dnn configuration
+# dnn configuration
 
-pipeline_base_path = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
-training_data_path = f"{pipeline_base_path}/all_features_hots_format_full_avod_and_simple_one_hot_overall_with_reach_rate"
-prediction_feature_path = f"{pipeline_base_path}/prediction/all_features_hots_format"
-train_match_table_path = f"{pipeline_base_path}/match_table/train"
-prediction_match_table_path = f"{pipeline_base_path}/match_table/prediction"
+PIPELINE_BASE_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
+TRAINING_DATA_PATH = f"{PIPELINE_BASE_PATH}/all_features_hots_format_full_avod_and_simple_one_hot_overall_with_reach_rate"
+PREDICTION_FEATURE_PATH = f"{PIPELINE_BASE_PATH}/prediction/all_features_hots_format"
+TRAIN_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/train"
+PREDICTION_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/prediction"
 
-slack_notification_topic = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
-region = "us-east-1"
+SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
+REGION = "us-east-1"
 
-free_rate_label = "frees_watching_match_rate"
-free_wt_label = "watch_time_per_free_per_match"
-sub_rate_label = "subscribers_watching_match_rate"
-sub_wt_label = "watch_time_per_subscriber_per_match"
-reach_rate_label = "reach_rate"
-label_list = [free_rate_label, free_wt_label, sub_rate_label, sub_wt_label, reach_rate_label]
+FREE_RATE_LABEL = "frees_watching_match_rate"
+FREE_WT_LABEL = "watch_time_per_free_per_match"
+SUB_RATE_LABEL = "subscribers_watching_match_rate"
+SUB_WT_LABEL = "watch_time_per_subscriber_per_match"
+REACH_RATE_LABEL = "reach_rate"
+LABEL_LIST = [FREE_RATE_LABEL, FREE_WT_LABEL, SUB_RATE_LABEL, SUB_WT_LABEL, REACH_RATE_LABEL]
 
-
-dnn_configuration = {
+DNN_CONFIGURATION = {
     'used_features': [
-            'vod_type',
-            'match_stage',
-            'tournament_name',
-            'match_type',
-            'if_contain_india_team',
-            'if_holiday',
-            'match_time',
-            'if_weekend',
-            'tournament_type',
-            'teams',
-            'continents',
-            'teams_tier',
-        ],
+        'vod_type',
+        'match_stage',
+        'tournament_name',
+        'match_type',
+        'if_contain_india_team',
+        'if_holiday',
+        'match_time',
+        'if_weekend',
+        'tournament_type',
+        'teams',
+        'continents',
+        'teams_tier',
+    ],
     'train_batch_size': 16,
     'test_batch_size': 64,
     'epoch_num': 30,
@@ -42,10 +41,10 @@ dnn_configuration = {
     'mlp_layer_sizes': [64, 64]
 }
 
-huber_loss_parameter_dic = {
-    free_rate_label: 0.1,
-    free_wt_label: 1,
-    sub_rate_label: 0.1,
-    sub_wt_label: 1,
-    reach_rate_label: 0.1
+HUBER_LOSS_PARAMETER_DIC = {
+    FREE_RATE_LABEL: 0.1,
+    FREE_WT_LABEL: 1,
+    SUB_RATE_LABEL: 0.1,
+    SUB_WT_LABEL: 1,
+    REACH_RATE_LABEL: 0.1
 }

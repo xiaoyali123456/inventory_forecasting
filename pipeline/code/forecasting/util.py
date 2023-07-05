@@ -16,7 +16,6 @@ from sklearn import metrics
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
-from common import load_requests
 
 storageLevel = StorageLevel.DISK_ONLY
 spark.sparkContext.setLogLevel('WARN')

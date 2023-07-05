@@ -4,9 +4,8 @@ from util import *
 
 # get wt related labels
 def get_wt_data(spark, date):
-    match_sub_df = load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc") \
-        .withColumn('subscription_status', F.upper(F.col('subscription_status'))) \
-        .where(f'subscription_status in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+    match_sub_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+        .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
         .groupBy('dw_p_id', 'content_id') \
         .agg(F.sum('watch_time').alias('watch_time')) \
         .groupBy('content_id') \
@@ -15,9 +14,8 @@ def get_wt_data(spark, date):
         .withColumn('watch_time_per_subscriber_per_match', F.expr('total_watch_time/match_active_sub_num')) \
         .select('content_id', 'match_active_sub_num', 'watch_time_per_subscriber_per_match') \
         .cache()
-    match_free_df = load_data_frame(spark, f'{watchAggregatedInputPath}/cd={date}', fmt="orc") \
-        .withColumn('subscription_status', F.upper(F.col('subscription_status'))) \
-        .where(f'subscription_status not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+    match_free_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+        .where(f'upper(subscription_status) not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
         .groupBy('dw_p_id', 'content_id') \
         .agg(F.sum('watch_time').alias('watch_time')) \
         .groupBy('content_id') \
@@ -46,34 +44,34 @@ def save_break_list_info(playout_df, date):
         .where('rank = 1') \
         .select(*cols) \
         .union(res_df.select(*cols))
-    save_data_frame(res_df, pipeline_base_path + f"/label/break_info/cd={date}")
+    save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
 
 
 # reformat playout logs
 def reformat_playout_df(playout_df):
     return playout_df\
-        .withColumnRenamed(content_id_col2, 'content_id')\
-        .withColumnRenamed(start_time_col2, 'start_time')\
-        .withColumnRenamed(end_time_col2, 'end_time')\
-        .withColumnRenamed(break_duration_col2, 'delivered_duration')\
-        .withColumnRenamed(platform_col2, 'platform')\
-        .withColumnRenamed(tenant_col2, 'tenant')\
-        .withColumnRenamed(content_language_col2, 'content_language')\
-        .withColumnRenamed(creative_id_col2, 'creative_id')\
-        .withColumnRenamed(break_id_col2, 'break_id')\
-        .withColumnRenamed(playout_id_col2, 'playout_id')\
-        .withColumnRenamed(creative_path_col2, 'creative_path')\
-        .withColumnRenamed(content_id_col, 'content_id')\
-        .withColumnRenamed(start_time_col, 'start_time')\
-        .withColumnRenamed(end_time_col, 'end_time')\
-        .withColumnRenamed(break_duration_col, 'delivered_duration')\
-        .withColumnRenamed(platform_col, 'platform')\
-        .withColumnRenamed(tenant_col, 'tenant')\
-        .withColumnRenamed(content_language_col, 'content_language')\
-        .withColumnRenamed(creative_id_col, 'creative_id')\
-        .withColumnRenamed(break_id_col, 'break_id')\
-        .withColumnRenamed(playout_id_col, 'playout_id')\
-        .withColumnRenamed(creative_path_col, 'creative_path') \
+        .withColumnRenamed(CONTENT_ID_COL2, 'content_id')\
+        .withColumnRenamed(START_TIME_COL2, 'start_time')\
+        .withColumnRenamed(END_TIME_COL2, 'end_time')\
+        .withColumnRenamed(BREAK_DURATION_COL2, 'delivered_duration')\
+        .withColumnRenamed(PLATFORM_COL2, 'platform')\
+        .withColumnRenamed(TENANT_COL2, 'tenant')\
+        .withColumnRenamed(CONTENT_LANGUAGE_COL2, 'content_language')\
+        .withColumnRenamed(CREATIVE_ID_COL2, 'creative_id')\
+        .withColumnRenamed(BREAK_ID_COL2, 'break_id')\
+        .withColumnRenamed(PLAYOUT_ID_COL2, 'playout_id')\
+        .withColumnRenamed(CREATIVE_PATH_COL2, 'creative_path')\
+        .withColumnRenamed(CONTENT_ID_COL, 'content_id')\
+        .withColumnRenamed(START_TIME_COL, 'start_time')\
+        .withColumnRenamed(END_TIME_COL, 'end_time')\
+        .withColumnRenamed(BREAK_DURATION_COL, 'delivered_duration')\
+        .withColumnRenamed(PLATFORM_COL, 'platform')\
+        .withColumnRenamed(TENANT_COL, 'tenant')\
+        .withColumnRenamed(CONTENT_LANGUAGE_COL, 'content_language')\
+        .withColumnRenamed(CREATIVE_ID_COL, 'creative_id')\
+        .withColumnRenamed(BREAK_ID_COL, 'break_id')\
+        .withColumnRenamed(PLAYOUT_ID_COL, 'playout_id')\
+        .withColumnRenamed(CREATIVE_PATH_COL, 'creative_path') \
         .withColumn('content_id', F.trim(F.col('content_id'))) \
         .withColumn('content_language', F.expr('lower(content_language)')) \
         .withColumn('platform', F.expr('lower(platform)')) \
@@ -87,7 +85,7 @@ def reformat_playout_df(playout_df):
 
 # playout data processing
 def playout_data_processing(spark, date):
-    playout_df = reformat_playout_df(load_data_frame(spark, f"{play_out_log_input_path}{date}", 'csv', True))\
+    playout_df = reformat_playout_df(load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}{date}", 'csv', True))\
         .withColumn('date', F.lit(date))\
         .select('date', 'content_id', 'start_time', 'end_time', 'delivered_duration',
                 'platform', 'tenant', 'content_language', 'creative_id', 'break_id',
@@ -102,20 +100,28 @@ def playout_data_processing(spark, date):
         .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
         .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
         .withColumn('duration', F.expr('end_time_int-start_time_int'))\
-        .where('duration > 0')
-    save_data_frame(playout_df, pipeline_base_path + '/label' + playout_log_path_suffix + f"/cd={date}")
+        .where('duration > 0 and creative_path != "aston"')
+    save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
 
 
 # get inventory and reach
 def get_inventory_data(spark, date):
     playout_data_processing(spark, date)
-    playout_df = load_data_frame(spark, pipeline_base_path + playout_log_path_suffix + f"/cd={date}") \
-        .where('creative_path != "aston"') \
+    playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}") \
         .cache()
+    save_break_list_info(playout_df, date)
+    final_playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}") \
+        .withColumn('break_start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('break_end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int')) \
+        .where('duration > 0 and duration < 3600') \
+        .cache()
+    print(final_playout_df.count())
+
     data_source = "watched_video"
     timestamp_col = "ts_occurred_ms"
-    if not check_s3_path_exist(pipeline_base_path+f"/label/{data_source}/cd={date}"):
-        watch_video_df = load_data_frame(spark, f"{watch_video_path}/cd={date}") \
+    if not check_s3_path_exist(PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}"):
+        watch_video_df = load_data_frame(spark, f"{WATCH_VIDEO_PATH}/cd={date}") \
             .withColumn("timestamp", F.expr(f'if(timestamp is null and {timestamp_col} is not null, '
                                f'from_unixtime({timestamp_col}/1000), timestamp)'))\
             .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id',
@@ -130,18 +136,11 @@ def get_inventory_data(spark, date):
             .withColumn('wv_end_time_int', F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
             .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp')\
             .cache()
-        save_data_frame(watch_video_df, pipeline_base_path+f"/label/{data_source}/cd={date}")
+        save_data_frame(watch_video_df, PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}")
     else:
-        watch_video_df = load_data_frame(spark, pipeline_base_path+f"/label/{data_source}/cd={date}")\
+        watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}")\
             .cache()
-    save_break_list_info(playout_df, date)
-    final_playout_df = load_data_frame(spark, pipeline_base_path + f"/label/break_info/cd={date}") \
-        .withColumn('break_start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('break_end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int'))\
-        .where('duration > 0 and duration < 3600')\
-        .cache()
-    print(final_playout_df.count())
+
     # calculate inventory and reach, need to extract the common intervals for each users
     total_inventory_df = watch_video_df\
         .join(F.broadcast(final_playout_df), ['content_id'])\
@@ -155,7 +154,7 @@ def get_inventory_data(spark, date):
         .withColumn('total_inventory', F.expr(f'cast((total_duration / 10) as bigint)')) \
         .withColumn('total_reach', F.expr(f'cast(total_reach as bigint)'))\
         .cache()
-    save_data_frame(total_inventory_df, pipeline_base_path + f"/label/inventory/cd={date}")
+    save_data_frame(total_inventory_df, PIPELINE_BASE_PATH + f"/label/inventory/cd={date}")
     return total_inventory_df
 
 

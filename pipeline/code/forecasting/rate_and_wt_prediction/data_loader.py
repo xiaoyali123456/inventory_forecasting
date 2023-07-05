@@ -11,11 +11,13 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # generate vocabulary to map features to embedding index
 def generate_vocabulary(df):
     vocabulary = {}
-    for key in dnn_configuration['used_features']:
-        vocabulary[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000, specials=['<unk>']).get_stoi()
+    for key in DNN_CONFIGURATION['used_features']:
+        vocabulary[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000,
+                                                                    specials=['<unk>']).get_stoi()
     return vocabulary
 
 
+# load match datasets, including training dataset and prediction dataset
 class LiveMatchDataLoader(object):
     def __init__(self, train_dataset, prediction_dataset, label):
         vocabulary = generate_vocabulary(train_dataset)
@@ -39,6 +41,7 @@ class LiveMatchDataLoader(object):
             return self.prediction_dataset.get_sample_ids()
 
 
+# processing match dataset
 class LiveMatchDataset(Dataset):
     def __init__(self, df, label, vocabulary):
         self.label = label
@@ -57,8 +60,11 @@ class LiveMatchDataset(Dataset):
 
     def _parse(self, df):
         features = {}
-        for key in dnn_configuration['used_features']:
-            df[f"{key}_hots"] = df[key].apply(lambda x: [self.vocabulary[key][a] if a in self.vocabulary[key] else 0 for a in x])
+        for key in DNN_CONFIGURATION['used_features']:
+            df[f"{key}_hots"] = df[key].apply(lambda x:
+                                              [self.vocabulary[key][a] if a in self.vocabulary[key]
+                                               else 0
+                                               for a in x])
             features[key] = [list(val) for val in df[f"{key}_hots"]]
 
         # print(features)
@@ -68,12 +74,3 @@ class LiveMatchDataset(Dataset):
         # print(sample_ids)
 
         return features, labels, sample_ids
-
-
-
-
-
-
-
-
-

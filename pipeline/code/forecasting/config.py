@@ -1,6 +1,6 @@
 # Forecasting module configuration
 
-continent_dic = {
+CONTINENT_DIC = {
     'australia': 'OC',
     'england': 'EU',
     'india': 'AS',
@@ -22,7 +22,7 @@ continent_dic = {
     'uae': 'AS'
 }
 
-tiers_dic = {
+TIERS_DIC = {
     'australia': 'tier1',
     'england': 'tier1',
     'india': 'tier1',
@@ -55,84 +55,40 @@ tiers_dic = {
     "srh": "tier2"
 }
 
-
-invalid_team_mapping = {
+INVALID_TEAM_MAPPING = {
         "sl": "sri lanka",
         "eng": "england",
         "ire": "ireland",
         "dc.": "dc"
 }
+UNKNOWN_TOKEN = "<unk>"
 
-xgb_configuration = {
-    'model': "xgb",
-    # 'model': "random_forest",
-    # 'mask_tag': "mask_knock_off",
-    'predict_tournaments_candidate': ["wc2023"],
-    'mask_tag': "",
-    # 'sample_weight': False,
-    'sample_weight': True,
-    # 'unvalid_labels': [],
-    'if_improve_ties': True,
-    # 'if_improve_ties': False,
-    'simple_one_hot_suffix': "_and_simple_one_hot",
-    # 'simple_one_hot_suffix': "",
-    # 'if_free_timer': "_and_free_timer",
-    'if_free_timer': "",
-    'if_contains_cross_features': True,
-    # 'if_contains_cross_features': False,
-    # 'cross_features': [['if_contain_india_team_hot_vector', 'match_stage_hots', 'tournament_type_hots']],
-    'cross_features': [['if_contain_india_team_hots', 'match_stage_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'match_type_hots', 'tournament_type_hots'],
-                       ['if_contain_india_team_hots', 'vod_type_hots', 'tournament_type_hots']],
-    'prediction_svod_tag': "",
-    'default_svod_free_timer': 5,
-    'end_tag': 0
-}
 
-free_rate_label = "frees_watching_match_rate"
-free_wt_label = "watch_time_per_free_per_match"
-sub_rate_label = "subscribers_watching_match_rate"
-sub_wt_label = "watch_time_per_subscriber_per_match"
+FREE_RATE_LABEL = "frees_watching_match_rate"
+FREE_WT_LABEL = "watch_time_per_free_per_match"
+SUB_RATE_LABEL = "subscribers_watching_match_rate"
+SUB_WT_LABEL = "watch_time_per_subscriber_per_match"
 
-# hyper-parameter setting from grid search, with [object_method, n_estimators, learning_rate, max_depth] format
-xgb_hyper_parameter_dic = {free_rate_label: ['reg:squarederror', 45, 0.05, 11],
-                           free_wt_label: ['reg:squarederror', 73, 0.05, 5],
-                           sub_rate_label: ['reg:squarederror', 53, 0.05, 9],
-                           sub_wt_label: ['reg:squarederror', 61, 0.1, 3]}
 
-one_hot_cols = ['tournament_type', 'if_weekend', 'match_time', 'if_holiday', 'venue', 'if_contain_india_team',
-                'match_type', 'tournament_name', 'match_stage', 'vod_type']
-multi_hot_cols = ['teams', 'continents', 'teams_tier']
-numerical_cols = ['hotstar_influence', 'free_timer']
-additional_cols = ["languages", "platforms"]
-
-context_cols = ["date", "tournament", "content_id"]
-feature_cols = ["vod_type", "match_stage", "tournament_name", "match_type",
+CONTEXT_COLS = ["date", "tournament", "content_id"]
+FEATURE_COLS = ["vod_type", "match_stage", "tournament_name", "match_type",
                 "if_contain_india_team", "if_holiday", "match_time", "if_weekend",
                 "tournament_type", "teams", "continents", "teams_tier", "free_timer"]
-array_feature_cols = ["teams", "continents", "teams_tier"]
-label_cols = ["frees_watching_match_rate", "watch_time_per_free_per_match",
+LABEL_COLS = ["frees_watching_match_rate", "watch_time_per_free_per_match",
               "subscribers_watching_match_rate", "watch_time_per_subscriber_per_match",
               "reach_rate", "total_reach", "total_inventory",
               "total_frees_number", "match_active_free_num",
               "total_subscribers_number", "match_active_sub_num"]
+MATCH_TABLE_COLS = CONTEXT_COLS + FEATURE_COLS + LABEL_COLS
+ARRAY_FEATURE_COLS = ["teams", "continents", "teams_tier"]
 
-match_table_cols = context_cols + feature_cols + label_cols
 
 # duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
-match_configuration = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
-retention_rate = 0.85
+MATCH_CONFIGURATION = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
+RETENTION_RATE = 0.85
+SUB_PID_DID_RATE = 0.94
+FREE_PID_DID_RATE = 1.02
 
-default_predict_tournament = "wc2023"
-sub_pid_did_rate = 0.94
-free_pid_did_rate = 1.02
 
-invalid_match_date = '2022-08-24'
-invalid_tournament = 'ipl2019'
-important_content_id = "1440000724"
-important_content_weight = 2
-meaningless_request_id = "0"
-jio_user_rate_of_wc2019 = 0.75
-slack_notification_topic = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
-region = "us-east-1"
-unknown_token = "<unk>"
+SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
+REGION = "us-east-1"
