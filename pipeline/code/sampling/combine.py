@@ -12,7 +12,7 @@ def parse(string):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    total = pd.read_parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/')
+    total = spark.read_parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
     reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio.rename(columns={'ad_time':'inventory'}, inplace=True)
@@ -60,3 +60,5 @@ if __name__ == '__main__':
                           &(combine.reach >= 1)
                           &(combine.city.map(len)!=1)].reset_index(drop=True)
         combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
+    df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
+    df.write.partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')

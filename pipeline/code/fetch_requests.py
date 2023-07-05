@@ -8,8 +8,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
 
-def backfill_from_google_sheet():
-    pass
+def backfill_from_google_sheet(df):
+    match_level_features = ['']
+    return df
 
 def load_yesterday_inputs(cd):
     yesterday = datetime.fromisoformat(cd) - timedelta(1)
@@ -78,6 +79,7 @@ def main(cd):
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
+    backfill_from_google_sheet(df_uni)
     df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']].applymap(json.dumps)
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
