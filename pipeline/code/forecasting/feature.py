@@ -14,7 +14,9 @@ def get_continent(team, tournament_type):
 
 
 # feature processing of request data
-def feature_processing(df):
+def feature_processing(df, run_date):
+    run_year = run_date[:4]
+    holidays
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
@@ -58,14 +60,14 @@ def feature_processing(df):
     return feature_df
 
 
-# calculate and save avg vv at tournament level
-def save_avg_vv_for_each_tournament(dates_for_each_tournament_df, run_date):
-    vv_df = load_data_frame(spark, f'{DVV_COMBINE_PATH}cd={run_date}/') \
+# calculate and save avg dvv at tournament level
+def save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date):
+    dvv_df = load_data_frame(spark, f'{DVV_COMBINE_PATH}cd={run_date}/') \
         .withColumn('free_vv', F.expr('vv - sub_vv')) \
         .selectExpr('ds as date', 'free_vv', 'sub_vv') \
         .cache()
     res_df = dates_for_each_tournament_df\
-        .join(vv_df, 'date') \
+        .join(dvv_df, 'date') \
         .groupBy('tournament') \
         .agg(F.avg('free_vv').alias('total_frees_number'),
              F.avg('sub_vv').alias('total_subscribers_number'))
@@ -76,7 +78,7 @@ def save_avg_vv_for_each_tournament(dates_for_each_tournament_df, run_date):
 def update_dataset(run_date):
     request_df = load_data_frame(spark, f"{INVENTORY_FORECAST_REQUEST_PATH}/cd={run_date}").cache()
     # feature processing
-    feature_df = feature_processing(request_df)
+    feature_df = feature_processing(request_df, run_date)
 
     # save avg dau of each tournament
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
@@ -84,7 +86,7 @@ def update_dataset(run_date):
     dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
         .union(feature_df.select('date', 'tournament')) \
         .distinct()
-    save_avg_vv_for_each_tournament(dates_for_each_tournament_df, run_date)
+    save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date)
 
     # update total_frees_number and total_subscribers_number by new dau predictions
     avg_dau_df = load_data_frame(spark, f"{AVG_DVV_PATH}/cd={run_date}")
@@ -142,8 +144,8 @@ def check_holiday(date):
 get_continent_udf = F.udf(get_continent, StringType())
 check_holiday_udf = F.udf(check_holiday, IntegerType())
 
-# save_base_dataset("_full_avod_and_simple_one_hot")
-
+a = list(holidays.IN(years=2023).keys())
+a = [str(x) for x in list(holidays.IN(years=2023).keys())]
 
 if __name__ == '__main__':
     run_date = sys.argv[1]

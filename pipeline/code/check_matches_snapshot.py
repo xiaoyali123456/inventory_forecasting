@@ -1,6 +1,8 @@
 from common import *
 import sys
 
+
+# save previous match meta data to s3
 if __name__ == '__main__':
     cd = sys.argv[1]
     matches = spark.sql('''

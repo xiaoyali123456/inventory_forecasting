@@ -1,3 +1,6 @@
+"""
+ read request from booking tool api and save processed data in s3
+"""
 import json
 import sys
 

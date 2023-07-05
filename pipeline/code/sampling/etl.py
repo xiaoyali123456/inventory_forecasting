@@ -1,3 +1,18 @@
+"""
+ 1. generate table ('content_id', 'playout_id', 'language', 'platform', 'country', 'city', 'state', 'cohort', 'ad_time', 'reach')
+ for regular cohorts distribution for finished matches
+    1.1. filter the matches that are not calculated and belongs to important tournaments
+    1.2. load playout table and watch_video table
+    1.3. parse user segments col in watch_video table to get the cohort info
+    1.4. join these 2 tåbles to calculate ad_time and reach
+
+ 2. generate table ('is_cricket', 'segments', 'watch_time', 'reach') for custom cohorts distribution for recent five days
+    2.1. load segment-ssai mapping from request
+    2.2. load user-segment table and convert segments to ssai tag
+    2.3. load watch_video table for recent 5 days
+    2.4. join these 2 tåbles to calculate watch_time and reach
+"""
+
 from common import *
 from datetime import datetime
 import sys
@@ -128,7 +143,7 @@ def concat(tags: set):
 
 
 def load_custom_tags(cd: str) -> dict:
-    res  = {}
+    res = {}
     for r in load_requests(cd):
         for x in r.get('customAudiences', []):
             if 'segmentName' in x:
@@ -139,7 +154,7 @@ def load_custom_tags(cd: str) -> dict:
 @F.udf(returnType=StringType())
 def convert_custom_cohort(long_tags):
     long_tags.sort()
-    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]
+    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]  # Need drop duplicates?
     return '|'.join(short_tags)
 
 
@@ -149,6 +164,7 @@ def process_custom_tags(cd):
     global c_tag_dict
     c_tag_dict = load_custom_tags(cd)
     t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
+    # list of
     t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     f = lambda x: any(x.endswith(c) for c in c_tag_dict)
     t3 = ['s3://' + x for x in t + t2 if f(x)]
