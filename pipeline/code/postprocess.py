@@ -10,7 +10,7 @@ def trigger_airflow(cd):
             'conf': {
                 'data': {
                     'ad_placement': 'MIDROLL',
-                    's3_path': f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all_tournament_partition/cd={cd}/'
+                    's3_path': f's3a://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all_tournament_partition/cd={cd}/'
                 }
             }
         }
