@@ -60,4 +60,16 @@ sudo python3 -m pip install \
     uvicorn==0.21.1 \
     wrapt==1.15.0 \
     xgboost==1.6.2 \
-    yarl==1.9.1
+    yarl==1.9.1 \
+    cachetools==5.3.1 \
+    certifi==2023.5.7  \
+    charset-normalizer==3.1.0  \
+    google-auth==2.21.0  \
+    google-auth-oauthlib==1.0.0  \
+    gspread==5.10.0  \
+    idna==3.4  \
+    oauthlib==3.2.2  \
+    pyasn1==0.5.0  \
+    pyasn1-modules==0.3.0  \
+    requests-oauthlib==1.3.1  \
+    rsa==4.9
