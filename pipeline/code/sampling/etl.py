@@ -19,20 +19,7 @@ import sys
 import pandas as pd
 
 
-@F.udf(returnType=StringType())
-def parse(segments):
-    if segments is None:
-        return None
-    try:
-        js = json.loads(segments)
-    except:
-        return None
-    if type(js) == list:
-        lst = js
-    elif type(js) == dict:
-        lst =js.get('data', [])
-    else:
-        return None
+def segment_of_interest(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588'] # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
@@ -56,6 +43,26 @@ def parse(segments):
         if match:
             filtered.add(t)
     return '|'.join(sorted(filtered))
+
+@F.udf(returnType=StringType())
+def segment_string(lst):
+    return segment_of_interest(lst)
+
+@F.udf(returnType=StringType())
+def parse(segments):
+    if segments is None:
+        return None
+    try:
+        js = json.loads(segments)
+    except:
+        return None
+    if type(js) == list:
+        lst = js
+    elif type(js) == dict:
+        lst =js.get('data', [])
+    else:
+        return None
+    return segment_of_interest(lst)
 
 @F.udf(returnType=TimestampType())
 def parseTimestamp(date:str, ts: str):
@@ -90,7 +97,7 @@ def process(dt, playout):
     wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) # TODO: verify dw_p_id difference with dw_d_id sampling
     # TODO: use received_at if received_at < timestamp
-    wt1 = wt[['dw_d_id', 'content_id', 'user_segments',
+    wt1 = wt[['dw_d_id', 'content_id',
         F.expr('lower(language) as language'),
         F.expr('lower(platform) as platform'),
         F.expr('lower(country) as country'),
@@ -98,14 +105,20 @@ def process(dt, playout):
         F.expr('lower(state) as state'),
         F.expr('cast(timestamp as long) as end'),
         F.expr('cast(timestamp as double) - watch_time as start'),
+        parse('user_segments').alias('cohort'),
     ]]
+    device_meta = spark.sql('select dw_d_id, advertisingid as adv_id')
+    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}').select('adv_id', segment_string('user_segment_list').alias('preroll_cohort')).distinct()
+    wt11 = wt1.join(device_meta, on='dw_d_id', how='left').join(preroll, on='adv_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
+    wt11.write.mode('overwrite').parquet(TMP_WATCH_VIDEO)
+    wt1 = spark.read.parquet(TMP_WATCH_VIDEO)
+
     wt2a = wt1.join(playout2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt2b = wt1.join(playout3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
     wt2 = wt2a.union(wt2b)
     wt3 = wt2.withColumn('ad_time', F.expr('least(end, break_end) - greatest(start, break_start)'))
     npar = 32
     wt4 = wt3.where('ad_time > 0') \
-        .withColumn('cohort', parse('user_segments')) \
         .groupby('content_id', 'playout_id',
             'language', 'platform', 'country',
             'city', 'state', 'cohort') \
