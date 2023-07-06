@@ -15,13 +15,17 @@ def read_google_sheet(name):
     gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
     x = gc.open('Inventory forecast inputs')
     df = pd.DataFrame(x.sheet1.get_all_records())
+    df.rename(columns={'tier of team1':'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
     return df
 
 
 def backfill_from_google_sheet(df):
     sheet = read_google_sheet('Inventory forecast inputs')
-    match_level_features = ['matchId','matchName','matchDate','matchStartHour','matchType','matchCategory',
-                            'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak','averageBreakDuration','fixedAdPodsPerBreak','adhocBreak','adhocBreakDuration','estimatedMatchDuration','publicHoliday','contentLanguages','platformsSupported']
+    match_level_features = ['matchId','matchDate','matchStartHour','matchType','matchCategory',
+                            # 'matchName','fixedAdPodsPerBreak','publicHoliday',
+                            'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak','averageBreakDuration','adhocBreak','adhocBreakDuration','estimatedMatchDuration','contentLanguages','platformsSupported']
+    df2 = df.drop(columns=match_level_features).drop_duplicates()
+    df = df2.merge(sheet, on='tournamentId')
     return df
 
 
@@ -93,9 +97,9 @@ def main(cd):
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     backfill_from_google_sheet(df_uni)
-    # df_old: string
-    # df_new: object #TODO: this is a type bug
-    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']].applymap(json.dumps)
+    # change list to json string because parquet doesn't support
+    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
+        .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 
