@@ -22,7 +22,7 @@ if __name__ == '__main__':
         inventory = ad_time_ratio.copy()
         reach.reach *= row.estimated_reach
         inventory.inventory *= row.estimated_inventory
-        common_cols = list(set(reach.columns)&set(inventory.columns))
+        common_cols = list(set(reach.columns) & set(inventory.columns))
         combine = inventory.merge(reach, on=common_cols, how='left')
         row.request_id = str(row.request_id)
         row.match_id = int(row.match_id)

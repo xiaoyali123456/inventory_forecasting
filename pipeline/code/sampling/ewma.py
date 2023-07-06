@@ -122,7 +122,7 @@ def aggregate(df, group_cols, DATE):
 
 def moving_avg(df, group_cols, target, alpha=0.2):
     cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age', 'language']
-    df2 = df.fillna('')
+    df2 = df.fillna('') #XXX: this is important because pandas groupby will ignore null
     df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
     df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
     # S[n+1] = (1-alpha) * S[n] + alpha * A[n+1]

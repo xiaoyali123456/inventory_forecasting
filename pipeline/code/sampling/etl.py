@@ -10,7 +10,7 @@
     2.1. load segment-ssai mapping from request
     2.2. load user-segment table and convert segments to ssai tag
     2.3. load watch_video table for recent 5 days
-    2.4. join these 2 tåbles to calculate watch_time and reach
+    2.4. join these 2 tables to calculate watch_time and reach
 """
 
 from common import *
@@ -164,7 +164,6 @@ def process_custom_tags(cd):
     global c_tag_dict
     c_tag_dict = load_custom_tags(cd)
     t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
-    # list of
     t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     f = lambda x: any(x.endswith(c) for c in c_tag_dict)
     t3 = ['s3://' + x for x in t + t2 if f(x)]
