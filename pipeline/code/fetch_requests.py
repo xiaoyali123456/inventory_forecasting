@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
 import gspread
 
+
 def read_google_sheet(name):
     os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json .')
     gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
@@ -29,6 +30,9 @@ def backfill_from_google_sheet(df):
     return df
 
 
+# fromOldRequest means if the match is from old request
+# matchHaveFinished means if the match is finished today
+# matchShouldUpdate means if we should predict inventory and reach of the match
 def load_yesterday_inputs(cd):
     yesterday = datetime.fromisoformat(cd) - timedelta(1)
     snapshot_path = PREPROCESSED_INPUT_PATH + f'cd={str(yesterday.date())}/'
@@ -47,8 +51,8 @@ def load_yesterday_inputs(cd):
        'contentLanguages', 'platformsSupported'])
     df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
-    finish_on_yesterday = any(df.matchDate == str(yesterday))
-    df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & finish_on_yesterday
+    any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
+    df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & any_match_finished_on_yesterday
     return df
 
 def unify_format(df):

@@ -3,6 +3,7 @@ import holidays
 from config import *
 from new_match import *
 from common import get_last_cd
+import new_match
 
 holiday_list = []
 
@@ -81,54 +82,71 @@ def save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date):
         .agg(F.avg('free_vv').alias('total_frees_number'),
              F.avg('sub_vv').alias('total_subscribers_number'))
     save_data_frame(res_df, f"{AVG_DVV_PATH}/cd={run_date}")
+    return res_df
 
 
-# update train dataset and prediction dataset from request data
-def update_dataset(run_date):
-    request_df = load_data_frame(spark, f"{INVENTORY_FORECAST_REQUEST_PATH}/cd={run_date}").cache()
-    # feature processing
-    feature_df = feature_processing(request_df, run_date)
-
-    # save avg dau of each tournament
-    last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
-    previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
+def calculate_avg_dvv(previous_train_df, request_df, run_date):
     dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
-        .union(feature_df.select('date', 'tournament')) \
+        .union(request_df.select('date', 'tournament')) \
         .distinct()
-    save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date)
+    avg_dvv_df = save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date)
+    return avg_dvv_df
 
-    # update total_frees_number and total_subscribers_number by new dau predictions
-    avg_dau_df = load_data_frame(spark, f"{AVG_DVV_PATH}/cd={run_date}")
-    feature_df = feature_df\
-        .drop('total_frees_number', 'total_subscribers_number')\
-        .join(avg_dau_df, 'tournament')
-    save_data_frame(feature_df, PREDICTION_FEATURE_PATH + f"/cd={run_date}")
 
-    # save future match data for inventory prediction
-    prediction_df = feature_df\
-        .where('matchShouldUpdate=true')\
+def update_avg_dvv_label(df, avg_dvv_df):
+    return df \
+        .drop('total_frees_number', 'total_subscribers_number') \
+        .join(avg_dvv_df, 'tournament')
+
+
+def update_prediction_dataset(request_df, avg_dvv_df):
+    prediction_df = request_df \
+        .where('matchShouldUpdate=true') \
         .select(*MATCH_TABLE_COLS)
+    prediction_df = update_avg_dvv_label(prediction_df, avg_dvv_df)
     prediction_df.show(20, False)
-    save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
+    if prediction_df.count() > 0:
+        save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
-    # update training dataset according to recently finished match data
-    new_match_df = feature_df\
-        .where('matchHaveFinished=true')\
-        .select(*MATCH_TABLE_COLS)\
+
+def update_train_dataset(request_df, avg_dvv_df, previous_train_df):
+    new_match_df = request_df \
+        .where('matchHaveFinished=true') \
+        .join(previous_train_df.select('content_id'), 'content_id', 'left-anti') \
+        .select(*MATCH_TABLE_COLS) \
         .cache()
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
         the_day_before_run_date = get_date_list(run_date, -2)[0]
-        new_match_df = add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
+        new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
         new_train_df = previous_train_df.select(*MATCH_TABLE_COLS).union(new_match_df.select(*MATCH_TABLE_COLS))
-    new_train_df = new_train_df\
-        .drop('total_frees_number', 'total_subscribers_number')\
-        .join(avg_dau_df, 'tournament') \
+    new_train_df = update_avg_dvv_label(new_train_df, avg_dvv_df)
+    new_train_df = new_train_df \
         .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
-        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))\
+        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
         .cache()
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
+
+
+# update train dataset and prediction dataset from request data
+def update_dataset(run_date):
+    # load request data and previous train dataset
+    request_df = load_data_frame(spark, f"{INVENTORY_FORECAST_REQUEST_PATH}/cd={run_date}").cache()
+    last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
+    previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
+
+    # feature processing
+    request_df = feature_processing(request_df, run_date)
+
+    # calculate avg dvv of each tournament
+    avg_dvv_df = calculate_avg_dvv(previous_train_df, request_df, run_date)
+
+    # save future match data for inventory prediction
+    update_prediction_dataset(request_df, avg_dvv_df)
+
+    # update training dataset according to recently finished match data
+    update_train_dataset(request_df, avg_dvv_df, previous_train_df)
 
 
 get_continent_udf = F.udf(get_continent, StringType())

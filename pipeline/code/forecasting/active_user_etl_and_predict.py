@@ -56,6 +56,10 @@ def combine(run_date):
     truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={run_date}/')
 
 
+def update_dau_dashboard():
+    spark.sql("msck repair table adtech.daily_vv_report")
+
+
 if __name__ == '__main__':
     run_date = sys.argv[1]
     true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
@@ -63,3 +67,4 @@ if __name__ == '__main__':
         truth(run_date, true_vv_path)
     forecast(run_date, true_vv_path)
     combine(run_date)
+    update_dau_dashboard()

@@ -9,7 +9,7 @@ SPARK="spark-submit --deploy-mode client \
     --py-files common.py"
 
 $SPARK forecasting/active_user_etl_and_predict.py $DATE
-$SPARK forecasting/feature.py $DATE
+$SPARK forecasting/dataset_update.py $DATE
 # $SPARK forecasting/label.py $DATE
 #$SPARK forecasting/xgb_model.py $DATE
 #$SPARK forecasting/inventory_prediction.py $DATE

@@ -7,7 +7,6 @@ LIVE_ADS_INVENTORY_FORECASTING_ROOT_PATH = "s3://adtech-ml-perf-ads-us-east-1-pr
 LIVE_ADS_INVENTORY_FORECASTING_COMPLETE_FEATURE_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
 PIPELINE_BASE_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
 TRAINING_DATA_PATH = f"{PIPELINE_BASE_PATH}/all_features_hots_format_full_avod_and_simple_one_hot_overall"
-PREDICTION_FEATURE_PATH = f"{PIPELINE_BASE_PATH}/prediction/all_features_hots_format"
 DVV_PREDICTION_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
 DVV_TRUTH_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
 DVV_COMBINE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/combine/'
