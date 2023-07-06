@@ -1,7 +1,3 @@
-echo DATE $1
-echo CODE $2
-sleep 3600
-
 set -exu
 DATE=$1
 CODE=$2

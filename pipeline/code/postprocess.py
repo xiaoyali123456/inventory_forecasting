@@ -20,7 +20,7 @@ def trigger_airflow(cd):
 if __name__ == '__main__':
     DATE = sys.argv[1]
     df = pd.read_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
-    for r_id in set(df.request_id):
+    for r_id in set(df.inventoryId):
         r = requests.patch(
             BOOKING_TOOL_URL + f'inventory/{r_id}/ad-placement/MIDROLL/forecast-request',
             json = {
