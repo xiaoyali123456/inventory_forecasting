@@ -3,13 +3,31 @@
 """
 import json
 import sys
+import os
 
 import pandas as pd
 from datetime import datetime, timedelta
 from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
+import gspread
 
-def backfill_from_google_sheet():
-    pass
+def read_google_sheet(name):
+    os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json .')
+    gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
+    x = gc.open('Inventory forecast inputs')
+    df = pd.DataFrame(x.sheet1.get_all_records())
+    df.rename(columns={'tier of team1':'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
+    return df
+
+
+def backfill_from_google_sheet(df):
+    sheet = read_google_sheet('Inventory forecast inputs')
+    match_level_features = ['matchId','matchDate','matchStartHour','matchType','matchCategory',
+                            # 'matchName','fixedAdPodsPerBreak','publicHoliday',
+                            'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak','averageBreakDuration','adhocBreak','adhocBreakDuration','estimatedMatchDuration','contentLanguages','platformsSupported']
+    df2 = df.drop(columns=match_level_features).drop_duplicates()
+    df = df2.merge(sheet, on='tournamentId')
+    return df
+
 
 def load_yesterday_inputs(cd):
     yesterday = datetime.fromisoformat(cd) - timedelta(1)
@@ -27,7 +45,7 @@ def load_yesterday_inputs(cd):
        'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak',
        'averageBreakDuration', 'adhocBreak', 'adhocBreakDuration',
        'contentLanguages', 'platformsSupported'])
-    df['fromOldRequest'] = False
+    df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
     finish_on_yesterday = any(df.matchDate == str(yesterday))
     df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & finish_on_yesterday
@@ -78,7 +96,10 @@ def main(cd):
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
-    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']].applymap(json.dumps)
+    backfill_from_google_sheet(df_uni)
+    # change list to json string because parquet doesn't support
+    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
+        .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 

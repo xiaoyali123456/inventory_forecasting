@@ -4,7 +4,7 @@
     1.1. filter the matches that are not calculated and belongs to important tournaments
     1.2. load playout table and watch_video table
     1.3. parse user segments col in watch_video table to get the cohort info
-    1.4. join these 2 tåbles to calculate ad_time and reach
+    1.4. join these 2 tables to calculate ad_time and reach
 
  2. generate table ('is_cricket', 'segments', 'watch_time', 'reach') for custom cohorts distribution in terms of recent five days
     2.1. load segment-ssai mapping from request
@@ -89,7 +89,7 @@ def process(dt, playout):
     playout2 = playout1.where('platform != "na"')
     playout3 = playout2.where('platform == "na"').drop('platform')
     wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
-        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
+        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) # TODO: verify dw_p_id difference with dw_d_id sampling
     # TODO: use received_at if received_at < timestamp
     wt1 = wt[['dw_d_id', 'content_id', 'user_segments',
         F.expr('lower(language) as language'),
@@ -121,7 +121,7 @@ def match_filter(s):
     if isinstance(s, str):
         s = s.lower()
         for t in FOCAL_TOURNAMENTS:
-            if t in s:
+            if t in s: # sportseasonname is a superstring
                 return True
     return False
 
