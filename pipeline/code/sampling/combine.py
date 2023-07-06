@@ -15,7 +15,7 @@ if __name__ == '__main__':
     total = pd.read_parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/')
     reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/')
-    ad_time_ratio.rename(columns={'ad_time':'inventory'}, inplace=True)
+    ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
     processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={DATE}/')
     for i, row in total.iterrows():
         reach = reach_ratio.copy()

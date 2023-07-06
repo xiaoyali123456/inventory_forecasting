@@ -1,3 +1,6 @@
+"""
+
+"""
 import pandas as pd
 import sys
 from functools import reduce
@@ -124,10 +127,12 @@ def moving_avg(df, group_cols, target, alpha=0.2):
     cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age', 'language']
     df2 = df.fillna('')
     df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')
+    # schema: cd, cohort_ratio...,target
     df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)
+    # schema: index(cd), cohort_candidate_combination
     # S[n+1] = (1-alpha) * S[n] + alpha * A[n+1]
     df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
-    return df4.iloc[-1].rename(target).reset_index()
+    return df4.iloc[-1].rename(target).reset_index()  # schema: cohort_cols, target
 
 
 def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
@@ -138,7 +143,7 @@ def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
     df2 = df.merge(ch2, how='cross')
     df2[dst_col] = df2[dst_col+'_x'] * df2[dst_col+'_y']
-    return df2.drop(columns=[dst_col+'_x', dst_col+'_y'])
+    return df2.drop(columns=[dst_col+'_x', dst_col+'_y']) # schema: cohort_cols..., custom_cohorts, target
 
 
 if __name__ == '__main__':

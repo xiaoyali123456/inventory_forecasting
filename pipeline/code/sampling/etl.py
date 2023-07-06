@@ -11,6 +11,7 @@
     2.2. load user-segment table and convert segments to ssai tag
     2.3. load watch_video table for recent 5 days
     2.4. join these 2 tåbles to calculate watch_time and reach
+    segments=C14_1|C15_2
 """
 
 from common import *
