@@ -100,10 +100,10 @@ def main(cd):
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
-    backfill_from_google_sheet(df_uni)
     # change list to json string because parquet doesn't support
     df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
         .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
+    df_uni = backfill_from_google_sheet(df_uni)
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 
