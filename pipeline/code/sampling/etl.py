@@ -75,6 +75,7 @@ def parse_timestamp(date:str, ts: str):
 
 
 def preprocess_playout(df):
+    # TODO: This will fail when End Date is null!! e.g. 2023-07-06
     return df.withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
         .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
         .selectExpr(
@@ -101,8 +102,11 @@ def process(dt, playout):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
     playout2 = playout1.where('platform != "na"')
     playout3 = playout2.where('platform == "na"').drop('platform')
+    # TODO: verify dw_p_id difference with dw_d_id sampling
     wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
-        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) # TODO: verify dw_p_id difference with dw_d_id sampling
+        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
+        .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
+        .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
     # TODO: use received_at if received_at < timestamp
     wt1 = wt[['dw_d_id', 'content_id',
         F.expr('lower(language) as language'),
@@ -114,11 +118,12 @@ def process(dt, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse('user_segments').alias('cohort'),
     ]]
-    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}').select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort')).distinct()
+    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}') \
+        .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
+        .select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort'))
     wt1 = wt1.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
-    # TODO: uncomment the below line if memory fail
-    # wt1.write.mode('overwrite').parquet(TMP_WATCH_VIDEO)
-    # wt1 = spark.read.parquet(TMP_WATCH_VIDEO)
+    wt1.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
+    wt1 = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
     wt2a = wt1.join(playout2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt2b = wt1.join(playout3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
     wt2 = wt2a.union(wt2b)
@@ -213,8 +218,10 @@ def main(cd):
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
         try:
-            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True)
+            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True) \
+                .where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull()) # TODO: this doesn't cover all corner cases
             playout = preprocess_playout(raw_playout).where(F.col('content_id').isin(content_ids))
+            playout.toPandas() # try to realize the playout
             process(dt, playout)
         except:
             print(dt, 'playout not available')
