@@ -8,7 +8,7 @@ echo "$DATE"
 
 source activate pytorch
 
-aws s3 sync $CODE .
+aws s3 sync $CODE . --quiet
 
 # shellcheck disable=SC2164
 cd midroll/rate_and_wt_regression_model

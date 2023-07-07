@@ -2,7 +2,7 @@ set -exu
 DATE=$1
 CODE=$2
 
-aws s3 sync $CODE ~/CODE
+aws s3 sync $CODE ~/CODE --quiet
 cd ~/CODE
 
 python3 -m pip install --user -r postprocess/requirements.txt
