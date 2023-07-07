@@ -151,7 +151,6 @@ def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    # DATE='2023-05-26'
     iv = load_inventory(DATE)
     giv = aggregate(iv, ['cd', 'content_id'], DATE)
     df = moving_avg(giv, ['cd'], target='ad_time')

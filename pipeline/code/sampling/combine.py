@@ -16,7 +16,7 @@ def parse(string):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    total = spark.read_parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
+    total = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
     reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)

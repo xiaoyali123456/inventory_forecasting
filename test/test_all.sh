@@ -7,8 +7,8 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
     --py-files common.py,forecasting/path.py,forecasting/config.py,forecasting/util.py"
 
-#aws s3 sync $(dirname $0) $CODE
-#aws s3 sync $CODE .
+# aws s3 sync /home/hadoop/minliang/live/pipeline/code $CODE
+# aws s3 sync $CODE .
 
 bash booking/server.sh &
 sleep 5
