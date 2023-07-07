@@ -2,8 +2,8 @@ from path import *
 from util import *
 
 
-# get wt related labels
-def get_wt_data(spark, date):
+# calculate free/sub reach and avg_wt
+def calculate_reach_and_wt_from_wv_table(spark, date):
     match_sub_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
         .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
         .groupBy('dw_p_id', 'content_id') \
@@ -27,24 +27,24 @@ def get_wt_data(spark, date):
     return match_sub_df, match_free_df
 
 
-# get break list of a specific content with break_start_time, break_end_time
-def save_break_list_info(playout_df, date):
-    cols = ['content_id', 'start_time', 'end_time', 'delivered_duration']
+# get break list with break_start_time, break_end_time
+def break_info_processing(playout_df, date):
+    cols = ['content_id', 'break_start_time_int', 'break_end_time_int', 'delivered_duration']
     playout_df = playout_df \
-        .withColumn('rank', F.expr('row_number() over (partition by content_id order by start_time)')) \
+        .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int)')) \
         .withColumn('rank_next', F.expr('rank+1'))
     res_df = playout_df \
-        .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'end_time as end_time_next'),
+        .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'break_end_time_int as break_end_time_int_next'),
               ['content_id', 'rank']) \
-        .withColumn('bias', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long) '
-                                   '- cast(unix_timestamp(end_time_next, "yyyy-MM-dd HH:mm:ss") as long)')) \
+        .withColumn('bias', F.expr('break_start_time_int - break_end_time_int_next')) \
         .where('bias >= 0') \
-        .orderBy('start_time')
+        .orderBy('break_start_time_int')
     res_df = playout_df \
         .where('rank = 1') \
         .select(*cols) \
         .union(res_df.select(*cols))
     save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+    return res_df
 
 
 # reformat playout logs
@@ -97,53 +97,58 @@ def playout_data_processing(spark, date):
         .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))\
         .withColumn('start_time', F.concat_ws(" ", F.col('start_date'), F.col('start_time')))\
         .withColumn('end_time', F.concat_ws(" ", F.col('end_date'), F.col('end_time'))) \
-        .withColumn('start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('duration', F.expr('end_time_int-start_time_int'))\
-        .where('duration > 0 and creative_path != "aston"')
-    save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
-
-
-# get inventory and reach
-def get_inventory_data(spark, date):
-    playout_data_processing(spark, date)
-    playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}") \
-        .cache()
-    save_break_list_info(playout_df, date)
-    final_playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}") \
         .withColumn('break_start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
         .withColumn('break_end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int')) \
-        .where('duration > 0 and duration < 3600') \
-        .cache()
-    print(final_playout_df.count())
+        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int'))\
+        .where('duration > 0 and duration < 3600 and creative_path != "aston"')
+    save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
+    return playout_df
 
+
+def load_break_info_from_playout_logs(spark, date):
+    playout_df = playout_data_processing(spark, date)
+    break_info_df = break_info_processing(playout_df, date)
+    return break_info_df
+
+
+def load_wv_data(spark, date):
     data_source = "watched_video"
     timestamp_col = "ts_occurred_ms"
-    if not check_s3_path_exist(PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}"):
+    if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
         watch_video_df = load_data_frame(spark, f"{WATCH_VIDEO_PATH}/cd={date}") \
             .withColumn("timestamp", F.expr(f'if(timestamp is null and {timestamp_col} is not null, '
-                               f'from_unixtime({timestamp_col}/1000), timestamp)'))\
+                                            f'from_unixtime({timestamp_col}/1000), timestamp)')) \
             .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id',
-                    'dw_d_id')\
+                    'dw_d_id') \
             .withColumn('wv_end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
-            .withColumn('wv_end_timestamp', F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
+            .withColumn('wv_end_timestamp',
+                        F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
             .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
-            .withColumn('wv_start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
+            .withColumn('wv_start_timestamp', F.from_unixtime(
+            F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
             .withColumn('wv_start_timestamp', F.from_utc_timestamp(F.col('wv_start_timestamp'), "IST")) \
             .withColumn('wv_end_timestamp', F.from_utc_timestamp(F.col('wv_end_timestamp'), "IST")) \
-            .withColumn('wv_start_time_int', F.expr('cast(unix_timestamp(wv_start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
-            .withColumn('wv_end_time_int', F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
-            .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp')\
+            .withColumn('wv_start_time_int',
+                        F.expr('cast(unix_timestamp(wv_start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+            .withColumn('wv_end_time_int',
+                        F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+            .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp') \
             .cache()
-        save_data_frame(watch_video_df, PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}")
+        save_data_frame(watch_video_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
     else:
-        watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH+f"/label/{data_source}/cd={date}")\
+        watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
             .cache()
+    return watch_video_df
+
+
+# calculate inventory and reach ground truth
+def calculate_inventory_and_reach_gt(spark, date):
+    break_info_df = load_break_info_from_playout_logs(spark, date)
+    watch_video_df = load_wv_data(spark, date)
 
     # calculate inventory and reach, need to extract the common intervals for each users
     total_inventory_df = watch_video_df\
-        .join(F.broadcast(final_playout_df), ['content_id'])\
+        .join(F.broadcast(break_info_df), ['content_id'])\
         .withColumn('big_start_time', F.expr('if(wv_start_time_int < break_start_time_int, break_start_time_int, wv_start_time_int)'))\
         .withColumn('small_end_time', F.expr('if(wv_end_time_int < break_end_time_int, wv_end_time_int, break_end_time_int)'))\
         .withColumn('valid_duration', F.expr('small_end_time - big_start_time'))\
@@ -158,10 +163,10 @@ def get_inventory_data(spark, date):
     return total_inventory_df
 
 
-# add wt related and inventory labels
+# add wv related labels and inventory&reach labels
 def add_labels_to_new_matches(spark, date, new_match_df):
-    match_sub_df, match_free_df = get_wt_data(spark, date)
-    inventory_df = get_inventory_data(spark, date)
+    match_sub_df, match_free_df = get_reach_and_wt_from_wv_table(spark, date)
+    inventory_df = get_inventory_and_reach_gt(spark, date)
     res_df = new_match_df\
         .drop("match_active_free_num", "watch_time_per_free_per_match",
               "match_active_sub_num", "watch_time_per_subscriber_per_match",

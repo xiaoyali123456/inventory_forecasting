@@ -70,7 +70,7 @@
         {
             "id": "ForecastingFeature",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/midroll_feature.sh",
+            "scriptUri": "#{myProjectFolder}/code/dataset_update.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
@@ -85,7 +85,7 @@
         {
             "id": "ForecastingRatePrediction",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/midroll_rate_prediction.sh",
+            "scriptUri": "#{myProjectFolder}/code/rate_and_wt_prediction.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
@@ -100,7 +100,7 @@
         {
             "id": "ForecastingInventory",
             "type": "ShellCommandActivity",
-            "scriptUri": "#{myProjectFolder}/code/midroll_inventory_forecast.sh",
+            "scriptUri": "#{myProjectFolder}/code/inventory_forecast.sh",
             "scriptArgument": [
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"

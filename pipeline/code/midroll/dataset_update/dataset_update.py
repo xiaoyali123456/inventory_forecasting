@@ -1,7 +1,8 @@
 import holidays
 
 from config import *
-from new_match import *
+from path import *
+from util import *
 from common import get_last_cd
 import new_match
 
@@ -70,14 +71,14 @@ def feature_processing(df, run_date):
     return feature_df
 
 
-# calculate and save avg dvv at tournament level
-def save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date):
-    dvv_df = load_data_frame(spark, f'{DVV_COMBINE_PATH}cd={run_date}/') \
+# calculate and save avg dau at tournament level
+def save_avg_dau_for_each_tournament(dates_for_each_tournament_df, run_date):
+    dau_df = load_data_frame(spark, f'{DVV_COMBINE_PATH}cd={run_date}/') \
         .withColumn('free_vv', F.expr('vv - sub_vv')) \
         .selectExpr('ds as date', 'free_vv', 'sub_vv') \
         .cache()
     res_df = dates_for_each_tournament_df\
-        .join(dvv_df, 'date') \
+        .join(dau_df, 'date') \
         .groupBy('tournament') \
         .agg(F.avg('free_vv').alias('total_frees_number'),
              F.avg('sub_vv').alias('total_subscribers_number'))
@@ -85,31 +86,31 @@ def save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date):
     return res_df
 
 
-def calculate_avg_dvv(previous_train_df, request_df, run_date):
+def calculate_avg_dau(previous_train_df, request_df, run_date):
     dates_for_each_tournament_df = previous_train_df.select('date', 'tournament') \
         .union(request_df.select('date', 'tournament')) \
         .distinct()
-    avg_dvv_df = save_avg_dvv_for_each_tournament(dates_for_each_tournament_df, run_date)
-    return avg_dvv_df
+    avg_dau_df = save_avg_dau_for_each_tournament(dates_for_each_tournament_df, run_date)
+    return avg_dau_df
 
 
-def update_avg_dvv_label(df, avg_dvv_df):
+def update_avg_dau_label(df, avg_dau_df):
     return df \
         .drop('total_frees_number', 'total_subscribers_number') \
-        .join(avg_dvv_df, 'tournament')
+        .join(avg_dau_df, 'tournament')
 
 
-def update_prediction_dataset(request_df, avg_dvv_df):
+def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = request_df \
         .where('matchShouldUpdate=true') \
-        .select(*MATCH_TABLE_COLS)
-    prediction_df = update_avg_dvv_label(prediction_df, avg_dvv_df)
+        .select(*MATCH_TABLE_COLS, 'match_duration', 'break_duration')
+    prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     prediction_df.show(20, False)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
 
-def update_train_dataset(request_df, avg_dvv_df, previous_train_df):
+def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     new_match_df = request_df \
         .where('matchHaveFinished=true') \
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
@@ -121,7 +122,7 @@ def update_train_dataset(request_df, avg_dvv_df, previous_train_df):
         the_day_before_run_date = get_date_list(run_date, -2)[0]
         new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
         new_train_df = previous_train_df.select(*MATCH_TABLE_COLS).union(new_match_df.select(*MATCH_TABLE_COLS))
-    new_train_df = update_avg_dvv_label(new_train_df, avg_dvv_df)
+    new_train_df = update_avg_dau_label(new_train_df, avg_dau_df)
     new_train_df = new_train_df \
         .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
         .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
@@ -139,14 +140,14 @@ def update_dataset(run_date):
     # feature processing
     request_df = feature_processing(request_df, run_date)
 
-    # calculate avg dvv of each tournament
-    avg_dvv_df = calculate_avg_dvv(previous_train_df, request_df, run_date)
+    # calculate avg dau of each tournament
+    avg_dau_df = calculate_avg_dau(previous_train_df, request_df, run_date)
 
     # save future match data for inventory prediction
-    update_prediction_dataset(request_df, avg_dvv_df)
+    update_prediction_dataset(request_df, avg_dau_df)
 
     # update training dataset according to recently finished match data
-    update_train_dataset(request_df, avg_dvv_df, previous_train_df)
+    update_train_dataset(request_df, avg_dau_df, previous_train_df)
 
 
 get_continent_udf = F.udf(get_continent, StringType())

@@ -33,7 +33,7 @@ DNN_CONFIGURATION = {
     ],
     'train_batch_size': 16,
     'test_batch_size': 64,
-    'epoch_num': 30,
+    'epoch_num': 40,
     'lr': 5e-3,
     'weight_decay': 1e-3,
     'embedding_table_size': 100,
