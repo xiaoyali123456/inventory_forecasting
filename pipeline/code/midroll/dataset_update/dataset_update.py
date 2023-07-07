@@ -102,8 +102,7 @@ def update_avg_dau_label(df, avg_dau_df):
 
 def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = request_df \
-        .where('matchShouldUpdate=true') \
-        .select(*MATCH_TABLE_COLS, 'match_duration', 'break_duration')
+        .where('matchShouldUpdate=true')
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     prediction_df.show(20, False)
     if prediction_df.count() > 0:
