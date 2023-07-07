@@ -39,7 +39,7 @@ def forecast(end, true_vv_path):
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
-    forecast_df = pd.concat([f.ds.str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1)
+    forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1)
     print(forecast_df.ds)
     forecast_df.repartition(1).write.mode('overwrite').parquet(f'{DAU_FORECAST_PATH}cd={end}/')
 
