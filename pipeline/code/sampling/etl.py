@@ -218,8 +218,8 @@ def main(cd):
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
         try:
-            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True) \
-                .where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull()) # TODO: this doesn't cover all corner cases
+            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True)
+            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull()) # TODO: this doesn't cover all corner cases
             playout = preprocess_playout(raw_playout).where(F.col('content_id').isin(content_ids))
             playout.toPandas() # try to realize the playout
             process(dt, playout)
