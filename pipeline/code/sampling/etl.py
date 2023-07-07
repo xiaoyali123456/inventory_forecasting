@@ -20,7 +20,7 @@ import sys
 import pandas as pd
 
 
-def segment_of_interest(lst):
+def make_segment_str(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588'] # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
@@ -45,9 +45,12 @@ def segment_of_interest(lst):
             filtered.add(t)
     return '|'.join(sorted(filtered))
 
+
 @F.udf(returnType=StringType())
-def segment_string(lst):
-    return segment_of_interest(lst)
+def make_segment_str_wrapper(lst):
+    if lst is None:
+        return None
+    return make_segment_str(lst)
 
 @F.udf(returnType=StringType())
 def parse(segments):
@@ -63,15 +66,17 @@ def parse(segments):
         lst =js.get('data', [])
     else:
         return None
-    return segment_of_interest(lst)
+    return make_segment_str(lst)
+
 
 @F.udf(returnType=TimestampType())
-def parseTimestamp(date:str, ts: str):
+def parse_timestamp(date:str, ts: str):
     return pd.Timestamp(date + ' ' + ts, tz='asia/kolkata')
 
+
 def preprocess_playout(df):
-    return df.withColumn('break_start', parseTimestamp('Start Date', 'Start Time')) \
-        .withColumn('break_end', parseTimestamp('End Date', 'End Time')) \
+    return df.withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+        .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
         .selectExpr(
             '`Content ID` as content_id',
             'trim(lower(`Playout ID`)) as playout_id',
@@ -81,6 +86,7 @@ def preprocess_playout(df):
             'break_start',
             'break_end',
         ).where('break_start is not null and break_end is not null')
+
 
 def process(dt, playout):
     print('process', dt)
@@ -108,12 +114,11 @@ def process(dt, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse('user_segments').alias('cohort'),
     ]]
-    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}').select('adv_id', segment_string('user_segment_list').alias('preroll_cohort')).distinct()
+    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}').select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort')).distinct()
     wt1 = wt1.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
-    # TODO: use the below line if memory fail
+    # TODO: uncomment the below line if memory fail
     # wt1.write.mode('overwrite').parquet(TMP_WATCH_VIDEO)
     # wt1 = spark.read.parquet(TMP_WATCH_VIDEO)
-
     wt2a = wt1.join(playout2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt2b = wt1.join(playout3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
     wt2 = wt2a.union(wt2b)
@@ -130,6 +135,7 @@ def process(dt, playout):
     wt4.write.mode('overwrite').parquet(final_output_path)
     print('end', datetime.now())
 
+
 def match_filter(s):
     if isinstance(s, str):
         s = s.lower()
@@ -137,6 +143,7 @@ def match_filter(s):
             if t in s: # sportseasonname is a superstring
                 return True
     return False
+
 
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
@@ -200,8 +207,8 @@ def process_custom_tags(cd):
         res = spark.createDataFrame(t)
     res.repartition(1).write.mode('overwrite').parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
+
 def main(cd):
-    # cd = '2023-05-01' # TODO: fix customAudiences typo
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
