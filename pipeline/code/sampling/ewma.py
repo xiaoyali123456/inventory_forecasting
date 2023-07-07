@@ -116,7 +116,7 @@ def device(cohort):
 
 # TODO: add comment for the purpose of this function
 def aggregate(df, group_cols, DATE):
-    filter = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % DATE) \
+    filter = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
     return df.join(filter, ['cd', 'content_id']).groupby(
         *group_cols,

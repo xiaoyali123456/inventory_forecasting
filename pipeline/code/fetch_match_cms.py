@@ -30,4 +30,4 @@ if __name__ == '__main__':
         AND NOT highlight
     ORDER BY startdate DESC
     ''')
-    matches.repartition(1).write.mode('overwrite').parquet(NEW_MATCHES_PATH_TEMPL%cd)
+    matches.repartition(1).write.mode('overwrite').parquet(MATCH_CMS_PATH_TEMPL%cd)

@@ -15,7 +15,7 @@ sleep 5
 
 # preprocess
 # python3 fetch_requests.py $DATE
-# $SPARK check_matches_snapshot.py $DATE
+# $SPARK fetch_match_cms.py $DATE
 
 # forecasting
 # $SPARK forecasting/active_user_etl_and_predict.py $DATE

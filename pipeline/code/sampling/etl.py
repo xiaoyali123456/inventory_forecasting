@@ -108,11 +108,11 @@ def process(dt, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse('user_segments').alias('cohort'),
     ]]
-    device_meta = spark.sql('select dw_d_id, advertisingid as adv_id')
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}').select('adv_id', segment_string('user_segment_list').alias('preroll_cohort')).distinct()
-    wt11 = wt1.join(device_meta, on='dw_d_id', how='left').join(preroll, on='adv_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
-    wt11.write.mode('overwrite').parquet(TMP_WATCH_VIDEO)
-    wt1 = spark.read.parquet(TMP_WATCH_VIDEO)
+    wt1 = wt1.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
+    # TODO: use the below line if memory fail
+    # wt1.write.mode('overwrite').parquet(TMP_WATCH_VIDEO)
+    # wt1 = spark.read.parquet(TMP_WATCH_VIDEO)
 
     wt2a = wt1.join(playout2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt2b = wt1.join(playout3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
@@ -140,13 +140,13 @@ def match_filter(s):
 
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
-    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd) \
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
     return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
 
 
 def latest_match_days(cd, n):
-    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd)
     latest_days = matches[['startdate']].distinct().toPandas().startdate.sort_values()
     return latest_days[latest_days < cd].tolist()[-n:]
 
