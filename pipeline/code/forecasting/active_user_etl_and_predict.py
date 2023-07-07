@@ -41,7 +41,7 @@ def forecast(end, true_vv_path):
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
     forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1)
     print(forecast_df.ds)
-    forecast_df.repartition(1).write.mode('overwrite').parquet(f'{DAU_FORECAST_PATH}cd={end}/')
+    forecast_df.to_parquet(f'{DAU_FORECAST_PATH}cd={end}')
 
 
 # combine true vv of (, run_date) and predicted vv of [run_date, )
