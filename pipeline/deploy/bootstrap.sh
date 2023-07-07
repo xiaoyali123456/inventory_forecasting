@@ -62,7 +62,6 @@ sudo python3 -m pip install \
     xgboost==1.6.2 \
     yarl==1.9.1 \
     cachetools==5.3.1 \
-    certifi==2023.5.7  \
     charset-normalizer==3.1.0  \
     google-auth==2.21.0  \
     google-auth-oauthlib==1.0.0  \

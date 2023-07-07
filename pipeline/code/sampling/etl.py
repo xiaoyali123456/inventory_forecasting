@@ -140,13 +140,13 @@ def match_filter(s):
 
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
-    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd) \
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
     return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
 
 
 def latest_match_days(cd, n):
-    matches = spark.read.parquet(NEW_MATCHES_PATH_TEMPL % cd)
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd)
     latest_days = matches[['startdate']].distinct().toPandas().startdate.sort_values()
     return latest_days[latest_days < cd].tolist()[-n:]
 

@@ -10,4 +10,4 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0"
 
 python3 fetch_requests.py $DATE
-$SPARK check_matches_snapshot.py $DATE
+$SPARK fetch_match_cms.py $DATE
