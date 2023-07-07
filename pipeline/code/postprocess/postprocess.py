@@ -1,6 +1,8 @@
 import requests
 import sys
 import pandas as pd
+
+sys.path.append('../')
 from common import BOOKING_TOOL_URL, FINAL_ALL_PREDICTION_PATH
 
 def trigger_airflow(cd):
