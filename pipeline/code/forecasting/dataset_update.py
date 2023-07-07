@@ -112,7 +112,7 @@ def update_prediction_dataset(request_df, avg_dvv_df):
 def update_train_dataset(request_df, avg_dvv_df, previous_train_df):
     new_match_df = request_df \
         .where('matchHaveFinished=true') \
-        .join(previous_train_df.select('content_id'), 'content_id', 'left-anti') \
+        .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
         .cache()
     if new_match_df.count() == 0:
