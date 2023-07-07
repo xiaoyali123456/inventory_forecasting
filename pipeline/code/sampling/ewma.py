@@ -1,5 +1,10 @@
 """
-
+    1. aggregate regular cohorts distribution to generate table
+    ('content_id', 'language', 'platform', 'country', 'city', 'state', 'nccs', 'device', 'gender', 'age', ad_time', 'reach')
+    2. calculate inventory/reach rate of each regular cohorts
+    3. use moving avg method to predict inventory/reach rate for each regular cohorts
+    4. calculate inventory/reach rate of each custom cohorts
+    5. merge the outputs of 3 and 4 to get the final result
 """
 import pandas as pd
 import sys
@@ -130,7 +135,7 @@ def moving_avg(df, group_cols, target, alpha=0.2):
     df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)  # index=cd, cols=cohort_candidate_combination1, cohort_candidate_combination2, ...
     # S[n+1] = (1-alpha) * S[n] + alpha * A[n+1]
     df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
-    return df4.iloc[-1].rename(target).reset_index()  # schema: country, platform,..., target
+    return df4.iloc[-1].rename(target).reset_index()  # cols=country, platform,..., target
 
 
 def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):

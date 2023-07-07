@@ -39,7 +39,7 @@ def forecast(end, true_vv_path):
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
-    pd.concat([f.ds, f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1) \
+    pd.concat([f.ds.str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1) \
         .to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
 
 
@@ -50,7 +50,6 @@ def combine(run_date):
     forecast_df = spark\
         .read\
         .parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
-        .withColumn('ds', F.substring(F.col('ds'), 1, 10))\
         .where(f'ds >= "{run_date}"')\
         .select(cols)
     truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={run_date}/')

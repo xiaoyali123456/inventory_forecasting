@@ -1,7 +1,11 @@
+"""
+    1.
+"""
 import pandas as pd
 import sys
 import json
 from common import *
+
 
 def parse(string):
     if string is None or string == '':
