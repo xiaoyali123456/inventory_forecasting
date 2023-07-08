@@ -1,0 +1,79 @@
+{
+    "objects": [
+        {
+            "id": "Default",
+            "pipelineLogUri": "#{myProjectFolder}/logs/",
+            "keyPair": "research-prod",
+            "role": "sirius_universal_role_prod",
+            "resourceRole": "sirius_universal_role_prod",
+            "maximumRetries": "0",
+            "terminateAfter": "2 Hours",
+            "region": "us-east-1",
+            "securityGroupIds": "sg-aeeb4ad8",
+            "subnetId": "subnet-156c324f",
+            "maxActiveInstances": "1",
+            "scheduleType": "cron",
+            "schedule": {"ref": "DefaultSchedule"},
+            "failureAndRerunMode": "CASCADE",
+            "onFail": {"ref": "FailureNotification"}
+        },
+        {
+            "id": "DefaultSchedule",
+            "type": "Schedule",
+            "period": "1 day",
+            "startDateTime": "#{myStartDate}T01:30:00"
+        },
+        {
+            "id": "Ec2",
+            "type": "Ec2Resource",
+            "imageId": "ami-069aabeee6f53e7bf",
+            "instanceType": "c5.xlarge"
+        },
+        {
+            "id": "Classify",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/classify.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "dependsOn": {
+                "ref": "Sampling"
+            },
+            "runsOn": {
+                "ref": "Ec2"
+            }
+        },
+        {
+            "id": "SuccessNotification",
+            "subject": "Cohort Density Pipeline Success: #{node.@pipelineId} - #{node.name}",
+            "message": "Done",
+            "type": "SnsAlarm",
+            "topicArn": "#{mySNSTopicArn}"
+        },
+        {
+            "id": "FailureNotification",
+            "subject": "Cohort Density Forecasting Pipeline Failed: #{node.@pipelineId} - #{node.name}",
+            "message": "Error: #{node.errorMessage} #{node.errorStackTrace}",
+            "type": "SnsAlarm",
+            "topicArn": "#{mySNSTopicArn}"
+        }
+    ],
+    "parameters": [
+        {
+            "id": "myRunningDate",
+            "type": "String",
+            "default": "#{format(@scheduledStartTime,'YYYY-MM-dd')}"
+        },
+        {
+            "id": "mySNSTopicPdArn",
+            "type": "String",
+            "default": "arn:aws:sns:ap-southeast-1:084690408984:adtech_ml_pd"
+        },
+        {
+            "id": "mySNSTopicArn",
+            "type": "String",
+            "default": "arn:aws:sns:us-east-1:253474845919:sirius-notification"
+        }
+    ]
+}
