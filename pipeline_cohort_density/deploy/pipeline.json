@@ -7,7 +7,7 @@
             "role": "sirius_universal_role_prod",
             "resourceRole": "sirius_universal_role_prod",
             "maximumRetries": "0",
-            "terminateAfter": "2 Hours",
+            "terminateAfter": "1 Hours",
             "region": "us-east-1",
             "securityGroupIds": "sg-aeeb4ad8",
             "subnetId": "subnet-156c324f",
@@ -37,9 +37,6 @@
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
             ],
-            "dependsOn": {
-                "ref": "Sampling"
-            },
             "runsOn": {
                 "ref": "Ec2"
             }
