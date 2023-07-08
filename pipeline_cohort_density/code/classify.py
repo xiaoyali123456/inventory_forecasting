@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
 
-input_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_backwardentory_forecasting/data/sampling/dense_sparse/qdata_v4/'
+input_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/dense_sparse/qdata_v4/'
 config_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adtech-segment-management/prod/ssai_configuration/ssai_configuration.json'
 output_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adtech-segment-management/prod/forecast_information/forecast_information.json'
 
