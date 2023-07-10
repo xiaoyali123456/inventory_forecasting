@@ -44,6 +44,16 @@
             "releaseLabel": "emr-5.31.0"
         },
         {
+            "id": "EmrPreroll",
+            "type": "EmrCluster",
+            "applications": "spark",
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
+            "coreInstanceCount": "4",
+            "coreInstanceType": "m5.xlarge",
+            "masterInstanceType": "m5.xlarge",
+            "releaseLabel": "emr-5.31.0"
+        },
+        {
             "id": "Ec2",
             "type": "Ec2Resource",
             "imageId": "ami-069aabeee6f53e7bf",
@@ -141,6 +151,16 @@
             "runsOn": {
                 "ref": "Ec2"
             }
+        },
+        {
+            "id": "SamplingPreroll",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/sampling_preroll.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "runsOn": {"ref": "EmrPreroll"}
         },
         {
             "id": "SuccessNotification",

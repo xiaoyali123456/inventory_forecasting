@@ -52,6 +52,7 @@ def make_segment_str_wrapper(lst):
         return None
     return make_segment_str(lst)
 
+
 @F.udf(returnType=StringType())
 def parse(segments):
     if segments is None:
@@ -141,20 +142,11 @@ def process(dt, playout):
     print('end', datetime.now())
 
 
-def match_filter(s):
-    if isinstance(s, str):
-        s = s.lower()
-        for t in FOCAL_TOURNAMENTS:
-            if t in s: # sportseasonname is a superstring
-                return True
-    return False
-
-
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
-    return matches[matches.sportsseasonname.map(match_filter)] # TODO: exception check and rename this obscure name
+    return matches[matches.sportsseasonname.map(should_be_used_season)] # TODO: exception check and rename this obscure name
 
 
 def latest_match_days(cd, n):

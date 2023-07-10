@@ -25,6 +25,8 @@ WV_S3_BACKUP = 's3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_ba
 WV_TABLE = 'data_lake.watched_video'
 PREROLL_INVENTORY_PATH = 's3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory/'
 TMP_WATCHED_VIDEO_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/watched_video_tmp/'
+# preroll
+PREROLL_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/inventory/'
 
 # total inventory
 TOTAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/inventory_prediction/future_tournaments/'
@@ -56,20 +58,28 @@ def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
         return json.load(fp)
 
-
 # end is exclusive
 def get_last_cd(path, end=None, n=1, invalid_cd=None):
-    # df = spark.read.parquet(path)
-    # if end is not None:
-    #     df = df.where('cd < "{end}"')
-    # return str(df.selectExpr('max(cd) as cd').head().cd)
-    lst = sorted([x.split('=')[-1] for x in s3.ls(path)])
-    lst = [x for x in lst if '$' not in x]
+    lst = [x.split('=')[-1] for x in s3.ls(path)]
+    lst = sorted([x for x in lst if '$' not in x])
     if end is not None:
         lst = [x for x in lst if x < end]
     if invalid_cd is not None and invalid_cd in lst:
         lst.remove(invalid_cd)
-    return lst[-n:] if n > 1 else lst[-1]
+    if n > 1:
+        return lst[-n:]
+    else:
+        if len(lst) > 0:
+            return lst[-1]
+        return None
+
+def should_be_used_season(sport_season_name):
+    if isinstance(sport_season_name, str):
+        sport_season_name = sport_season_name.lower()
+        for t in FOCAL_TOURNAMENTS:
+            if t in sport_season_name: # sport_season_name is a super-string of tournament
+                return True
+    return False
 
 
 # importing will fail on pure python application
