@@ -19,7 +19,8 @@ CONTINENT_DIC = {
     'oman': 'AS',
     'papua new guinea': 'OC',
     'scotland': 'EU',
-    'uae': 'AS'
+    'uae': 'AS',
+    'nepal': 'AS'
 }
 
 TIERS_DIC = {
@@ -62,6 +63,7 @@ INVALID_TEAM_MAPPING = {
         "dc.": "dc"
 }
 UNKNOWN_TOKEN = "<unk>"
+DEFAULT_CONTINENT = "AS"
 
 
 FREE_RATE_LABEL = "frees_watching_match_rate"

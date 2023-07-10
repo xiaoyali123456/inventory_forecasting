@@ -40,6 +40,10 @@ def main(run_date):
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .cache()
     res_df.show(1000, False)
+    res_df\
+        .groupBy('tournament')\
+        .agg(F.sum('estimated_inventory').alias('estimated_inventory'), F.count('content_id').alias('match_num'))\
+        .show(1000, False)
     save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/", partition_col=partition_col)
 
 

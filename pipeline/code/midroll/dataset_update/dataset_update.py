@@ -16,7 +16,7 @@ def get_continent(team, tournament_type):
     elif team in CONTINENT_DIC:
         return CONTINENT_DIC[team]
     else:
-        return UNKNOWN_TOKEN
+        return DEFAULT_CONTINENT
 
 
 def get_holidays(country, year):
@@ -115,6 +115,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
         .cache()
+    new_match_df.show(20, False)
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:

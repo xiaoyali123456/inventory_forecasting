@@ -169,3 +169,42 @@ tournament_list = ['sri_lanka_tour_of_india2023', 'new_zealand_tour_of_india2023
                        'india_tour_of_new_zealand2020', 'ipl2020', 'west_indies_tour_of_india2019', 'wc2019']
 label_df = reduce(lambda x, y: x.union(y), [load_labels(tournament) for tournament in tournament_list])
 res_df = df.withColumn('free_timer', F.expr('if(vod_type="avod", 1000, 5)')).join(label_df, 'content_id', 'left').fillna(-1, ['total_inventory', 'total_reach'])
+
+
+from bs4 import BeautifulSoup
+
+html_code = """
+<div class="match-list__wrapper js-matchlist">
+    ...
+    (HTML code omitted for brevity)
+    ...
+</div>
+"""
+
+soup = BeautifulSoup(html_code, 'html.parser')
+team_names = [span.text for span in soup.find_all('span', class_='match-block__team-name')]
+team1_list = []
+team2_list = []
+count = 0
+for i in range(len(team_names)):
+    if i % 4 == 0:
+        team1_list.append(team_names[i])
+    if i % 4 == 1:
+        team2_list.append(team_names[i])
+
+for team in team1_list:
+    print(TIERS_DIC[team])
+
+import re
+match_times = [time.text.strip() for time in soup.find_all('time', class_='match-block__time-local')]
+match_hours = [time.split('\n')[0][:2] for time in match_times]
+match_dates = [re.findall(r'\d+', time.split('\n')[-1])[0] for time in match_times]
+month = 10
+for i in range(len(match_hours)):
+    if i % 2 == 0:
+        if int(match_dates[i]) == 1:
+            month += 1
+        print(f"2023-{month}-"+match_dates[i])
+
+
+

@@ -64,7 +64,7 @@ def unify_format(df):
         df['tierOfTeam2'] = df['team'].map(lambda x:x[1].get('tier'))
         df.drop(columns='team', inplace=True)
     df['fromOldRequest'] = False
-    df['matchHaveFinished'] = False # no need to adjust for new match
+    df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
     return df
 
