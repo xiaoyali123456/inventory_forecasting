@@ -142,6 +142,15 @@ def process(dt, playout):
     print('end', datetime.now())
 
 
+def should_be_used_season(sport_season_name):
+    if isinstance(sport_season_name, str):
+        sport_season_name = sport_season_name.lower()
+        for t in FOCAL_TOURNAMENTS:
+            if t in sport_season_name: # sport_season_name is a super-string of tournament
+                return True
+    return False
+
+
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
