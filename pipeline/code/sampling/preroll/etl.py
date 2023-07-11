@@ -80,6 +80,6 @@ def main(cd):
 
 
 if __name__ == '__main__':
-    cd = sys.argv[0]
+    cd = sys.argv[1]
     main(cd)
 
