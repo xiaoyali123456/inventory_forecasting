@@ -14,8 +14,10 @@ import gspread
 def read_google_sheet(name):
     os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json .')
     gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
-    x = gc.open('Inventory forecast inputs')
-    df = pd.DataFrame(x.sheet1.get_all_records())
+    # x = gc.open('Inventory forecast inputs')
+    # df = pd.DataFrame(x.sheet1.get_all_records())
+    x = gc.open('inventory forecast input example')
+    df = pd.DataFrame(x.sheet2.get_all_records())
     df.rename(columns={'tier of team1':'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
     return df
 

@@ -1,7 +1,8 @@
 import pandas as pd
 
 # df0 = pd.read_clipboard()
-df0 = pd.read_csv('data/all_features_v3.csv')
+# df0 = pd.read_csv('data/all_features_v3_2.csv')
+df0 = pd.read_csv('data/all_features_v4_2.csv')
 
 df = df0.rename(columns=lambda x: x.strip())
 df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
@@ -44,4 +45,13 @@ df2 = pd.concat([
 
 df2['lower_window'] = 0
 df2['upper_window'] = 0
-df2.to_csv('data/holidays_v2_4.csv', index=False)
+df2.to_csv('data/holidays_v4.csv', index=False)
+print(len(df2))
+
+
+df0 = pd.read_csv('data/holidays_v2_4.csv')
+df1 = pd.read_csv('data/holidays_v4.csv')
+print(len(df0))
+print(len(df1))
+
+print(set(df1['ds'])-set(df0['ds']))
