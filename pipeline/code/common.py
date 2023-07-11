@@ -29,6 +29,7 @@ PREROLL_INVENTORY_AGG_PATH = 's3://hotstar-ads-targeting-us-east-1-prod/trackers
 TMP_WATCHED_VIDEO_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/watched_video_tmp/'
 # preroll
 PREROLL_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/inventory/'
+PREROLL_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/ratio/'
 
 
 # total inventory
