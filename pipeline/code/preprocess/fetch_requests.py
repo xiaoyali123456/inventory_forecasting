@@ -17,7 +17,7 @@ def read_google_sheet(name):
     # x = gc.open('Inventory forecast inputs')
     # df = pd.DataFrame(x.sheet1.get_all_records())
     x = gc.open('inventory forecast input example')
-    df = pd.DataFrame(x.sheet2.get_all_records())
+    df = pd.DataFrame(x.sheet1.get_all_records())
     df.rename(columns={'tier of team1':'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
     return df
 
