@@ -50,10 +50,22 @@ def main(run_date):
     save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/", partition_col=partition_col)
 
 
+def update_dashboard():
+    spark.stop()
+    spark = SparkSession.builder \
+        .appName("test") \
+        .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
+        .config("spark.kryoserializer.buffer.max", "128m") \
+        .enableHiveSupport() \
+        .getOrCreate()
+    spark.sql("msck repair table adtech.daily_predicted_inventory_report")
+
+
 if __name__ == '__main__':
     run_date = sys.argv[1]
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
+        update_dashboard()
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"inventory forecasting on {run_date} is done.")
 
