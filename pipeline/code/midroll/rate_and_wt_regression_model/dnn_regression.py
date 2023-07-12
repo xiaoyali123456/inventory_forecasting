@@ -62,6 +62,7 @@ class LiveMatchRegression(object):
         cols = ["content_id", f"estimated_{self.label}"]
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
+        print(df[f"estimated_{self.label}"].mean())
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions/cd={self.run_date}/label={self.label}")
 
     def save(self, path):

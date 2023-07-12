@@ -39,7 +39,7 @@ def main(run_date):
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .cache()
-    res_df.show(1000, False)
+    res_df.orderBy('date').show(1000, False)
     res_df\
         .groupBy('tournament')\
         .agg(F.sum('estimated_inventory').alias('estimated_inventory'), F.count('content_id').alias('match_num'))\

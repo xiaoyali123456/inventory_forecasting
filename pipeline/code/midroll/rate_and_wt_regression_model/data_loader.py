@@ -21,8 +21,8 @@ def generate_vocabulary(df):
 class LiveMatchDataLoader(object):
     def __init__(self, train_dataset, prediction_dataset, label):
         vocabulary = generate_vocabulary(train_dataset)
-        self.train_dataset = LiveMatchDataset(train_dataset, label, vocabulary)
-        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, vocabulary)
+        self.train_dataset = LiveMatchDataset(train_dataset, label, vocabulary, "train")
+        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, vocabulary, "prediction")
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
@@ -43,9 +43,11 @@ class LiveMatchDataLoader(object):
 
 # processing match dataset
 class LiveMatchDataset(Dataset):
-    def __init__(self, df, label, vocabulary):
+    def __init__(self, df, label, vocabulary, dataset_type):
         self.label = label
         self.vocabulary = vocabulary
+        if dataset_type == "train":
+            df = self.add_masked_data(df)
         self.features, self.labels, self.sample_ids = self._parse(df)
 
     def __len__(self):
@@ -57,6 +59,16 @@ class LiveMatchDataset(Dataset):
 
     def get_sample_ids(self):
         return self.sample_ids
+
+    def add_masked_data(self, df):
+        knock_off_df = df[df['match_stage'].isin([['semi-final'], ['final']])]
+
+        knock_off_df['if_contain_india_team'] = knock_off_df['if_contain_india_team'].apply(lambda x: [UNKNOWN_TOKEN])
+        knock_off_df['teams'] = knock_off_df['teams'].apply(lambda x: [UNKNOWN_TOKEN, UNKNOWN_TOKEN])
+        knock_off_df['continents'] = knock_off_df['continents'].apply(lambda x: [DEFAULT_CONTINENT, DEFAULT_CONTINENT])
+
+        df = pd.concat([df, knock_off_df])
+        return df
 
     def _parse(self, df):
         features = {}

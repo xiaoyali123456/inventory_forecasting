@@ -16,6 +16,11 @@ SUB_WT_LABEL = "watch_time_per_subscriber_per_match"
 REACH_RATE_LABEL = "reach_rate"
 LABEL_LIST = [FREE_RATE_LABEL, FREE_WT_LABEL, SUB_RATE_LABEL, SUB_WT_LABEL, REACH_RATE_LABEL]
 
+
+UNKNOWN_TOKEN = "<unk>"
+DEFAULT_CONTINENT = "AS"
+
+
 DNN_CONFIGURATION = {
     'used_features': [
         'vod_type',
