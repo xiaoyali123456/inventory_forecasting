@@ -6,7 +6,7 @@ from config import *
 # load prediction dataset
 def load_prediction_dataset(run_date):
     prediction_feature_df = load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
-        .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament',
+        .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'teams',
                     'total_frees_number', 'total_subscribers_number', 'match_duration', 'break_duration')\
         .cache()
     return prediction_feature_df

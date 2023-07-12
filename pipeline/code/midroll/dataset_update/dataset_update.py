@@ -68,6 +68,7 @@ def feature_processing(df, run_date):
         feature_df = feature_df \
             .withColumn(col, F.lit(-1))
 
+    feature_df.show(20, False)
     return feature_df
 
 
@@ -91,6 +92,7 @@ def calculate_avg_dau(previous_train_df, request_df, run_date):
         .union(request_df.select('date', 'tournament')) \
         .distinct()
     avg_dau_df = save_avg_dau_for_each_tournament(dates_for_each_tournament_df, run_date)
+    avg_dau_df.orderBy('tournament').show(200, False)
     return avg_dau_df
 
 
@@ -103,8 +105,9 @@ def update_avg_dau_label(df, avg_dau_df):
 def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = request_df \
         .where('matchShouldUpdate=true')
+    prediction_df.show(5, False)
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
-    prediction_df.show(20, False)
+    prediction_df.show(5, False)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
@@ -121,12 +124,13 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     else:
         the_day_before_run_date = get_date_list(run_date, -2)[0]
         new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
-        new_train_df = previous_train_df.select(*MATCH_TABLE_COLS).union(new_match_df.select(*MATCH_TABLE_COLS))
-    new_train_df = update_avg_dau_label(new_train_df, avg_dau_df)
-    new_train_df = new_train_df \
-        .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
-        .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
-        .cache()
+        new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
+        new_train_df = previous_train_df\
+            .select(*MATCH_TABLE_COLS)\
+            .union(new_match_df.select(*MATCH_TABLE_COLS))\
+            .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
+            .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
+            .cache()
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
 
 
