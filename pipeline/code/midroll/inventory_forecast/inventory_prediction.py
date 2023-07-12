@@ -42,7 +42,9 @@ def main(run_date):
     res_df.orderBy('date').show(1000, False)
     res_df\
         .groupBy('tournament')\
-        .agg(F.sum('estimated_inventory').alias('estimated_inventory'), F.count('content_id').alias('match_num'))\
+        .agg(F.sum('estimated_inventory').alias('estimated_inventory'),
+             F.sum('estimated_reach').alias('estimated_reach'),
+             F.count('content_id').alias('match_num'))\
         .show(1000, False)
     save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/", partition_col=partition_col)
 
