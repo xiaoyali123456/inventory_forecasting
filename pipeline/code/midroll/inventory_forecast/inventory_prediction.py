@@ -51,7 +51,7 @@ def main(run_date):
 
 
 def update_dashboard():
-    spark.stop()
+    # spark.stop()
     spark = SparkSession.builder \
         .appName("test") \
         .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
