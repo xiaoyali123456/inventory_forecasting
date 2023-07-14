@@ -9,6 +9,7 @@ def load_prediction_dataset(run_date):
         .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'teams',
                     'total_frees_number', 'total_subscribers_number', 'match_duration', 'break_duration')\
         .withColumn('teams', F.concat_ws(" vs ", F.col('teams')))\
+        .withColumn('match_id', F.expr("cast(match_id as int)"))\
         .cache()
     return prediction_feature_df
 
