@@ -339,6 +339,7 @@ hots_num_dic = {
     'vod_type_hots': 2
 }
 label_df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_with_avg_session_num")
+label_df.groupby('tournament').count().show(200, False)
 tournament_list = [tournament[0] for tournament in label_df.select('tournament').distinct().collect()]
 tournament_list.remove('wc2021')
 print(tournament_list)

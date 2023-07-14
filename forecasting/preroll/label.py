@@ -224,6 +224,42 @@ save_data_frame(res_df, f"{preroll_live_ads_inventory_forecasting_root_path}/inv
 
 res_df.show(2000, False)
 
+
+
+PLAY_OUT_LOG_INPUT_PATH = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
+WATCH_AGGREGATED_INPUT_PATH = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
+ACTIVE_USER_NUM_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
+LIVE_ADS_INVENTORY_FORECASTING_ROOT_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting"
+LIVE_ADS_INVENTORY_FORECASTING_COMPLETE_FEATURE_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/complete_features"
+PIPELINE_BASE_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline"
+TRAINING_DATA_PATH = f"{PIPELINE_BASE_PATH}/all_features_hots_format_full_avod_and_simple_one_hot_overall"
+DVV_PREDICTION_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/forecast/"
+DVV_TRUTH_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/"
+DVV_COMBINE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/combine/'
+AVG_DVV_PATH = f"{PIPELINE_BASE_PATH}/avg_dau"
+PIPELINE_DATA_TMP_PATH = f"{PIPELINE_BASE_PATH}/dataset/tmp"
+TRAIN_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/train"
+PREDICTION_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/prediction"
+INVENTORY_FORECAST_REQUEST_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_forecast_input"
+
+label_df = load_data_frame(spark, f"{preroll_live_ads_inventory_forecasting_root_path}/inventory_data/gt_inventory_with_avg_session_num")
+train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd=2023-07-14")
+train_df.count()
+train_df.where('watch_time_per_free_per_match > 0').count()
+train_df.where('frees_watching_match_rate <= 0').show(20, False)
+train_df.where('frees_watching_match_rate <= 0').show(20, False)
+train_df.where('reach_rate >= 0').count()
+train_df.count()
+label_df.where('free_avg_session_num <= 0').count()
+res_df = train_df\
+    .join(label_df.selectExpr('date', 'content_id', 'free_inventory as preroll_free_inventory', 'sub_inventory as preroll_sub_inventory',
+                              'free_avg_session_num as preroll_free_sessions', 'sub_avg_session_num as preroll_sub_sessions'),
+          ['date', 'content_id'], 'left')\
+    .fillna(-1.0, ['preroll_free_inventory', 'preroll_sub_inventory', 'preroll_free_sessions', 'preroll_sub_sessions'])
+print(res_df.count())
+save_data_frame(res_df, TRAIN_MATCH_TABLE_PATH + f"/cd=2023-07-14")
+
+
 #
 
 # match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"match_data/wc2021").cache()

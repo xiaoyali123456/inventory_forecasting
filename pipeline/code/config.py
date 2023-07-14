@@ -70,6 +70,8 @@ FREE_RATE_LABEL = "frees_watching_match_rate"
 FREE_WT_LABEL = "watch_time_per_free_per_match"
 SUB_RATE_LABEL = "subscribers_watching_match_rate"
 SUB_WT_LABEL = "watch_time_per_subscriber_per_match"
+PREROLL_SUB_SESSIONS = "preroll_sub_sessions"
+PREROLL_FREE_SESSIONS = "preroll_free_sessions"
 
 
 CONTEXT_COLS = ["date", "tournament", "content_id"]
@@ -80,8 +82,11 @@ LABEL_COLS = ["frees_watching_match_rate", "watch_time_per_free_per_match",
               "subscribers_watching_match_rate", "watch_time_per_subscriber_per_match",
               "reach_rate", "total_reach", "total_inventory",
               "total_frees_number", "match_active_free_num",
-              "total_subscribers_number", "match_active_sub_num"]
+              "total_subscribers_number", "match_active_sub_num",
+              "preroll_sub_sessions", "preroll_free_sessions",
+              "preroll_sub_inventory", "preroll_free_inventory"]
 MATCH_TABLE_COLS = CONTEXT_COLS + FEATURE_COLS + LABEL_COLS
+
 ARRAY_FEATURE_COLS = ["teams", "continents", "teams_tier"]
 
 
