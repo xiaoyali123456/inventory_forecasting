@@ -25,8 +25,7 @@ if __name__ == '__main__':
         r = requests.patch(
             BOOKING_TOOL_URL + f'inventory/{r_id}/ad-placement/MIDROLL/forecast-request',
             json = {
-                "request_status": "SUCCESS",
-                "version": 1,
+                "requestStatus": "SUCCESS",
             }
         )
         print('updated status:', r.status_code)
