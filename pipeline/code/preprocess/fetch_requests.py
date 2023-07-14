@@ -14,11 +14,11 @@ import gspread
 def read_google_sheet(name):
     os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json .')
     gc = gspread.service_account('minliang.lin@hotstar.com-service-account.json')
-    # x = gc.open('Inventory forecast inputs')
-    # df = pd.DataFrame(x.sheet1.get_all_records())
-    x = gc.open('inventory forecast input example')
+    x = gc.open('Inventory forecast inputs')
     df = pd.DataFrame(x.sheet1.get_all_records())
-    df.rename(columns={'tier of team1':'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
+    # x = gc.open('inventory forecast input example')
+    # df = pd.DataFrame(x.sheet1.get_all_records())
+    df.rename(columns={'tier of team1': 'tierOfTeam1', 'tier of team2': 'tierOfTeam2'}, inplace=True)
     return df
 
 
@@ -97,16 +97,21 @@ def main(cd):
         req_list += df.results.tolist()
         total = df.total_pages[0]
         i += 1
+        print(i)
     with s3.open(REQUESTS_PATH_TEMPL % cd, 'w') as f:
         json.dump(req_list, f)
     df_new = convert_list_to_df(req_list)
+    print('df_new')
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
+    print('df_new')
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     # change list to json string because parquet doesn't support
     df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
         .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
+    print('df_new')
     df_uni = backfill_from_google_sheet(df_uni)
+    print('df_new')
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 
