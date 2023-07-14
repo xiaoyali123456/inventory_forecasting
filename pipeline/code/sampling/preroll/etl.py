@@ -74,9 +74,10 @@ def process(cd, content_ids):
 
 def main(cd):
     matches = load_new_matches(cd)
-    for dt in matches.startdate.drop_duplicates():
-        content_ids = matches[matches.startdate == dt].content_id.tolist()
-        process(dt, content_ids)
+    if len(matches):
+        for dt in matches.startdate.drop_duplicates():
+            content_ids = matches[matches.startdate == dt].content_id.tolist()
+            process(dt, content_ids)
 
 
 if __name__ == '__main__':
