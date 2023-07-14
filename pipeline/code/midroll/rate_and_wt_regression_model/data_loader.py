@@ -48,7 +48,7 @@ class LiveMatchDataset(Dataset):
         self.vocabulary = vocabulary
         if dataset_type == "train":
             df = self.add_masked_data(df)
-            df = df.loc[df[self.label] > 0]
+            df = df.loc[df[self.label] >= 0]
         self.features, self.labels, self.sample_ids = self._parse(df)
 
     def __len__(self):
