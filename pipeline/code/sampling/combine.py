@@ -65,4 +65,4 @@ if __name__ == '__main__':
                           &(combine.city.map(len)!=1)].reset_index(drop=True)
         combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
     df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
-    df.write.partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
+    df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
