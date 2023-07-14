@@ -14,7 +14,7 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
     --py-files common.py"
 
-$SPARK preprocess/fetch_requests.py $DATE
+$SPARK preprocess/fetch_requests.py $DATE || sleep 100m
 aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_requests starts" --region $REGION
 
 $SPARK preprocess/fetch_match_cms.py $DATE
