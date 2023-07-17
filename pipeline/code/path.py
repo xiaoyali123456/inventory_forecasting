@@ -18,6 +18,8 @@ INVENTORY_FORECAST_REQUEST_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/liv
 
 VIEW_AGGREGATED_INPUT_PATH = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
 
+AGGR_SHIFU_INVENTORY_PATH = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_reporting/aggregates/hourly/ad_inventory"
+
 IMPRESSION_PATH = "s3://hotstar-data-lake-northvirginia/data/source/campaignTracker/parquet_bifrost/impression_events"
 WATCH_VIDEO_PATH = "s3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/"
 WATCH_VIDEO_SAMPLED_PATH = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"

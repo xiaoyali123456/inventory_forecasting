@@ -49,6 +49,7 @@ def main(run_date):
                                                        f'estimated_free_match_number * estimated_{PREROLL_FREE_SESSIONS})')) \
         .withColumn('estimated_preroll_sub_inventory', F.expr(f'estimated_sub_match_number * estimated_{PREROLL_SUB_SESSIONS}')) \
         .withColumn('estimated_preroll_inventory', F.expr('estimated_preroll_free_inventory + estimated_preroll_sub_inventory')) \
+        .withColumn('estimated_preroll_inventory', F.expr('cast(estimated_preroll_inventory as bigint)')) \
         .cache()
     res_df.orderBy('date').show(1000, False)
     res_df\

@@ -141,8 +141,8 @@ def load_wv_data(spark, date):
     return watch_video_df
 
 
-# calculate inventory and reach ground truth
-def calculate_inventory_and_reach_gt(spark, date):
+# calculate midroll inventory and reach ground truth
+def calculate_midroll_inventory_and_reach_gt(spark, date):
     break_info_df = load_break_info_from_playout_logs(spark, date)
     watch_video_df = load_wv_data(spark, date)
 
@@ -163,17 +163,26 @@ def calculate_inventory_and_reach_gt(spark, date):
     return total_inventory_df
 
 
-# add wv related labels and inventory&reach labels
+# calculate preroll inventory and reach ground truth
+def calculate_preroll_inventory_and_reach_gt(spark, date):
+    pass
+
+
+# add wv related labels and inventory & reach labels
 def add_labels_to_new_matches(spark, date, new_match_df):
-    match_sub_df, match_free_df = get_reach_and_wt_from_wv_table(spark, date)
-    inventory_df = get_inventory_and_reach_gt(spark, date)
+    match_sub_df, match_free_df = calculate_reach_and_wt_from_wv_table(spark, date)
+    midroll_inventory_df = calculate_midroll_inventory_and_reach_gt(spark, date)
+    preroll_inventory_df = calculate_preroll_inventory_and_reach_gt(spark, date)
     res_df = new_match_df\
         .drop("match_active_free_num", "watch_time_per_free_per_match",
               "match_active_sub_num", "watch_time_per_subscriber_per_match",
               "total_reach", "total_inventory")\
         .join(match_sub_df, 'content_id')\
         .join(match_free_df, 'content_id') \
-        .join(inventory_df, 'content_id')
+        .join(midroll_inventory_df, 'content_id')\
+        .join(preroll_inventory_df, 'content_id') \
+        .withColumn('preroll_free_sessions', F.expr('preroll_free_inventory/match_active_free_num')) \
+        .withColumn('preroll_sub_sessions', F.expr('preroll_sub_inventory/match_active_sub_num'))
     return res_df
 
 
