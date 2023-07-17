@@ -15,7 +15,7 @@ SPARK="spark-submit --deploy-mode client \
     --py-files common.py"
 
 $SPARK preprocess/fetch_requests.py $DATE || sleep 100m
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_requests starts" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_requests on $DATE done" --region $REGION
 
 $SPARK preprocess/fetch_match_cms.py $DATE
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_match_cms starts" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_match_cms $DATE done" --region $REGION

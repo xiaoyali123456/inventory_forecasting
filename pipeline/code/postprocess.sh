@@ -10,3 +10,8 @@ bash booking/server.sh &
 sleep 5
 
 PYTHONPATH="$PWD" python3 postprocess/postprocess.py $DATE
+
+
+SLACK_NOTIFICATION_TOPIC="arn:aws:sns:us-east-1:253474845919:sirius-notification"
+REGION="us-east-1"
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "postprocess done" --region $REGION
