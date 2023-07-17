@@ -160,6 +160,9 @@
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
             ],
+            "dependsOn": {
+                "ref": "Preprocess"
+            },
             "runsOn": {"ref": "EmrPreroll"}
         },
         {
