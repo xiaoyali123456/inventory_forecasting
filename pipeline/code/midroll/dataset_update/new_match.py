@@ -164,15 +164,29 @@ def calculate_midroll_inventory_and_reach_gt(spark, date):
 
 
 # calculate preroll inventory and reach ground truth
-def calculate_preroll_inventory_and_reach_gt(spark, date):
-    pass
+def calculate_preroll_inventory_gt(spark, date):
+    # calculate preroll sub & free inventory
+    inventory_df = load_data_frame(spark, f"{AGGR_SHIFU_INVENTORY_PATH}/cd={date}")\
+        .withColumn('user_account_type', F.upper(F.col('user_account_type')))\
+        .where('upper(ad_placement) = "PREROLL"')\
+        .withColumn('sub_tag', F.locate('SUBSCRIBED_FREE', F.col('user_account_type')))\
+        .withColumn('sub_tag', F.expr('if(sub_tag>0 or user_account_type="", 0, 1)'))\
+        .groupBy('content_id', 'sub_tag')\
+        .agg(F.sum('inventory').alias('inventory'))\
+        .cache()
+    final_inventory_df = inventory_df\
+        .where('sub_tag=0')\
+        .selectExpr('content_id', 'inventory as preroll_free_inventory')\
+        .join(inventory_df.where('sub_tag=1').selectExpr('content_id', 'inventory as preroll_sub_inventory'), 'content_id')
+    save_data_frame(final_inventory_df, PIPELINE_BASE_PATH + f"/label/preroll_inventory/cd={date}")
+    return final_inventory_df
 
 
 # add wv related labels and inventory & reach labels
 def add_labels_to_new_matches(spark, date, new_match_df):
     match_sub_df, match_free_df = calculate_reach_and_wt_from_wv_table(spark, date)
     midroll_inventory_df = calculate_midroll_inventory_and_reach_gt(spark, date)
-    preroll_inventory_df = calculate_preroll_inventory_and_reach_gt(spark, date)
+    preroll_inventory_df = calculate_preroll_inventory_gt(spark, date)
     res_df = new_match_df\
         .drop("match_active_free_num", "watch_time_per_free_per_match",
               "match_active_sub_num", "watch_time_per_subscriber_per_match",
