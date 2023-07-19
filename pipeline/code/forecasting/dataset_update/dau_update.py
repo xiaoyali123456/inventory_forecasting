@@ -36,7 +36,7 @@ def predict(df, holidays):
 def forecast(end, true_vv_path):
     # df = pd.read_parquet(new_path) # pandas read has problem
     df = spark.read.parquet(true_vv_path).toPandas()
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: this should be automatically updated.
+    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
     forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1)

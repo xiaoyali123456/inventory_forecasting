@@ -5,9 +5,10 @@
     1.2. load playout table and watch_video table
     1.3. parse user segments col in watch_video table to get the cohort info
     1.4. join these 2 tables to calculate ad_time and reach
+    cohort="A_15031263|NCCS_A|..."
 
  2. generate table ('is_cricket', 'segments', 'watch_time', 'reach') for custom cohorts distribution in terms of recent five days
-    2.1. load segment-ssai mapping from request
+    2.1. load segment->ssai mapping from request
     2.2. load user-segment table and convert segments to ssai tag
     2.3. load watch_video table for recent 5 days
     2.4. join these 2 tables to calculate watch_time and reach

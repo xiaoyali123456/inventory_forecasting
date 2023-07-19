@@ -1,5 +1,6 @@
 """
-    1.
+    1.calculate inventory&reach for each cohort of each match
+    2.need to scale the inventory&reach when the languages or platform of the match is uncompleted
 """
 import pandas as pd
 import sys
@@ -52,7 +53,6 @@ if __name__ == '__main__':
             combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
         combine.inventory = combine.inventory.astype(int)
         combine.reach = combine.reach.astype(int)
-        # TODO: the below code should be unnecessary
         combine.replace({'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}}, inplace=True)
         combine = combine.rename(columns={
             'age': 'ageBucket',

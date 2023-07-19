@@ -1,6 +1,6 @@
 """
     1. aggregate regular cohorts distribution to generate table
-    ('content_id', 'language', 'platform', 'country', 'city', 'state', 'nccs', 'device', 'gender', 'age', ad_time', 'reach')
+    ('cd', 'language', 'platform', 'country', 'city', 'state', 'nccs', 'device', 'gender', 'age', ad_time', 'reach')
     2. calculate inventory/reach rate of each regular cohorts
     3. use moving avg method to predict inventory/reach rate for each regular cohorts
     4. calculate inventory/reach rate of each custom cohorts
