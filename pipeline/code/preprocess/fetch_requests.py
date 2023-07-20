@@ -55,7 +55,9 @@ def load_yesterday_inputs(cd):
     df['matchHaveFinished'] = df.matchDate < cd
     any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
     df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & any_match_finished_on_yesterday
+    df['matchShouldUpdate'] = False  # TODO
     return df
+
 
 def unify_format(df):
     df.rename(columns={'id': 'requestId'}, inplace=True)
@@ -64,12 +66,15 @@ def unify_format(df):
         df['team2'] = df['team'].map(lambda x:x[1].get('name'))
         df['tierOfTeam1'] = df['team'].map(lambda x:x[0].get('tier'))
         df['tierOfTeam2'] = df['team'].map(lambda x:x[1].get('tier'))
+        df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x:x if str(x).find("tier") > -1 else "tier"+str(x))
+        df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x:x if str(x).find("tier") > -1 else "tier"+str(x))
         df.drop(columns='team', inplace=True)
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
     return df
 
+# explode match details
 def convert_list_to_df(lst):
     union = []
     for req in lst:
@@ -110,7 +115,7 @@ def main(cd):
     df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
         .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
     print('df_new')
-    df_uni = backfill_from_google_sheet(df_uni)
+    # df_uni = backfill_from_google_sheet(df_uni)
     print('df_new')
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 

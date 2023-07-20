@@ -29,4 +29,4 @@ if __name__ == '__main__':
             }
         )
         print('updated status:', r.status_code)
-    # trigger_airflow(DATE) # TODO: open this
+    trigger_airflow(DATE) # TODO: open this

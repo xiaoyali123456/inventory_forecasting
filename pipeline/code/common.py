@@ -6,7 +6,8 @@ PREPROCESSED_INPUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_invent
 REQUESTS_PATH_TEMPL = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_requests/cd=%s/requests.json'
 
 MATCH_CMS_PATH_TEMPL = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/cms_match/cd=%s/'
-BOOKING_TOOL_URL = 'http://localhost:4321/'
+# BOOKING_TOOL_URL = 'http://localhost:4321/'
+BOOKING_TOOL_URL = 'http://adtech-inventory-booking-service-alb-0-int.internal.sgp.hotstar.com/'
 
 # DAU
 DAU_TRUTH_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/DAU_v3/truth/'
