@@ -61,13 +61,14 @@ def load_yesterday_inputs(cd):
 
 def unify_format(df):
     df.rename(columns={'id': 'requestId'}, inplace=True)
-    if 'team' in df.columns:
-        df['team1'] = df['team'].map(lambda x:x[0].get('name'))
-        df['team2'] = df['team'].map(lambda x:x[1].get('name'))
-        df['tierOfTeam1'] = df['team'].map(lambda x:x[0].get('tier'))
-        df['tierOfTeam2'] = df['team'].map(lambda x:x[1].get('tier'))
-        df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x:x if str(x).find("tier") > -1 else "tier"+str(x))
-        df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x:x if str(x).find("tier") > -1 else "tier"+str(x))
+    team_col = 'teamResponses'
+    if team_col in df.columns:
+        df['team1'] = df[team_col].map(lambda x: x[0].get('name'))
+        df['team2'] = df[team_col].map(lambda x: x[1].get('name'))
+        df['tierOfTeam1'] = df[team_col].map(lambda x: x[0].get('tier'))
+        df['tierOfTeam2'] = df[team_col].map(lambda x: x[1].get('tier'))
+        df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
+        df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
         df.drop(columns='team', inplace=True)
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
