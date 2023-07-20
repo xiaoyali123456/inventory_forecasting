@@ -99,7 +99,7 @@ def main(cd):
                f'&page-number={i}'
                f'&page-size={page_size}')
         df = pd.read_json(url)
-        req_list += df.results.tolist()
+        req_list += df.inventoryForecastResponses.tolist()
         total = df.total_pages[0]
         i += 1
         print(i)
