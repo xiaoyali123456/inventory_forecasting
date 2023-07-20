@@ -151,7 +151,7 @@
                 "ref": "Sampling"
             },
             "runsOn": {
-                "ref": "Ec2"
+                "ref": "Emr1"
             }
         },
         {

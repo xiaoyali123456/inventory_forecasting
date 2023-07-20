@@ -9,6 +9,10 @@ python3 -m pip install --user -r postprocess/requirements.txt
 bash booking/server.sh &
 sleep 5
 
+
+curl http://adtech-inventory-booking-service-alb-0-int.internal.sgp.hotstar.com/api/v1/inventory/forecast-request\?page-size\=10\&page-number\=0
+
+
 PYTHONPATH="$PWD" python3 postprocess/postprocess.py $DATE
 
 
