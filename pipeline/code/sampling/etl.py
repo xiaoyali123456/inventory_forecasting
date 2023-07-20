@@ -210,7 +210,7 @@ def process_custom_tags(cd):
             F.expr('count(distinct dw_d_id) as reach')
         )
     else:
-        t = pd.DataFrame([[False, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
+        t = pd.DataFrame([[True, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
         res = spark.createDataFrame(t)
     res.repartition(1).write.mode('overwrite').parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
