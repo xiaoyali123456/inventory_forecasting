@@ -28,6 +28,9 @@ def feature_processing(df, run_date):
     run_year = int(run_date[:4])
     global holiday_list
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
+    print("df")
+    df.groupby('seasonName').count().show(20, False)
+    df.select('team1').show(20, False)
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
