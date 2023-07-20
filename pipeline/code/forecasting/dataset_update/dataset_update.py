@@ -43,7 +43,8 @@ def feature_processing(df, run_date):
         .withColumn('if_contain_india_team', F.expr(f'if(team1="india" or team2="india", "1", '
                                                     f'if(team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}", "{UNKNOWN_TOKEN}", "0"))')) \
         .withColumn('if_holiday', check_holiday_udf('matchDate')) \
-        .withColumn('match_time', F.expr('cast(matchStartHour/6 as int)')) \
+        .withColumn('match_time', F.expr('cast(matchStartHour as int)')) \
+        .withColumn('match_time', F.expr('cast(match_time/6 as int)')) \
         .withColumn('if_weekend', F.dayofweek(F.col('matchDate'))) \
         .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
         .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
