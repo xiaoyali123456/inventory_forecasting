@@ -95,12 +95,10 @@ def main(cd):
     page_size = 10
     i, total = 0, 1
     while i < total:
-        url = (f'{BOOKING_TOOL_URL}inventory/forecast-request?status=INIT'
-               f'&page-number={i}'
-               f'&page-size={page_size}')
+        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
         df = pd.read_json(url)
         req_list += df.inventoryForecastResponses.tolist()
-        total = df.total_pages[0]
+        total = df.totalPages[0]
         i += 1
         print(i)
     with s3.open(REQUESTS_PATH_TEMPL % cd, 'w') as f:
