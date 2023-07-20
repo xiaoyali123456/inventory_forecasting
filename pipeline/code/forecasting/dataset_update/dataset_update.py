@@ -30,7 +30,8 @@ def feature_processing(df, run_date):
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
     print("df")
     df.groupby('seasonName').count().show(20, False)
-    df.select('team1').show(20, False)
+    df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
+    df.where('seasonName!="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
@@ -72,8 +73,9 @@ def feature_processing(df, run_date):
             .withColumn(col, F.lit(-1))
 
     print("feature df")
-    feature_df.show(20, False)
-    feature_df.select('team1').show(20, False)
+    feature_df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').show(20, False)
+    feature_df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
+    feature_df.where('seasonName!="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
     return feature_df
 
 
@@ -112,6 +114,8 @@ def update_prediction_dataset(request_df, avg_dau_df):
         .where('matchShouldUpdate=true')
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     print("prediction df")
+    print(prediction_df.count())
+    prediction_df.select('team1').show(20, False)
     prediction_df.show(20, False)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
