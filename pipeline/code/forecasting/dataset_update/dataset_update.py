@@ -40,8 +40,7 @@ def feature_processing(df, run_date):
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
         .withColumn('team2', F.expr('lower(team2)')) \
-        .withColumn('if_contain_india_team', F.expr(f'if(team1="india" or team2="india", "1", '
-                                                    f'if(team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}", "{UNKNOWN_TOKEN}", "0"))')) \
+        .withColumn('if_contain_india_team', F.expr(f'if(team1="india" or team2="india", "1", if(team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}", "{UNKNOWN_TOKEN}", "0"))')) \
         .withColumn('if_holiday', check_holiday_udf('matchDate')) \
         .withColumn('match_time', F.expr('cast(matchStartHour as int)')) \
         .withColumn('match_time', F.expr('cast(match_time/6 as int)')) \
@@ -69,7 +68,9 @@ def feature_processing(df, run_date):
         feature_df = feature_df \
             .withColumn(col, F.lit(-1))
 
+    print("feature df")
     feature_df.show(20, False)
+    feature_df.select('team1').show(20, False)
     return feature_df
 
 
@@ -93,7 +94,7 @@ def calculate_avg_dau(previous_train_df, request_df, run_date):
         .union(request_df.select('date', 'tournament')) \
         .distinct()
     avg_dau_df = save_avg_dau_for_each_tournament(dates_for_each_tournament_df, run_date)
-    avg_dau_df.orderBy('tournament').show(200, False)
+    # avg_dau_df.orderBy('tournament').show(200, False)
     return avg_dau_df
 
 
@@ -106,9 +107,9 @@ def update_avg_dau_label(df, avg_dau_df):
 def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = request_df \
         .where('matchShouldUpdate=true')
-    prediction_df.show(5, False)
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
-    prediction_df.show(5, False)
+    print("prediction df")
+    prediction_df.show(20, False)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
@@ -119,6 +120,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
         .cache()
+    print("new_match df")
     new_match_df.show(20, False)
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
