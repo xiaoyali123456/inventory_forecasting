@@ -93,7 +93,7 @@ def convert_list_to_df(lst):
 def main(cd):
     req_list = []
     page_size = 10
-    i, total = 1, 1
+    i, total = 0, 1
     while i <= total:
         url = (f'{BOOKING_TOOL_URL}inventory/forecast-request?status=INIT'
                f'&page-number={i}'
