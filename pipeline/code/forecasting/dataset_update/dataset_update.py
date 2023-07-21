@@ -50,7 +50,7 @@ def feature_processing(df, run_date):
         .withColumn('match_time', F.expr('cast(match_time/6 as int)')) \
         .withColumn('if_weekend', F.dayofweek(F.col('matchDate'))) \
         .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
-        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
+        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0 or locate("ranji trophy", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
         .withColumn('teams', F.array(F.col('team1'), F.col('team2'))) \
         .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \
         .withColumn('continent2', get_continent_udf('team2', 'tournament_type')) \

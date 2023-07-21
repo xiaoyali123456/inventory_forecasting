@@ -70,6 +70,9 @@ def unify_format(df):
         df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
         df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
         df.drop(columns=team_col, inplace=True)
+    match_stage_col = "matchType"
+    if match_stage_col in df.columns:
+        df[match_stage_col] = df[match_stage_col].map(lambda x: "group" if "group" in x else "final")
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
