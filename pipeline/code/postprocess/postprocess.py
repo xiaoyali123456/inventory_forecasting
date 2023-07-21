@@ -23,7 +23,7 @@ if __name__ == '__main__':
     df = pd.read_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
     for r_id in set(df.inventoryId):
         r = requests.patch(
-            BOOKING_TOOL_URL + f'inventory/{r_id}/ad-placement/MIDROLL/forecast-request',
+            BOOKING_TOOL_URL + f'api/v1/inventory/{r_id}/ad-placement/MIDROLL/forecast-request',
             json = {
                 "requestStatus": "SUCCESS",
             }
