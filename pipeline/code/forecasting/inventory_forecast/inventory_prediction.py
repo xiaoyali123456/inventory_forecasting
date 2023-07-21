@@ -59,7 +59,7 @@ def main(run_date):
              F.sum('estimated_preroll_inventory').alias('estimated_preroll_inventory'),
              F.count('content_id').alias('match_num'))\
         .show(1000, False)
-    save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/", partition_col=partition_col)
+    save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/")
 
 
 def update_dashboard():
