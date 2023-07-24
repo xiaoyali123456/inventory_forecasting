@@ -17,6 +17,16 @@ def parse(string):
     return lst
 
 
+def update_dashboards():
+    # spark.stop()
+    spark = hive_spark("update_dashboards")
+    spark.sql("msck repair table adtech.daily_vv_report")
+    spark.sql("msck repair table adtech.daily_predicted_vv_report")
+    spark.sql("msck repair table adtech.daily_predicted_inventory_report")
+    spark.sql("msck repair table adtech.daily_midroll_corhort_report")
+    spark.sql("msck repair table adtech.daily_midroll_corhort_final_report")
+
+
 if __name__ == '__main__':
     DATE = sys.argv[1]
     total = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
@@ -68,3 +78,4 @@ if __name__ == '__main__':
         combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
     df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
     df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
+    update_dashboards()

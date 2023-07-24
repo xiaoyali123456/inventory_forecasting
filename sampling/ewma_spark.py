@@ -135,6 +135,7 @@ def moving_avg(df, group_cols, target, lambda_=0.8):
     )
     return df4.groupby(cohort_cols).agg(F.sum(target).alias(target))
 
+
 if __name__ == '__main__':
     DATE = sys.argv[1]
     iv = load_inventory(DATE)
