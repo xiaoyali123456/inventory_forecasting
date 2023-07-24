@@ -14,11 +14,16 @@
     2.4. join these 2 tables to calculate watch_time and reach
     segments="C14_1|C15_2"
 """
-
-from common import *
 from datetime import datetime
 import sys
+
 import pandas as pd
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
+
+from util import *
+from path import *
+from config import *
 
 
 def make_segment_str(lst):
@@ -172,7 +177,7 @@ def concat(tags: set):
 
 def load_custom_tags(cd: str) -> dict:
     res = {}
-    for r in load_requests(cd):
+    for r in load_requests(cd, REQUESTS_PATH_TEMPL):
         for x in r.get('customAudiences', []):
             if 'segmentName' in x:
                 res[x['segmentName']] = x['customCohort']
@@ -198,7 +203,7 @@ def process_custom_tags(cd):
     if len(t3) > 0:
         ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
             .withColumn('segments', convert_custom_cohort('segments'))
-        matches_days = latest_match_days(cd, 5) # TODO: filter 3 month expiration
+        matches_days = latest_match_days(cd, 5)  # TODO: filter 3 month expiration
         sql = ','.join(f'"{x}"' for x in matches_days)
         wt = spark.sql(f'select * from {DAU_TABLE} where cd in ({sql})')
         wt1 = wt[['dw_d_id',
@@ -216,6 +221,7 @@ def process_custom_tags(cd):
 
 
 def main(cd):
+    spark = hive_spark("etl")
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()

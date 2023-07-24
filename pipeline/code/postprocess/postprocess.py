@@ -2,7 +2,8 @@ import requests
 import sys
 import pandas as pd
 
-from common import BOOKING_TOOL_URL, FINAL_ALL_PREDICTION_PATH
+from path import BOOKING_TOOL_URL, FINAL_ALL_PREDICTION_PATH
+
 
 def trigger_airflow(cd):
     r = requests.post(
@@ -17,6 +18,7 @@ def trigger_airflow(cd):
         }
     )
     return r.status_code
+
 
 if __name__ == '__main__':
     DATE = sys.argv[1]

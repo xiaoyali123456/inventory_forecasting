@@ -2,22 +2,17 @@
 
 import datetime
 import os
-import sys
-from functools import reduce
+import s3fs
+import json
 
-import pyspark.sql.functions as F
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import *
 from pyspark.storagelevel import StorageLevel
-import pandas as pd
-from sklearn import metrics
-from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
 
 
 storageLevel = StorageLevel.DISK_ONLY
 spark.sparkContext.setLogLevel('WARN')
+s3 = s3fs.S3FileSystem()
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
@@ -108,5 +103,27 @@ def save_data_frame(df: DataFrame, path: str, fmt: str = 'parquet', header: bool
 def slack_notification(topic, region, message):
     cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
     os.system(cmd)
+
+
+def load_requests(cd, request_path):
+    with s3.open(request_path % cd) as fp:
+        return json.load(fp)
+
+
+# end is exclusive
+def get_last_cd(path, end=None, n=1, invalid_cd=None):
+    lst = [x.split('=')[-1] for x in s3.ls(path)]
+    lst = sorted([x for x in lst if '$' not in x])
+    if end is not None:
+        lst = [x for x in lst if x < end]
+    if invalid_cd is not None and invalid_cd in lst:
+        lst.remove(invalid_cd)
+    if n > 1:
+        return lst[-n:]
+    else:
+        if len(lst) > 0:
+            return lst[-1]
+        return None
+
 
 

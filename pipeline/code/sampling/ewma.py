@@ -6,17 +6,22 @@
     4. calculate inventory/reach rate of each custom cohorts
     5. merge the outputs of 3 and 4 to get the final result
 """
-import pandas as pd
 import sys
 from functools import reduce
+
+import pandas as pd
 import pyspark.sql.functions as F
-from pyspark.sql.types import StringType
-from common import *
+from pyspark.sql.types import *
+
+from util import *
+from path import *
+
 
 def load_inventory(cd, n=30):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)
     lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
     return reduce(lambda x,y: x.union(y), lst)
+
 
 @F.udf(returnType=StringType())
 def nccs(cohort):
@@ -25,6 +30,7 @@ def nccs(cohort):
             if x.startswith('NCCS_'):
                 return x
     return ''
+
 
 @F.udf(returnType=StringType())
 def gender(cohort):
@@ -35,6 +41,7 @@ def gender(cohort):
             if x.startswith('MMD00') or '_MALE_' in x:
                 return 'm'
     return ''
+
 
 @F.udf(returnType=StringType())
 def age(cohort):
@@ -103,6 +110,7 @@ def age(cohort):
             if x in map_:
                 return map_[x]
     return ''
+
 
 @F.udf(returnType=StringType())
 def device(cohort):

@@ -7,7 +7,8 @@ import os
 
 import pandas as pd
 from datetime import datetime, timedelta
-from common import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH, s3
+from util import s3
+from path import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH
 import gspread
 
 
@@ -59,6 +60,15 @@ def load_yesterday_inputs(cd):
     return df
 
 
+def processing_match_stage(match_stage):
+    if "group" in match_stage:
+        return "group"
+    elif "knockout" in match_stage:
+        return "final"
+    else:
+        return match_stage
+
+
 def unify_format(df):
     df.rename(columns={'id': 'requestId'}, inplace=True)
     team_col = 'teamResponses'
@@ -72,11 +82,12 @@ def unify_format(df):
         df.drop(columns=team_col, inplace=True)
     match_stage_col = "matchType"
     if match_stage_col in df.columns:
-        df[match_stage_col] = df[match_stage_col].map(lambda x: "group" if "group" in x else "final")
+        df[match_stage_col] = df[match_stage_col].map(lambda x: processing_match_stage(x))
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
     return df
+
 
 # explode match details
 def convert_list_to_df(lst):

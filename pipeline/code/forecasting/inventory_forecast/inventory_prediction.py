@@ -1,3 +1,7 @@
+import sys
+
+import pyspark.sql.functions as F
+
 from path import *
 from util import *
 from config import *
@@ -15,7 +19,7 @@ def load_prediction_dataset(run_date):
 
 
 # load dnn prediction results
-def load_rate_and_wt_predictions_by_dnn(df, run_date):
+def load_dnn_predictions(df, run_date):
     label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions/cd={run_date}"
     common_cols = ['content_id']
     # load parameters predicted by dnn models
@@ -33,7 +37,7 @@ def main(run_date):
     prediction_feature_df = load_prediction_dataset(run_date)
     partition_col = "request_id"
     # load parameters predicted by dnn models
-    prediction_feature_df = load_rate_and_wt_predictions_by_dnn(prediction_feature_df, run_date)
+    prediction_feature_df = load_dnn_predictions(prediction_feature_df, run_date)
     res_df = prediction_feature_df \
         .withColumn('estimated_free_match_number', F.expr('total_frees_number * estimated_frees_watching_match_rate')) \
         .withColumn('estimated_sub_match_number', F.expr('total_subscribers_number * estimated_subscribers_watching_match_rate')) \

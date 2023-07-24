@@ -2,10 +2,12 @@
     1.calculate inventory&reach for each cohort of each match
     2.need to scale the inventory&reach when the languages or platform of the match is uncompleted
 """
-import pandas as pd
 import sys
-import json
-from common import *
+
+import pandas as pd
+
+from util import *
+from path import *
 
 
 def parse(string):

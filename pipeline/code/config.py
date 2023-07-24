@@ -99,3 +99,20 @@ FREE_PID_DID_RATE = 1.02
 
 SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION = "us-east-1"
+
+
+FOCAL_TOURNAMENTS = [
+    "ipl",
+    "world cup",
+    "asia cup",
+    "cricket world cup",
+    "sri lanka tour of pakistan",
+    "west indies tour india",
+    "india tour of new zealand",
+    "england tour of india",
+    "west indies tour of india",
+    "south africa tour of india",
+    "sri lanka tour of india",
+    "new zealand tour of india",
+    "australia tour of india",
+]

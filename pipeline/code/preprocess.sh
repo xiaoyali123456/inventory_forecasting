@@ -15,7 +15,7 @@ REGION="us-east-1"
 
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
-    --py-files common.py"
+    --py-files config.py,path.py,util.py"
 
 $SPARK preprocess/fetch_requests.py $DATE
 aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_requests on $DATE done" --region $REGION

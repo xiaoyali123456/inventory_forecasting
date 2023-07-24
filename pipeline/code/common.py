@@ -63,6 +63,7 @@ def load_requests(cd):
     with s3.open(REQUESTS_PATH_TEMPL % cd) as fp:
         return json.load(fp)
 
+
 # end is exclusive
 def get_last_cd(path, end=None, n=1, invalid_cd=None):
     lst = [x.split('=')[-1] for x in s3.ls(path)]

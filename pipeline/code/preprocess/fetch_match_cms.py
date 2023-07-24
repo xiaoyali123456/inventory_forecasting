@@ -1,9 +1,12 @@
-from common import *
 import sys
+
+from util import *
+from path import *
 
 # save previous match meta data to s3
 if __name__ == '__main__':
     cd = sys.argv[1]
+    spark = hive_spark("fetch_match_cms")
     matches = spark.sql('''
     SELECT
         contentid AS content_id,

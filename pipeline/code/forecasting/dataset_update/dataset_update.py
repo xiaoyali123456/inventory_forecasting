@@ -1,9 +1,12 @@
 import holidays
+import sys
+
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
 
 from config import *
 from path import *
 from util import *
-from common import get_last_cd
 import new_match
 
 holiday_list = []
@@ -44,13 +47,20 @@ def feature_processing(df, run_date):
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
         .withColumn('team2', F.expr('lower(team2)')) \
-        .withColumn('if_contain_india_team', F.expr(f'if(team1="india" or team2="india", "1", if(team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}", "{UNKNOWN_TOKEN}", "0"))')) \
+        .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
+                                                    f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
+                                                    f'else "0" end')) \
         .withColumn('if_holiday', check_holiday_udf('matchDate')) \
+        .withColumn('if_holiday', F.expr('case when publicHoliday=true then 1 '
+                                         'when publicHoliday=false then 0 '
+                                         'else if_holiday end')) \
         .withColumn('match_time', F.expr('cast(matchStartHour as int)')) \
         .withColumn('match_time', F.expr('cast(match_time/6 as int)')) \
         .withColumn('if_weekend', F.dayofweek(F.col('matchDate'))) \
         .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
-        .withColumn('tournament_type', F.expr('if(locate("ipl", tournament) > 0 or locate("ranji trophy", tournament) > 0, "national", if(locate("tour", tournament) > 0, "tour", "international"))')) \
+        .withColumn('tournament_type', F.expr('case when locate("ipl", tournament) > 0 or locate("ranji trophy", tournament) > 0 then "national" '
+                                              'when locate("tour", tournament) > 0, "tour" '
+                                              'else "international" end')) \
         .withColumn('teams', F.array(F.col('team1'), F.col('team2'))) \
         .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \
         .withColumn('continent2', get_continent_udf('team2', 'tournament_type')) \
@@ -73,9 +83,6 @@ def feature_processing(df, run_date):
             .withColumn(col, F.lit(-1))
 
     print("feature df")
-    feature_df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').show(20, False)
-    feature_df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
-    feature_df.where('seasonName!="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
     return feature_df
 
 
