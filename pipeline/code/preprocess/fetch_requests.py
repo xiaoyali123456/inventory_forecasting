@@ -54,8 +54,8 @@ def load_yesterday_inputs(cd):
     df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
     any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
-    df['matchShouldUpdate'] = (cd <= df.tournamentEndDate) & (~df.matchHaveFinished) & any_match_finished_on_yesterday
-    df['matchShouldUpdate'] = False  # TODO
+    df['matchShouldUpdate'] = (~df.matchHaveFinished) & any_match_finished_on_yesterday
+    # df['matchShouldUpdate'] = False  # TODO
     return df
 
 
