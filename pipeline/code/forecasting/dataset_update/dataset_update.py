@@ -59,7 +59,7 @@ def feature_processing(df, run_date):
         .withColumn('if_weekend', F.dayofweek(F.col('matchDate'))) \
         .withColumn('if_weekend', F.expr('if(if_weekend=1 or if_weekend = 7, 1, 0)')) \
         .withColumn('tournament_type', F.expr('case when locate("ipl", tournament) > 0 or locate("ranji trophy", tournament) > 0 then "national" '
-                                              'when locate("tour", tournament) > 0, "tour" '
+                                              'when locate("tour", tournament) > 0 then "tour" '
                                               'else "international" end')) \
         .withColumn('teams', F.array(F.col('team1'), F.col('team2'))) \
         .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \

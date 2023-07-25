@@ -152,7 +152,7 @@ def should_be_used_season(sport_season_name):
     if isinstance(sport_season_name, str):
         sport_season_name = sport_season_name.lower()
         for t in FOCAL_TOURNAMENTS:
-            if t in sport_season_name: # sport_season_name is a super-string of tournament
+            if t in sport_season_name:  # sport_season_name is a super-string of tournament
                 return True
     return False
 
