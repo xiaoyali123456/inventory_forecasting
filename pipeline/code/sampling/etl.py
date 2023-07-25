@@ -221,7 +221,6 @@ def process_custom_tags(cd):
 
 
 def main(cd):
-    spark = hive_spark("etl")
     matches = load_new_matches(cd)
     for dt in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == dt].content_id.tolist()
@@ -237,5 +236,6 @@ def main(cd):
 
 
 if __name__ == '__main__':
+    spark = hive_spark("etl")
     DATE = sys.argv[1]
     main(DATE)

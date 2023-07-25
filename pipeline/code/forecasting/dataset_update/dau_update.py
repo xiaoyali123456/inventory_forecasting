@@ -59,6 +59,7 @@ def combine(run_date):
 
 
 if __name__ == '__main__':
+    spark = hive_spark("dau_update")
     run_date = sys.argv[1]
     true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
     if not s3.isfile(true_vv_path + '_SUCCESS'):
