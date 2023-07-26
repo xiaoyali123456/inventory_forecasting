@@ -77,13 +77,13 @@ def parse(segments):
 
 
 @F.udf(returnType=TimestampType())
-def parse_timestamp(date:str, ts: str):
+def parse_timestamp(date: str, ts: str):
     return pd.Timestamp(date + ' ' + ts, tz='asia/kolkata')
 
 
 def preprocess_playout(df):
-    # TODO: This will fail when End Date is null!! e.g. 2023-07-06
-    return df.withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+    return df\
+        .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
         .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
         .selectExpr(
             '`Content ID` as content_id',
@@ -93,7 +93,10 @@ def preprocess_playout(df):
             'explode(split(trim(lower(Platform)), "\\\\|")) as platform',
             'break_start',
             'break_end',
-        ).where('break_start is not null and break_end is not null')
+        )\
+        .where('break_start is not null and break_end is not null') \
+        .withColumn('break_start', F.expr('cast(break_start as long)')) \
+        .withColumn('break_end', F.expr('cast(break_end as long)'))
 
 
 def process(dt, playout):
@@ -104,18 +107,18 @@ def process(dt, playout):
     if s3.isfile(success_path):
         print('skip')
         return
-    playout1 = playout \
-        .withColumn('break_start', F.expr('cast(break_start as long)')) \
-        .withColumn('break_end', F.expr('cast(break_end as long)'))
-    playout2 = playout1.where('platform != "na"')
-    playout3 = playout2.where('platform == "na"').drop('platform')
+    # playout1 = playout \
+    #     .withColumn('break_start', F.expr('cast(break_start as long)')) \
+    #     .withColumn('break_end', F.expr('cast(break_end as long)'))
+    playout_with_platform = playout.where('platform != "na"')
+    playout_without_platform = playout.where('platform == "na"').drop('platform')
     # TODO: verify dw_p_id difference with dw_d_id sampling
-    wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
+    raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
     # TODO: use received_at if received_at < timestamp
-    wt1 = wt[['dw_d_id', 'content_id',
+    wt = raw_wt[['dw_d_id', 'content_id',
         F.expr('lower(language) as language'),
         F.expr('lower(platform) as platform'),
         F.expr('lower(country) as country'),
@@ -128,15 +131,16 @@ def process(dt, playout):
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
         .select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort'))
-    wt1 = wt1.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
-    wt1.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
-    wt1 = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
-    wt2a = wt1.join(playout2.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
-    wt2b = wt1.join(playout3.hint('broadcast'), on=['content_id', 'language', 'country'])[wt2a.columns]
-    wt2 = wt2a.union(wt2b)
-    wt3 = wt2.withColumn('ad_time', F.expr('least(end, break_end) - greatest(start, break_start)'))
+    wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
+    wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
+    wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
+    wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
+    wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
     npar = 32
-    wt4 = wt3.where('ad_time > 0') \
+    res = wt_with_platform\
+        .union(wt_without_platform) \
+        .withColumn('ad_time', F.expr('least(end, break_end) - greatest(start, break_start)'))\
+        .where('ad_time > 0') \
         .groupby('content_id', 'playout_id',
             'language', 'platform', 'country',
             'city', 'state', 'cohort') \
@@ -144,7 +148,7 @@ def process(dt, playout):
             F.expr('sum(ad_time) as ad_time'),
             F.expr('count(distinct dw_d_id) as reach')
         ).repartition(npar)
-    wt4.write.mode('overwrite').parquet(final_output_path)
+    res.write.mode('overwrite').parquet(final_output_path)
     print('end', datetime.now())
 
 
@@ -222,16 +226,16 @@ def process_custom_tags(cd):
 
 def main(cd):
     matches = load_new_matches(cd)
-    for dt in matches.startdate.drop_duplicates():
-        content_ids = matches[matches.startdate == dt].content_id.tolist()
+    for date in matches.startdate.drop_duplicates():
+        content_ids = matches[matches.startdate == date].content_id.tolist()
         try:
-            raw_playout = spark.read.csv(PLAYOUT_PATH + dt, header=True)
-            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull()) # TODO: this doesn't cover all corner cases
+            raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
+            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())  # TODO: this doesn't cover all corner cases
             playout = preprocess_playout(raw_playout).where(F.col('content_id').isin(content_ids))
-            playout.toPandas() # try to realize the playout
-            process(dt, playout)
+            playout.toPandas()  # will fail if the format of playout is invalid
+            process(date, playout)
         except:
-            print(dt, 'playout not available')
+            print(date, 'playout not available')
     process_custom_tags(cd)
 
 

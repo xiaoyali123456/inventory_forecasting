@@ -17,18 +17,7 @@ def parse(string):
     return lst
 
 
-def update_dashboards():
-    # spark.stop()
-    spark = hive_spark("update_dashboards")
-    spark.sql("msck repair table adtech.daily_vv_report")
-    spark.sql("msck repair table adtech.daily_predicted_vv_report")
-    spark.sql("msck repair table adtech.daily_predicted_inventory_report")
-    spark.sql("msck repair table adtech.daily_midroll_corhort_report")
-    spark.sql("msck repair table adtech.daily_midroll_corhort_final_report")
-
-
-if __name__ == '__main__':
-    DATE = sys.argv[1]
+def combine_inventory_and_sampling(DATE):
     total = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
     reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/')
     ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/')
@@ -55,17 +44,19 @@ if __name__ == '__main__':
         # TODO: fix the below with scaling up factor
         languages = parse(meta_info.contentLanguages)
         if languages:
-            combine.reach *= combine.reach.sum()/combine[combine.language.isin(languages)].reach.sum()
-            combine.inventory *= combine.inventory.sum()/combine[combine.language.isin(languages)].inventory.sum()
+            combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
+            combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
             combine = combine[combine.language.isin(languages)].reset_index(drop=True)
         platforms = parse(meta_info.platformsSupported)
         if platforms:
-            combine.reach *= combine.reach.sum()/combine[combine.platform.isin(platforms)].reach.sum()
-            combine.inventory *= combine.inventory.sum()/combine[combine.platform.isin(platforms)].inventory.sum()
+            combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
+            combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()
             combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
         combine.inventory = combine.inventory.astype(int)
         combine.reach = combine.reach.astype(int)
-        combine.replace({'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}}, inplace=True)
+        combine.replace(
+            {'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}},
+            inplace=True)
         combine = combine.rename(columns={
             'age': 'ageBucket',
             'device': 'devicePrice',
@@ -73,9 +64,15 @@ if __name__ == '__main__':
             'custom_cohorts': 'customCohort',
         })
         combine = combine[(combine.inventory >= 1)
-                          &(combine.reach >= 1)
-                          &(combine.city.map(len)!=1)].reset_index(drop=True)
+                          & (combine.reach >= 1)
+                          & (combine.city.map(len) != 1)].reset_index(drop=True)
         combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
     df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
-    df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
-    update_dashboards()
+    df.write.mode('overwrite').partitionBy('tournamentId').parquet(
+        f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
+
+
+if __name__ == '__main__':
+    DATE = sys.argv[1]
+    if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
+        combine_inventory_and_sampling(DATE)

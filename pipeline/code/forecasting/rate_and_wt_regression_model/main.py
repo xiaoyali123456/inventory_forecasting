@@ -26,12 +26,15 @@ def main(run_date):
         model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
         model.train()
         model.prediction()
-    slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                       message=f"rate and wt predictions on {run_date} are done.")
 
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"rate and wt predictions on {run_date} are done.")
+    else:
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"rate and wt predictions on {run_date} nothing update.")
 

@@ -126,4 +126,15 @@ def get_last_cd(path, end=None, n=1, invalid_cd=None):
         return None
 
 
+def update_single_dashboard(spark, table):
+    spark.sql(f"msck repair table {table}")
 
+
+def update_dashboards():
+    # spark.stop()
+    spark = hive_spark("update_dashboards")
+    table_list = ['adtech.daily_vv_report', 'adtech.daily_predicted_vv_report',
+                  'adtech.daily_predicted_inventory_report',
+                  'adtech.daily_midroll_corhort_report', 'adtech.daily_midroll_corhort_final_report']
+    for table in table_list:
+        update_single_dashboard(spark, table)

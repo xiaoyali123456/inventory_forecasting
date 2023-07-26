@@ -1,5 +1,5 @@
 """
-    1. aggregate regular cohorts distribution to generate table
+    1. aggregate regular cohorts distribution to generate table from recent 30 days on that there are matches
     ('cd', 'language', 'platform', 'country', 'city', 'state', 'nccs', 'device', 'gender', 'age', ad_time', 'reach')
     2. calculate inventory/reach rate of each regular cohorts
     3. use moving avg method to predict inventory/reach rate for each regular cohorts

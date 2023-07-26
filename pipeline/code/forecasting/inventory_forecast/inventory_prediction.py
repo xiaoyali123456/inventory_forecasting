@@ -63,7 +63,7 @@ def main(run_date):
              F.sum('estimated_preroll_inventory').alias('estimated_preroll_inventory'),
              F.count('content_id').alias('match_num'))\
         .show(1000, False)
-    save_data_frame(res_df, PIPELINE_BASE_PATH + f"/inventory_prediction/future_tournaments/cd={run_date}/")
+    save_data_frame(res_df, TOTAL_INVENTORY_PREDICTION_PATH + f"cd={run_date}/")
 
 
 if __name__ == '__main__':
@@ -72,5 +72,8 @@ if __name__ == '__main__':
         main(run_date)
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"inventory forecasting on {run_date} is done.")
+    else:
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"inventory forecasting on {run_date} nothing update.")
 
 
