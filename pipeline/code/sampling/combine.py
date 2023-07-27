@@ -10,6 +10,12 @@ from util import *
 from path import *
 
 
+def copy_data_from_yesterday(DATE):
+    yesterday = get_date_list(DATE, -2)[0]
+    os.system(f"aws s3 sync {TOTAL_INVENTORY_PREDICTION_PATH}cd={yesterday}/ {TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/")
+    os.system(f"aws s3 sync {FINAL_ALL_PREDICTION_PATH}cd={yesterday}/ {FINAL_ALL_PREDICTION_PATH}cd={DATE}/")
+
+
 def parse(string):
     if string is None or string == '':
         return False
@@ -76,3 +82,6 @@ if __name__ == '__main__':
     DATE = sys.argv[1]
     if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
         combine_inventory_and_sampling(DATE)
+    else:
+        copy_data_from_yesterday(DATE)
+    update_dashboards()

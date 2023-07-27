@@ -1,9 +1,15 @@
 import requests
 import sys
+import os
 import pandas as pd
 
-from util import *
 from path import *
+
+
+def check_s3_path_exist(s3_path: str) -> bool:
+    if not s3_path.endswith("/"):
+        s3_path += "/"
+    return os.system(f"aws s3 ls {s3_path}_SUCCESS") == 0
 
 
 def trigger_airflow(cd):
@@ -34,17 +40,8 @@ def update_request_status_and_trigger_airflow(DATE):
     trigger_airflow(DATE)  # TODO: open this
 
 
-def copy_data_from_yesterday(DATE):
-    yesterday = get_date_list(DATE, -2)[0]
-    os.system(f"aws s3 sync {TOTAL_INVENTORY_PREDICTION_PATH}cd={yesterday}/ {TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/")
-    os.system(f"aws s3 sync {FINAL_ALL_PREDICTION_PATH}cd={yesterday}/ {FINAL_ALL_PREDICTION_PATH}cd={DATE}/")
-
-
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    if check_s3_path_exist(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/'):
+    if check_s3_path_exist(f'{PREDICTION_MATCH_TABLE_PATH}/cd={DATE}/'):
         update_request_status_and_trigger_airflow(DATE)
-    else:
-        copy_data_from_yesterday(DATE)
-    update_dashboards()
 
