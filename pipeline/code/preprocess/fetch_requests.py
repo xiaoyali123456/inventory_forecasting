@@ -113,6 +113,8 @@ def main(cd):
         url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
         df = pd.read_json(url)
         req_list += df.inventoryForecastResponses.tolist()
+        if len(df.totalPages) == 0:
+            break
         total = df.totalPages[0]
         i += 1
         print(i)
