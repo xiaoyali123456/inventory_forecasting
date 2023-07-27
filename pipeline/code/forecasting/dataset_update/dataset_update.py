@@ -130,7 +130,7 @@ def update_prediction_dataset(request_df, avg_dau_df):
 
 def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     new_match_df = request_df \
-        .where('matchHaveFinished=true') \
+        .where('matchHaveFinished=true and fromOldRequest=false') \
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
         .cache()

@@ -88,7 +88,7 @@ def reformat_playout_df(playout_df):
 
 # playout data processing
 def playout_data_processing(spark, date):
-    playout_df = reformat_playout_df(load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}{date}", 'csv', True))\
+    playout_df = reformat_playout_df(load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}/{date}", 'csv', True))\
         .withColumn('date', F.lit(date))\
         .select('date', 'content_id', 'start_time', 'end_time', 'delivered_duration',
                 'platform', 'tenant', 'content_language', 'creative_id', 'break_id',
