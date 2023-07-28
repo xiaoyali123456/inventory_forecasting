@@ -182,7 +182,7 @@ def concat(tags: set):
 def load_custom_tags(cd: str) -> dict:
     res = {}
     for r in load_requests(cd, REQUESTS_PATH_TEMPL):
-        for x in r.get('customAudiences', []):
+        for x in r.get(CUSTOM_AUDIENCE_COL, []):
             if 'segmentName' in x:
                 res[x['segmentName']] = x['customCohort']
     return res
@@ -191,7 +191,7 @@ def load_custom_tags(cd: str) -> dict:
 @F.udf(returnType=StringType())
 def convert_custom_cohort(long_tags):
     long_tags.sort()
-    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]  # Need drop duplicates?
+    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]
     return '|'.join(short_tags)
 
 
@@ -200,6 +200,8 @@ def process_custom_tags(cd):
     # c_tags=['A_58290825']
     global c_tag_dict
     c_tag_dict = load_custom_tags(cd)
+    print("c_tag_dict")
+    print(c_tag_dict)
     t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     f = lambda x: any(x.endswith(c) for c in c_tag_dict)
@@ -211,7 +213,7 @@ def process_custom_tags(cd):
         sql = ','.join(f'"{x}"' for x in matches_days)
         wt = spark.sql(f'select * from {DAU_TABLE} where cd in ({sql})')
         wt1 = wt[['dw_d_id',
-            F.expr('lower(cms_genre) == "cricket" as is_cricket'),
+            F.expr('lower(cms_genre) like "%cricket%" as is_cricket'),
             F.expr('case when watch_time < 86400 then watch_time else 0 end as watch_time')
         ]]
         res = wt1.join(ct, on='dw_d_id', how='left').groupby('is_cricket', 'segments').agg(

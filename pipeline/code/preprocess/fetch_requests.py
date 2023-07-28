@@ -8,7 +8,7 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 from util import s3
-from path import REQUESTS_PATH_TEMPL, BOOKING_TOOL_URL, PREPROCESSED_INPUT_PATH
+from path import *
 import gspread
 
 
@@ -45,7 +45,7 @@ def load_yesterday_inputs(cd):
         df = pd.DataFrame([], columns=['requestId', 'tournamentName', 'seasonId', 'seasonName',
        'requestStatus', 'tournamentType', 'svodFreeTimeDuration',
        'svodSubscriptionPlan', 'sportType', 'tournamentLocation',
-       'customAudiences', 'adPlacements', 'tournamentStartDate',
+       CUSTOM_AUDIENCE_COL, 'adPlacements', 'tournamentStartDate',
        'tournamentEndDate', 'userName', 'emailId', 'creationDate',
        'lastModifiedDate', 'error', 'tournamentId', 'matchId', 'matchCategory',
        'matchDate', 'matchStartHour', 'estimatedMatchDuration', 'matchType',
@@ -127,7 +127,7 @@ def main(cd):
     print('df_new')
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     # change list to json string because parquet doesn't support
-    df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', 'customAudiences', 'contentLanguages', 'platformsSupported']] \
+    df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] \
         .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
     print('df_new')
     # df_uni = backfill_from_google_sheet(df_uni)
