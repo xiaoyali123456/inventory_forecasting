@@ -60,7 +60,7 @@ def make_segment_str_wrapper(lst):
 
 
 @F.udf(returnType=StringType())
-def parse(segments):
+def parse_segments(segments):
     if segments is None:
         return None
     try:
@@ -70,7 +70,7 @@ def parse(segments):
     if type(js) == list:
         lst = js
     elif type(js) == dict:
-        lst =js.get('data', [])
+        lst = js.get('data', [])
     else:
         return None
     return make_segment_str(lst)
@@ -107,17 +107,12 @@ def process(dt, playout):
     if s3.isfile(success_path):
         print('skip')
         return
-    # playout1 = playout \
-    #     .withColumn('break_start', F.expr('cast(break_start as long)')) \
-    #     .withColumn('break_end', F.expr('cast(break_end as long)'))
     playout_with_platform = playout.where('platform != "na"')
     playout_without_platform = playout.where('platform == "na"').drop('platform')
-    # TODO: verify dw_p_id difference with dw_d_id sampling
     raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
-    # TODO: use received_at if received_at < timestamp
     wt = raw_wt[['dw_d_id', 'content_id',
         F.expr('lower(language) as language'),
         F.expr('lower(platform) as platform'),
@@ -126,7 +121,7 @@ def process(dt, playout):
         F.expr('lower(state) as state'),
         F.expr('cast(timestamp as long) as end'),
         F.expr('cast(timestamp as double) - watch_time as start'),
-        parse('user_segments').alias('cohort'),
+        parse_segments('user_segments').alias('cohort'),
     ]]
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
@@ -152,7 +147,7 @@ def process(dt, playout):
     print('end', datetime.now())
 
 
-def should_be_used_season(sport_season_name):
+def check_if_focal_season(sport_season_name):
     if isinstance(sport_season_name, str):
         sport_season_name = sport_season_name.lower()
         for t in FOCAL_TOURNAMENTS:
@@ -165,7 +160,7 @@ def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}"').toPandas()
-    return matches[matches.sportsseasonname.map(should_be_used_season)] # TODO: exception check and rename this obscure name
+    return matches[matches.sportsseasonname.map(check_if_focal_season)]
 
 
 def latest_match_days(cd, n):
@@ -179,7 +174,8 @@ def concat(tags: set):
     return '|'.join(sorted(tags))
 
 
-def load_custom_tags(cd: str) -> dict:
+# output: {"A_58290825": "C_14_1", ...}
+def load_segment_custom_cohort_mapping(cd: str) -> dict:
     res = {}
     for r in load_requests(cd, REQUESTS_PATH_TEMPL):
         for x in r.get(CUSTOM_AUDIENCE_COL, []):
@@ -189,40 +185,42 @@ def load_custom_tags(cd: str) -> dict:
 
 
 @F.udf(returnType=StringType())
-def convert_custom_cohort(long_tags):
+def convert_to_custom_cohort(long_tags):
     long_tags.sort()
-    short_tags = [c_tag_dict[i] for i in long_tags if i in c_tag_dict]
+    short_tags = [segment_dict[i] for i in long_tags if i in segment_dict]
     return '|'.join(short_tags)
 
 
 def process_custom_tags(cd):
     # debug: 
     # c_tags=['A_58290825']
-    global c_tag_dict
-    c_tag_dict = load_custom_tags(cd)
-    print("c_tag_dict")
-    print(c_tag_dict)
-    t = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
-    t2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
-    f = lambda x: any(x.endswith(c) for c in c_tag_dict)
-    t3 = ['s3://' + x for x in t + t2 if f(x)]
-    if len(t3) > 0:
-        ct = spark.read.parquet(*t3).groupby('dw_d_id').agg(F.collect_set('tag_type').alias('segments')) \
-            .withColumn('segments', convert_custom_cohort('segments'))
-        matches_days = latest_match_days(cd, 5)  # TODO: filter 3 month expiration
-        sql = ','.join(f'"{x}"' for x in matches_days)
-        wt = spark.sql(f'select * from {DAU_TABLE} where cd in ({sql})')
-        wt1 = wt[['dw_d_id',
+    global segment_dict
+    segment_dict = load_segment_custom_cohort_mapping(cd)
+    print("segment_dict")
+    print(segment_dict)
+    segment_path_list1 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
+    segment_path_list2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
+    custom_cohort_filter = lambda x: any(x.endswith(c) for c in segment_dict)
+    segment_path_list = ['s3://' + x for x in segment_path_list1 + segment_path_list2 if custom_cohort_filter(x)]
+    if len(segment_path_list) > 0:
+        custom_cohort_df = spark.read.parquet(*segment_path_list)\
+            .groupby('dw_d_id')\
+            .agg(F.collect_set('tag_type').alias('segments')) \
+            .withColumn('segments', convert_to_custom_cohort('segments'))
+        last_five_matches_days = latest_match_days(cd, 5)
+        valid_date_str = ','.join(f'"{x}"' for x in last_five_matches_days)
+        raw_wt_df = spark.sql(f'select * from {DAU_TABLE} where cd in ({valid_date_str})')
+        wt_df = raw_wt_df[['dw_d_id',
             F.expr('lower(cms_genre) like "%cricket%" as is_cricket'),
             F.expr('case when watch_time < 86400 then watch_time else 0 end as watch_time')
         ]]
-        res = wt1.join(ct, on='dw_d_id', how='left').groupby('is_cricket', 'segments').agg(
-            F.expr('sum(watch_time) as watch_time'),
-            F.expr('count(distinct dw_d_id) as reach')
-        )
+        res = wt_df\
+            .join(custom_cohort_df, on='dw_d_id', how='left')\
+            .groupby('is_cricket', 'segments')\
+            .agg(F.expr('sum(watch_time) as watch_time'), F.expr('count(distinct dw_d_id) as reach'))
     else:
-        t = pd.DataFrame([[True, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
-        res = spark.createDataFrame(t)
+        default_costom_cohort = pd.DataFrame([[True, '', 1.0, 1.0]], columns=['is_cricket', 'segments', 'watch_time', 'reach'])
+        res = spark.createDataFrame(default_costom_cohort)
     res.repartition(1).write.mode('overwrite').parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
 

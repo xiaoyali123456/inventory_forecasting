@@ -37,7 +37,7 @@ def update_request_status_and_trigger_airflow(DATE):
             }
         )
         print('updated status:', r.status_code)
-    trigger_airflow(DATE)  # TODO: open this
+    trigger_airflow(DATE)
 
 
 if __name__ == '__main__':

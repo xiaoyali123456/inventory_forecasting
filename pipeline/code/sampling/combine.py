@@ -40,14 +40,13 @@ def combine_inventory_and_sampling(DATE):
         row.match_id = int(row.match_id)
         combine['request_id'] = row.request_id
         combine['matchId'] = row.match_id
-        # TODO: fix the below; currently we have category type ID
+        # We assume that matchId is unique for all requests
         # meta_info = processed_input[(processed_input.requestId == row.request_id)&(processed_input.matchId == row.match_id)]
         meta_info = processed_input[(processed_input.matchId == row.match_id)].iloc[0]
         combine['tournamentId'] = meta_info['tournamentId']
         combine['seasonId'] = meta_info['seasonId']
         # reformat
         combine['adPlacement'] = 'MIDROLL'
-        # TODO: fix the below with scaling up factor
         languages = parse(meta_info.contentLanguages)
         if languages:
             combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()

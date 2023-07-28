@@ -152,9 +152,7 @@ def calculate_midroll_inventory_and_reach_gt(spark, date):
     # calculate inventory and reach, need to extract the common intervals for each users
     total_inventory_df = watch_video_df\
         .join(F.broadcast(break_info_df), ['content_id'])\
-        .withColumn('big_start_time', F.expr('if(wv_start_time_int < break_start_time_int, break_start_time_int, wv_start_time_int)'))\
-        .withColumn('small_end_time', F.expr('if(wv_end_time_int < break_end_time_int, wv_end_time_int, break_end_time_int)'))\
-        .withColumn('valid_duration', F.expr('small_end_time - big_start_time'))\
+        .withColumn('valid_duration', F.expr('least(wv_end_time_int, break_end_time_int) - greatest(wv_start_time_int, break_start_time_int)'))\
         .where('valid_duration > 0')\
         .groupBy('content_id')\
         .agg(F.sum('valid_duration').alias('total_duration'),
