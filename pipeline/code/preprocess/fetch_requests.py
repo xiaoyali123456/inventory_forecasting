@@ -104,6 +104,19 @@ def convert_list_to_df(lst):
     return df
 
 
+def dump_to_json_str(x):
+    if isinstance(x, str):
+        return x
+    else:
+        try:
+            x = x.tolist()
+        except Exception as e:
+            # Exception handling for other types of exceptions
+            print("An error occurred:", str(e))
+        finally:
+            return json.dumps(x)
+
+
 def main(cd):
     req_list = []
     page_size = 10
@@ -127,7 +140,7 @@ def main(cd):
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     # change list to json string because parquet doesn't support
     df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] \
-        .applymap(lambda x: x if isinstance(x, str) else json.dumps(x))
+        .applymap(lambda x: dump_to_json_str(x))
     print('df_new')
     # df_uni = backfill_from_google_sheet(df_uni)
     print('df_new')
