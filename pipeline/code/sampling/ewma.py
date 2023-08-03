@@ -1,5 +1,5 @@
 """
-    1. aggregate regular cohorts distribution to generate table from recent 30 days on that there are matches
+    1. aggregate regular cohorts distribution to generate table from recent 30 days on which there are matches
     ('cd', 'language', 'platform', 'country', 'city', 'state', 'nccs', 'device', 'gender', 'age', ad_time', 'reach')
     2. calculate inventory/reach rate of each regular cohorts
     3. use moving avg method to predict inventory/reach rate for each regular cohorts
@@ -17,14 +17,14 @@ from util import *
 from path import *
 
 
-def load_inventory(cd, n=30):
-    last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)
+def load_regular_cohorts_data(cd, n=30):
+    last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)  # recent 30 days on which there are matches
     lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
-    return reduce(lambda x,y: x.union(y), lst)
+    return reduce(lambda x, y: x.union(y), lst)
 
 
 @F.udf(returnType=StringType())
-def nccs(cohort):
+def unify_nccs(cohort):
     if cohort is not None:
         for x in cohort.split('|'):
             if x.startswith('NCCS_'):
@@ -33,7 +33,7 @@ def nccs(cohort):
 
 
 @F.udf(returnType=StringType())
-def gender(cohort):
+def unify_gender(cohort):
     if cohort is not None:
         for x in cohort.split('|'):
             if x.startswith('FMD00') or '_FEMALE_' in x:
@@ -44,7 +44,7 @@ def gender(cohort):
 
 
 @F.udf(returnType=StringType())
-def age(cohort):
+def unify_age(cohort):
     map_ = {
         "EMAIL_FEMALE_13-17": "13-17",
         "EMAIL_FEMALE_18-24": "18-24",
@@ -113,7 +113,7 @@ def age(cohort):
 
 
 @F.udf(returnType=StringType())
-def device(cohort):
+def unify_device(cohort):
     if cohort is not None:
         dc = {'A_15031263': '15-20K', 'A_94523754': '20-25K', 'A_40990869': '25-35K', 'A_21231588': '35K+'}
         for x in cohort.split('|'):
@@ -122,46 +122,62 @@ def device(cohort):
     return ''
 
 
-# TODO: add comment for the purpose of this function
-def aggregate(df, group_cols, DATE):
-    filter = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
+# unify regular cohort names
+def unify_regular_cohort_names(df, group_cols, DATE):
+    valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
-    return df.join(filter, ['cd', 'content_id']).groupby(
-        *group_cols,
-        'country', 'language', 'platform', 'city', 'state',
-        nccs('cohort').alias('nccs'), 
-        device('cohort').alias('device'),
-        gender('cohort').alias('gender'),
-        age('cohort').alias('age'),
-    ).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).toPandas()
+    return df\
+        .join(valid_matches, ['cd', 'content_id'])\
+        .groupby(
+            *group_cols,
+            'country', 'language', 'platform', 'city', 'state',
+            unify_nccs('cohort').alias('nccs'),
+            unify_device('cohort').alias('device'),
+            unify_gender('cohort').alias('gender'),
+            unify_age('cohort').alias('age'))\
+        .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
+        .toPandas()\
+        .fillna('')
 
 
-def moving_avg(df, group_cols, target, alpha=0.2):
+def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2):
     cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age', 'language']
-    df2 = df.fillna('')  # this is important because pandas groupby will ignore null
-    df2[target+'_ratio'] = df2[target] / df2.groupby(group_cols)[target].transform('sum')  # index=cd, cols=country, platform,..., target, target_ratio
-    df3 = df2.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)  # index=cd, cols=cohort_candidate_combination1, cohort_candidate_combination2, ...
+    # calculate the inventory/reach percentage for each cohort combination
+    df[target+'_ratio'] = df[target] / df.groupby(group_cols)[target].transform('sum')  # index=cd, cols=country, platform,..., target, target_ratio
+    # convert each cohort combination to one single column
+    target_value_distribution_df = df.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)  # index=cd, cols=cohort_candidate_combination1, cohort_candidate_combination2, ...
     # S[n+1] = (1-alpha) * S[n] + alpha * A[n+1]
-    df4 = df3.ewm(alpha=alpha, adjust=False).mean().shift(1)
-    return df4.iloc[-1].rename(target).reset_index()  # cols=country, platform,..., target
+    res_df = target_value_distribution_df.ewm(alpha=alpha, adjust=False).mean().shift(1)
+    # return the last row as the prediction results
+    return res_df.iloc[-1].rename(target).reset_index()  # cols=country, platform,..., target
 
 
-def merge_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
-    # df = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
-    ch = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
-    ch = ch[~(ch.is_cricket==False)]
-    ch.segments.fillna('', inplace=True)
-    ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
-    df2 = df.merge(ch2, how='cross')
-    df2[dst_col] = df2[dst_col+'_x'] * df2[dst_col+'_y']
-    return df2.drop(columns=[dst_col+'_x', dst_col+'_y'])  # schema: country, platform,..., custom_cohorts, target
+def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
+    custom_cohort_df = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
+    custom_cohort_df = custom_cohort_df[~(custom_cohort_df.is_cricket==False)]
+    custom_cohort_df.segments.fillna('', inplace=True)
+    # calculate the inventory/reach percentage for each cohort
+    custom_cohort_df = (custom_cohort_df.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts')
+                        / custom_cohort_df[src_col].sum()).reset_index()
+    # merge regular cohorts and custom cohorts
+    combine_df = regular_cohort_df.merge(custom_cohort_df, how='cross')
+    combine_df[dst_col] = combine_df[dst_col+'_x'] * combine_df[dst_col+'_y']
+    return combine_df.drop(columns=[dst_col+'_x', dst_col+'_y'])  # schema: country, platform,..., custom_cohorts, target
+
+
+def main(cd):
+    regular_cohorts_df = load_regular_cohorts_data(cd)
+    unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
+
+    # inventory distribution prediction
+    regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
+    combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
+
+    # reach distribution prediction
+    regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'],target='reach')
+    combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')
 
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
-    iv = load_inventory(DATE)
-    giv = aggregate(iv, ['cd', 'content_id'], DATE)
-    df = moving_avg(giv, ['cd'], target='ad_time')
-    merge_custom_cohort(df, DATE).to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/p0.parquet')
-    df2 = moving_avg(giv, ['cd'], target='reach')
-    merge_custom_cohort(df2, DATE, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/p0.parquet')
+    main(DATE)

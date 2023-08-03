@@ -28,7 +28,7 @@ from config import *
 
 def make_segment_str(lst):
     filtered = set()
-    equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588'] # device price
+    equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
@@ -99,17 +99,20 @@ def preprocess_playout(df):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
 
 
-def process(dt, playout):
-    print('process', dt)
+def process_regular_cohorts_by_date(date, playout):
+    print('process_regular_tags', date)
     print('begin', datetime.now())
-    final_output_path = f'{INVENTORY_SAMPLING_PATH}cd={dt}/'
+    final_output_path = f'{INVENTORY_SAMPLING_PATH}cd={date}/'
     success_path = f'{final_output_path}_SUCCESS'
     if s3.isfile(success_path):
         print('skip')
         return
+    # split playout data according to if platform is null
     playout_with_platform = playout.where('platform != "na"')
     playout_without_platform = playout.where('platform == "na"').drop('platform')
-    raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{dt}"') \
+
+    # load watch_video data with regular cohorts
+    raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
@@ -123,22 +126,27 @@ def process(dt, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse_segments('user_segments').alias('cohort'),
     ]]
-    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={dt}') \
+
+    # load preroll data with regular cohorts
+    preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
         .select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort'))
+
+    # use wt data join preroll data in case there are no segments in wt users
     wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
     wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
+
     wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
     wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
+
+    # calculate inventory and reach for each cohort
     npar = 32
     res = wt_with_platform\
         .union(wt_without_platform) \
         .withColumn('ad_time', F.expr('least(end, break_end) - greatest(start, break_start)'))\
         .where('ad_time > 0') \
-        .groupby('content_id', 'playout_id',
-            'language', 'platform', 'country',
-            'city', 'state', 'cohort') \
+        .groupby('content_id', 'playout_id', 'language', 'platform', 'country', 'city', 'state', 'cohort') \
         .agg(
             F.expr('sum(ad_time) as ad_time'),
             F.expr('count(distinct dw_d_id) as reach')
@@ -156,6 +164,7 @@ def check_if_focal_season(sport_season_name):
     return False
 
 
+# load new matches which have not been updated
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
@@ -175,7 +184,7 @@ def concat(tags: set):
 
 
 # output: {"A_58290825": "C_14_1", ...}
-def load_segment_custom_cohort_mapping(cd: str) -> dict:
+def load_segment_to_custom_cohort_mapping(cd: str) -> dict:
     res = {}
     for r in load_requests(cd, REQUESTS_PATH_TEMPL):
         for x in r.get(CUSTOM_AUDIENCE_COL, []):
@@ -191,17 +200,19 @@ def convert_to_custom_cohort(long_tags):
     return '|'.join(short_tags)
 
 
-def process_custom_tags(cd):
-    # debug: 
-    # c_tags=['A_58290825']
+def process_custom_cohorts(cd):
+    # load segment_to_custom_cohort_mapping from request
     global segment_dict
-    segment_dict = load_segment_custom_cohort_mapping(cd)
+    segment_dict = load_segment_to_custom_cohort_mapping(cd)
     print("segment_dict")
     print(segment_dict)
+
+    # load existing segments and filter valid segments according to segment_to_custom_cohort_mapping
     segment_path_list1 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     segment_path_list2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
-    custom_cohort_filter = lambda x: any(x.endswith(c) for c in segment_dict)
-    segment_path_list = ['s3://' + x for x in segment_path_list1 + segment_path_list2 if custom_cohort_filter(x)]
+    segment_filter = lambda x: any(x.endswith(c) for c in segment_dict)
+    segment_path_list = ['s3://' + x for x in segment_path_list1 + segment_path_list2 if segment_filter(x)]
+
     if len(segment_path_list) > 0:
         custom_cohort_df = spark.read.parquet(*segment_path_list)\
             .groupby('dw_d_id')\
@@ -224,19 +235,24 @@ def process_custom_tags(cd):
     res.repartition(1).write.mode('overwrite').parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
 
 
-def main(cd):
+def process_regular_cohorts(cd):
     matches = load_new_matches(cd)
     for date in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == date].content_id.tolist()
         try:
             raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
-            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())  # TODO: this doesn't cover all corner cases
-            playout = preprocess_playout(raw_playout).where(F.col('content_id').isin(content_ids))
-            playout.toPandas()  # will fail if the format of playout is invalid
-            process(date, playout)
+            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
+            playout = preprocess_playout(raw_playout)\
+                .where(F.col('content_id').isin(content_ids))
+            playout.toPandas()  # data checking, will fail if format of the playout is invalid
+            process_regular_cohorts_by_date(date, playout)
         except:
             print(date, 'playout not available')
-    process_custom_tags(cd)
+
+
+def main(cd):
+    process_regular_cohorts(cd)
+    process_custom_cohorts(cd)
 
 
 if __name__ == '__main__':

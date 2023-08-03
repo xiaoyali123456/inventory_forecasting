@@ -10,10 +10,10 @@ from util import *
 from path import *
 
 
-def copy_data_from_yesterday(DATE):
-    yesterday = get_date_list(DATE, -2)[0]
-    os.system(f"aws s3 sync {TOTAL_INVENTORY_PREDICTION_PATH}cd={yesterday}/ {TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/")
-    os.system(f"aws s3 sync {FINAL_ALL_PREDICTION_PATH}cd={yesterday}/ {FINAL_ALL_PREDICTION_PATH}cd={DATE}/")
+def copy_data_from_yesterday(cd):
+    yesterday = get_date_list(cd, -2)[0]
+    os.system(f"aws s3 sync {TOTAL_INVENTORY_PREDICTION_PATH}cd={yesterday}/ {TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/")
+    os.system(f"aws s3 sync {FINAL_ALL_PREDICTION_PATH}cd={yesterday}/ {FINAL_ALL_PREDICTION_PATH}cd={cd}/")
 
 
 def parse(string):
@@ -23,19 +23,25 @@ def parse(string):
     return lst
 
 
-def combine_inventory_and_sampling(DATE):
-    total = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/').toPandas()
-    reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={DATE}/')
-    ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={DATE}/')
+def combine_inventory_and_sampling(cd):
+    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').toPandas()
+    reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/')
+    ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
     ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
-    processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={DATE}/')
-    for i, row in total.iterrows():
+    processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
+    # sampling match one by one
+    for i, row in model_predictions.iterrows():
         reach = reach_ratio.copy()
         inventory = ad_time_ratio.copy()
+
+        # calculate predicted inventory and reach for each cohort
         reach.reach *= row.estimated_reach
         inventory.inventory *= row.estimated_inventory
+
         common_cols = list(set(reach.columns) & set(inventory.columns))
         combine = inventory.merge(reach, on=common_cols, how='left')
+
+        # add meta data for each match
         row.request_id = str(row.request_id)
         row.match_id = int(row.match_id)
         combine['request_id'] = row.request_id
@@ -45,18 +51,22 @@ def combine_inventory_and_sampling(DATE):
         meta_info = processed_input[(processed_input.matchId == row.match_id)].iloc[0]
         combine['tournamentId'] = meta_info['tournamentId']
         combine['seasonId'] = meta_info['seasonId']
-        # reformat
         combine['adPlacement'] = 'MIDROLL'
+
+        # process cases when languages of this match are incomplete
         languages = parse(meta_info.contentLanguages)
         if languages:
             combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
             combine = combine[combine.language.isin(languages)].reset_index(drop=True)
+
+        # process case when platforms of this match are incomplete
         platforms = parse(meta_info.platformsSupported)
         if platforms:
             combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()
             combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
+
         combine.inventory = combine.inventory.astype(int)
         combine.reach = combine.reach.astype(int)
         combine.replace(
@@ -71,16 +81,12 @@ def combine_inventory_and_sampling(DATE):
         combine = combine[(combine.inventory >= 1)
                           & (combine.reach >= 1)
                           & (combine.city.map(len) != 1)].reset_index(drop=True)
-        combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/p{i}.parquet')
-    df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={DATE}/')
-    df.write.mode('overwrite').partitionBy('tournamentId').parquet(
-        f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={DATE}/')
+        combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
+    df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={cd}/')
+    df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
 
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
     if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
         combine_inventory_and_sampling(DATE)
-    else:
-        copy_data_from_yesterday(DATE)
-    update_dashboards()
