@@ -63,6 +63,7 @@ INVALID_TEAM_MAPPING = {
         "dc.": "dc"
 }
 UNKNOWN_TOKEN = "<unk>"
+UNKNOWN_TOKEN2 = "unknown"
 DEFAULT_CONTINENT = "AS"
 
 

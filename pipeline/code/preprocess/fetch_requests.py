@@ -76,8 +76,8 @@ def unify_format(df):
         df['team2'] = df[team_col].map(lambda x: x[1].get('name'))
         df['tierOfTeam1'] = df[team_col].map(lambda x: x[0].get('tier'))
         df['tierOfTeam2'] = df[team_col].map(lambda x: x[1].get('tier'))
-        df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
-        df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x: x if str(x).find("tier") > -1 else "tier"+str(x))
+        df['tierOfTeam1'] = df['tierOfTeam1'].map(lambda x: x if str(x).lower().find("tier") > -1 else "tier"+str(x))
+        df['tierOfTeam2'] = df['tierOfTeam2'].map(lambda x: x if str(x).lower().find("tier") > -1 else "tier"+str(x))
         df.drop(columns=team_col, inplace=True)
     match_stage_col = "matchType"
     if match_stage_col in df.columns:

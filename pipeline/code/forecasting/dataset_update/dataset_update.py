@@ -46,7 +46,9 @@ def feature_processing(df, run_date):
         .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
+        .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}, {UNKNOWN_TOKEN}, team1")')) \
         .withColumn('team2', F.expr('lower(team2)')) \
+        .withColumn('team2', F.expr(f'if(team2="{UNKNOWN_TOKEN2}, {UNKNOWN_TOKEN}, team2")')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
                                                     f'else "0" end')) \
