@@ -67,7 +67,9 @@ def feature_processing(df, run_date):
         .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \
         .withColumn('continent2', get_continent_udf('team2', 'tournament_type')) \
         .withColumn('tierOfTeam1', F.expr('lower(tierOfTeam1)')) \
+        .withColumn('tierOfTeam1', F.expr(f'if(tierOfTeam1="{UNKNOWN_TOKEN2}, {DEFAULT_TIER}, tierOfTeam1")')) \
         .withColumn('tierOfTeam2', F.expr('lower(tierOfTeam2)')) \
+        .withColumn('tierOfTeam2', F.expr(f'if(tierOfTeam2="{UNKNOWN_TOKEN2}, {DEFAULT_TIER}, tierOfTeam2")')) \
         .withColumn('continents', F.array(F.col('continent1'), F.col('continent2'))) \
         .withColumn('teams_tier', F.array(F.col('tierOfTeam1'), F.col('tierOfTeam2'))) \
         .withColumn('free_timer', F.col('svodFreeTimeDuration')) \

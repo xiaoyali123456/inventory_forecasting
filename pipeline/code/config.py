@@ -65,6 +65,7 @@ INVALID_TEAM_MAPPING = {
 UNKNOWN_TOKEN = "<unk>"
 UNKNOWN_TOKEN2 = "unknown"
 DEFAULT_CONTINENT = "AS"
+DEFAULT_TIER = "tier1"
 
 
 FREE_RATE_LABEL = "frees_watching_match_rate"
