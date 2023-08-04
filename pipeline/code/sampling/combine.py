@@ -90,3 +90,4 @@ if __name__ == '__main__':
     DATE = sys.argv[1]
     if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
         combine_inventory_and_sampling(DATE)
+    update_dashboards()

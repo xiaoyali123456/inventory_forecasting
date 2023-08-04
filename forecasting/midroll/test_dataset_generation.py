@@ -773,7 +773,6 @@ for tournament in tournament_list:
     # spark.catalog.clearCache()
 
 
-
 #     match_df = load_data_frame(spark, live_ads_inventory_forecasting_root_path + f"/final_test_dataset/{data_source}_of_{tournament}")\
 #         .withColumn('tournament', F.lit(tournament))\
 #         .selectExpr('tournament', 'content_id', 'total_did_reach as match_reach')
