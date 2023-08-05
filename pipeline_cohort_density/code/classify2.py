@@ -18,12 +18,13 @@ def get_last_days(path, end=None, n=1):
     return lst[-n:]
 
 
-def load_history_df(cd):
+def load_history_df():
     if False:
         df = pd.read_parquet(input_path)
         df = df.loc[df.is_cricket == True]
     days = get_last_days(input_path, n=5)
-    df = pd.concat([pd.read_parquet(input_path + 'cd=' + cd) for cd in days], axis=1)
+    print(days)
+    df = pd.concat([pd.read_parquet(input_path + 'cd=' + cd) for cd in days])
     return df
 
 
