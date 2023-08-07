@@ -33,8 +33,6 @@ def feature_processing(df, run_date):
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
     print("df")
     df.groupby('seasonName').count().show(20, False)
-    df.where('seasonName="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
-    df.where('seasonName!="ICC Men\'s CWC Qualifier 2023"').select('team1').show(20, False)
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
@@ -158,7 +156,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
 # update train dataset and prediction dataset from request data
 def update_dataset(run_date):
     # load request data and previous train dataset
-    request_df = load_data_frame(spark, f"{INVENTORY_FORECAST_REQUEST_PATH}/cd={run_date}").cache()
+    request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
 

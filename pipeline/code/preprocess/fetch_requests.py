@@ -25,7 +25,7 @@ def read_google_sheet(name):
 
 def backfill_from_google_sheet(df):
     sheet = read_google_sheet('Inventory forecast inputs')
-    match_level_features = ['matchId','matchDate','matchStartHour','matchType','matchCategory',
+    match_level_features = ['matchId', 'matchDate', 'matchStartHour', 'matchType', 'matchCategory',
                             # 'matchName','fixedAdPodsPerBreak','publicHoliday',
                             'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak','averageBreakDuration','adhocBreak','adhocBreakDuration','estimatedMatchDuration','contentLanguages','platformsSupported']
     df2 = df.drop(columns=match_level_features).drop_duplicates()
@@ -52,6 +52,9 @@ def load_yesterday_inputs(cd):
        'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak',
        'averageBreakDuration', 'adhocBreak', 'adhocBreakDuration',
        'contentLanguages', 'platformsSupported'])
+    df['seasonId'] = df['seasonId'].astype(int)
+    df['matchId'] = df['matchId'].astype(int)
+    df['tournamentId'] = df['tournamentId'].astype(int)
     df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
     any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
@@ -82,6 +85,9 @@ def unify_format(df):
     match_stage_col = "matchType"
     if match_stage_col in df.columns:
         df[match_stage_col] = df[match_stage_col].map(lambda x: processing_match_stage(x))
+    df['seasonId'] = df['seasonId'].astype(int)
+    df['matchId'] = df['matchId'].astype(int)
+    df['tournamentId'] = df['tournamentId'].astype(int)
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
@@ -122,7 +128,8 @@ def main(cd):
     page_size = 10
     i, total = 0, 1
     while i < total:
-        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
+        # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
+        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
         df = pd.read_json(url)
         req_list += df.inventoryForecastResponses.tolist()
         if len(df.totalPages) == 0:

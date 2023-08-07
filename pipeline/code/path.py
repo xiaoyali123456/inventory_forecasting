@@ -14,7 +14,6 @@ AVG_DVV_PATH = f"{PIPELINE_BASE_PATH}/avg_dau"
 PIPELINE_DATA_TMP_PATH = f"{PIPELINE_BASE_PATH}/dataset/tmp"
 TRAIN_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/train"
 PREDICTION_MATCH_TABLE_PATH = f"{PIPELINE_BASE_PATH}/match_table/prediction"
-INVENTORY_FORECAST_REQUEST_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/inventory_forecast_input"
 
 VIEW_AGGREGATED_INPUT_PATH = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/viewed_page_daily_aggregates_ist_v2"
 
