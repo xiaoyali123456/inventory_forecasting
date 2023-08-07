@@ -52,9 +52,6 @@ def load_yesterday_inputs(cd):
        'team1', 'tierOfTeam1', 'team2', 'tierOfTeam2', 'fixedBreak',
        'averageBreakDuration', 'adhocBreak', 'adhocBreakDuration',
        'contentLanguages', 'platformsSupported'])
-    df['seasonId'] = df['seasonId'].astype(int)
-    df['matchId'] = df['matchId'].astype(int)
-    df['tournamentId'] = df['tournamentId'].astype(int)
     df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
     any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
