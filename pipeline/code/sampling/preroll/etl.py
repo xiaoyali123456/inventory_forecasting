@@ -24,7 +24,7 @@ def load_new_matches(cd):
     if last_cd is None:
         last_cd = '2022-10-15' # 10-16 is world cup 22
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
-        .where(f'startdate > "{last_cd}"').toPandas()
+        .where(f'startdate > "{last_cd}" and startdate < "{cd}"').toPandas()
     last_available_date = (datetime.today()-timedelta(90)).strftime('%Y-%m-%d') # S3 glacier deadline
     matches = matches[matches.startdate >= last_available_date]
     return matches[matches.sportsseasonname.map(should_be_used_season)]
@@ -83,4 +83,3 @@ def main(cd):
 if __name__ == '__main__':
     cd = sys.argv[1]
     main(cd)
-
