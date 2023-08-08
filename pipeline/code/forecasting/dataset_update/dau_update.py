@@ -12,7 +12,7 @@ from path import *
 def truth(end, true_vv_path):
     # XXX: get_last_cd is exclusive on `end`, but this is OK given _SUCCESS file check
     last = get_last_cd(DAU_TRUTH_PATH, end)
-    old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}')
+    old = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={last}').withColumn('free_vv', F.expr('vv - sub_vv'))
     actual_last = old.select('ds').toPandas()['ds'].max()
     if not isinstance(actual_last, str):
         actual_last = str(actual_last.date())
@@ -20,7 +20,7 @@ def truth(end, true_vv_path):
     new_vv = base.groupby('ds').agg(F.countDistinct('dw_p_id').alias('vv'))
     new_sub_vv = base.where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
         .groupby('ds').agg(F.countDistinct('dw_p_id').alias('sub_vv'))
-    new = new_vv.join(new_sub_vv, on='ds')
+    new = new_vv.join(new_sub_vv, on='ds').withColumn('free_vv', F.expr('vv - sub_vv'))
     old.union(new).repartition(1).write.mode('overwrite').parquet(true_vv_path)
 
 
@@ -41,7 +41,8 @@ def forecast(end, true_vv_path):
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
-    forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv')], axis=1)
+    _, f3 = predict(df.rename(columns={'free_vv': 'y'}), holidays)
+    forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv'), f2.yhat.rename('free_vv')], axis=1)
     # print(forecast_df.ds)
     forecast_df.to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
 
