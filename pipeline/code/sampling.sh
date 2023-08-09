@@ -6,8 +6,8 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
     --py-files config.py,path.py,util.py"
 
-$SPARK sampling/etl.py $DATE
-$SPARK sampling/ewma.py $DATE
+#$SPARK sampling/etl.py $DATE
+#$SPARK sampling/ewma.py $DATE
 $SPARK sampling/combine.py $DATE
 
 SLACK_NOTIFICATION_TOPIC="arn:aws:sns:us-east-1:253474845919:sirius-notification"
