@@ -82,9 +82,10 @@ def unify_format(df):
     match_stage_col = "matchType"
     if match_stage_col in df.columns:
         df[match_stage_col] = df[match_stage_col].map(lambda x: processing_match_stage(x))
-    df['seasonId'] = df['seasonId'].astype(int)
-    df['matchId'] = df['matchId'].astype(int)
-    df['tournamentId'] = df['tournamentId'].astype(int)
+    id_cols = ['seasonId', 'matchId', 'tournamentId']
+    for id_col in id_cols:
+        if id_col in df.columns:
+            df[id_col] = df[id_col].astype(int)
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
