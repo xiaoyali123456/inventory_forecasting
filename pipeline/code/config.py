@@ -117,4 +117,5 @@ FOCAL_TOURNAMENTS = [
     "sri lanka tour of india",
     "new zealand tour of india",
     "australia tour of india",
+    "icc world test championship"
 ]

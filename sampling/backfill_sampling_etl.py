@@ -101,16 +101,18 @@ def preprocess_playout(df):
 
 def process_regular_cohorts_by_date(date, playout):
     print('process_regular_tags', date)
-    print('begin', datetime.now())
+    # print('begin', datetime.now())
     final_output_path = f'{INVENTORY_SAMPLING_PATH}cd={date}/'
     success_path = f'{final_output_path}_SUCCESS'
     if s3.isfile(success_path):
         print('skip')
-        return
+        # return
     # split playout data according to if platform is null
     playout_with_platform = playout.where('platform != "na"')
     playout_without_platform = playout.where('platform == "na"').drop('platform')
-
+    print('playout')
+    playout.where('platform="firetv"').show(10, False)
+    playout_with_platform.where('platform="firetv"').show(10, False)
     # load watch_video data with regular cohorts
     raw_wt = spark.read.parquet(f'{WV_S3_BACKUP}cd={date}') \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist()))
@@ -126,13 +128,15 @@ def process_regular_cohorts_by_date(date, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse_segments('user_segments').alias('cohort'),
     ]]
-
+    print('wt')
+    wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
     wt_with_cohort = wt
     wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
-
     wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
     wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
+    wt_with_platform.where('platform="firetv"').show(10, False)
+    wt_without_platform.where('platform="firetv"').show(10, False)
 
     # calculate inventory and reach for each cohort
     npar = 32
@@ -258,3 +262,6 @@ if __name__ == '__main__':
     spark = hive_spark("etl")
     DATE = sys.argv[1]
     main(DATE)
+
+playout = load_data_frame(spark, 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/processed_playout').cache()
+playout.groupby('platform', 'language').count().orderBy('platform', 'language').show(200, False)

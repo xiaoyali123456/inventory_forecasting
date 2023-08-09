@@ -19,6 +19,7 @@ from path import *
 
 def load_regular_cohorts_data(cd, n=30):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)  # recent 30 days on which there are matches
+    print(last_cd)
     lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
     return reduce(lambda x, y: x.union(y), lst)
 
@@ -166,7 +167,7 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
 
 
 def main(cd):
-    regular_cohorts_df = load_regular_cohorts_data(cd)
+    regular_cohorts_df = load_regular_cohorts_data(cd, n=100)
     unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
 
     # inventory distribution prediction

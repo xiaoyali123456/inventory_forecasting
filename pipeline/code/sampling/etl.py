@@ -240,6 +240,7 @@ def process_custom_cohorts(cd):
 
 def process_regular_cohorts(cd):
     matches = load_new_matches(cd)
+    print(matches)
     for date in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == date].content_id.tolist()
         try:
