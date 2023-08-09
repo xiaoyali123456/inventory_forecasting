@@ -42,7 +42,7 @@ def forecast(end, true_vv_path):
     _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
     _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
     _, f3 = predict(df.rename(columns={'free_vv': 'y'}), holidays)
-    forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv'), f2.yhat.rename('free_vv')], axis=1)
+    forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv'), f3.yhat.rename('free_vv')], axis=1)
     # print(forecast_df.ds)
     forecast_df.to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
 
