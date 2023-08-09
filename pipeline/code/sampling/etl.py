@@ -126,6 +126,7 @@ def process_regular_cohorts_by_date(date, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse_segments('user_segments').alias('cohort'),
     ]]
+    wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
 
     # load preroll data with regular cohorts
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
