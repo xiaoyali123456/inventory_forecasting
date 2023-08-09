@@ -234,7 +234,8 @@ def process_regular_cohorts(cd):
         content_ids = matches[matches.startdate == date].content_id.tolist()
         try:
             # XXX: this is hack for 2022 matches only!!
-            PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/cd='
+            # PLAYOUT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling/playout_v2/cd='
+            PLAYOUT_PATH = 's3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/'
             raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
             raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
             playout = preprocess_playout(raw_playout)\
