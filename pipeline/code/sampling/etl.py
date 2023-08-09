@@ -202,6 +202,9 @@ def convert_to_custom_cohort(long_tags):
 
 def process_custom_cohorts(cd):
     # load segment_to_custom_cohort_mapping from request
+    if s3.isfile(f'{CUSTOM_COHORT_PATH}cd={cd}/_SUCCESS'):
+        print('skip')
+        return
     global segment_dict
     segment_dict = load_segment_to_custom_cohort_mapping(cd)
     print("segment_dict")
