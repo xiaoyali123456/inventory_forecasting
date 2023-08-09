@@ -33,6 +33,14 @@ def backfill_from_google_sheet(df):
     return df
 
 
+def set_ids_as_int(df):
+    id_cols = ['seasonId', 'matchId', 'tournamentId']
+    for id_col in id_cols:
+        if id_col in df.columns:
+            df[id_col] = df[id_col].astype(int)
+    return df
+
+
 # fromOldRequest means if the match is from old request
 # matchHaveFinished means if the match is finished today
 # matchShouldUpdate means if we should predict inventory and reach of the match
@@ -41,6 +49,7 @@ def load_yesterday_inputs(cd):
     snapshot_path = PREPROCESSED_INPUT_PATH + f'cd={str(yesterday.date())}/'
     if s3.exists(snapshot_path):
         df = pd.read_parquet(snapshot_path)
+        df = set_ids_as_int(df)
     else:
         df = pd.DataFrame([], columns=['requestId', 'tournamentName', 'seasonId', 'seasonName',
        'requestStatus', 'tournamentType', 'svodFreeTimeDuration',
@@ -82,10 +91,7 @@ def unify_format(df):
     match_stage_col = "matchType"
     if match_stage_col in df.columns:
         df[match_stage_col] = df[match_stage_col].map(lambda x: processing_match_stage(x))
-    id_cols = ['seasonId', 'matchId', 'tournamentId']
-    for id_col in id_cols:
-        if id_col in df.columns:
-            df[id_col] = df[id_col].astype(int)
+    df = set_ids_as_int(df)
     df['fromOldRequest'] = False
     df['matchHaveFinished'] = False  # no need to adjust for new match
     df['matchShouldUpdate'] = True
@@ -148,7 +154,7 @@ def main(cd):
         .applymap(lambda x: dump_to_json_str(x))
     print('df_new')
     # df_uni = backfill_from_google_sheet(df_uni)
-    print('df_new')
+    print(df_uni[['seasonId', 'matchId', 'tournamentId']])
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 

@@ -241,7 +241,8 @@ def process_regular_cohorts(cd):
             playout = preprocess_playout(raw_playout)\
                 .where(F.col('content_id').isin(content_ids))
             playout.toPandas()  # data checking, will fail if format of the playout is invalid
-            process_regular_cohorts_by_date(date, playout)
+            playout.repartition(1).write.mode('overwrite').parquet(f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/processed_playout/cd={date}')
+            # process_regular_cohorts_by_date(date, playout)
         except Exception as e:
             print(date, 'playout not available')
             print(e)
