@@ -56,6 +56,7 @@ def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header
 def hive_spark(name: str) -> SparkSession:
     return SparkSession.builder \
         .appName(name) \
+        .config("spark.sql.hive.convertMetastoreParquet", "false") \
         .config("hive.metastore.uris", "thrift://metastore.data.hotstar-labs.com:9083") \
         .config("spark.kryoserializer.buffer.max", "128m") \
         .enableHiveSupport() \
