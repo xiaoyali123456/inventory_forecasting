@@ -14,7 +14,6 @@
     2.4. join these 2 tables to calculate watch_time and reach
     segments="C14_1|C15_2"
 """
-from datetime import datetime
 import sys
 
 import pandas as pd
