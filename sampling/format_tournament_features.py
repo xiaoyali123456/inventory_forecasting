@@ -1,8 +1,10 @@
 import pandas as pd
 
+input_file = "data/all_features_v5.csv"
+output_file = "data/holidays_v5.csv"
 # df0 = pd.read_clipboard()
 # df0 = pd.read_csv('data/all_features_v3_2.csv')
-df0 = pd.read_csv('data/all_features_v4_2.csv')
+df0 = pd.read_csv(input_file)
 
 df = df0.rename(columns=lambda x: x.strip())
 df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
@@ -23,7 +25,7 @@ lockdown = pd.concat([
     pd.date_range('2021-04-05', '2021-06-15').to_series(),
 ])
 lockdown = date_range_to_holidays(lockdown, 'lockwdown')
-svod = date_range_to_holidays(pd.date_range('2020-09-19', '2023-09-01').to_series(), 'svod_dates')
+svod = date_range_to_holidays(pd.date_range('2020-09-19', '2023-08-23').to_series(), 'svod_dates')
 
 def day_group(df, col):
     return df.groupby('ds')[col].max().rename('holiday').reset_index()
@@ -45,13 +47,14 @@ df2 = pd.concat([
 
 df2['lower_window'] = 0
 df2['upper_window'] = 0
-df2.to_csv('data/holidays_v4.csv', index=False)
+df2.to_csv(output_file, index=False)
 print(len(df2))
 
 
-df0 = pd.read_csv('data/holidays_v2_4.csv')
-df1 = pd.read_csv('data/holidays_v4.csv')
+df0 = pd.read_csv('data/holidays_v4.csv')
+df1 = pd.read_csv('data/holidays_v5.csv')
 print(len(df0))
 print(len(df1))
 
+print(set(df1['ds'])-set(df0['ds']))
 print(set(df1['ds'])-set(df0['ds']))
