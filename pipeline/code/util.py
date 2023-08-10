@@ -1,6 +1,7 @@
 # common api definition
 
-import datetime
+# import datetime
+from datetime import datetime, timedelta
 import os
 import s3fs
 import json
@@ -28,13 +29,13 @@ def check_s3_folder_exist(s3_path: str) -> bool:
 
 
 def get_date_list(date: str, days: int) -> list:
-    dt = datetime.datetime.strptime(date, '%Y-%m-%d')
+    dt = datetime.strptime(date, '%Y-%m-%d')
     if -1 <= days <= 1:
         return [date]
     elif days > 1:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(0, days)]
+        return [(dt + timedelta(days=n)).strftime('%Y-%m-%d') for n in range(0, days)]
     else:
-        return [(dt + datetime.timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
+        return [(dt + timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
 
 
 def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ','
