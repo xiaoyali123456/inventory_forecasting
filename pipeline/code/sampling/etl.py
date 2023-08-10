@@ -101,7 +101,7 @@ def preprocess_playout(df):
 
 def process_regular_cohorts_by_date(date, playout):
     print('process_regular_tags', date)
-    print('begin', datetime.now())
+    # print('begin', datetime.now())
     final_output_path = f'{INVENTORY_SAMPLING_PATH}cd={date}/'
     success_path = f'{final_output_path}_SUCCESS'
     if s3.isfile(success_path):
@@ -126,6 +126,7 @@ def process_regular_cohorts_by_date(date, playout):
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse_segments('user_segments').alias('cohort'),
     ]]
+    print(f'firetv data on {date}:')
     wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
 
     # load preroll data with regular cohorts
