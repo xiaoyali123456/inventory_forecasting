@@ -39,7 +39,7 @@
             "type": "EmrCluster",
             "applications": "spark",
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
-            "coreInstanceCount": "32",
+            "coreInstanceCount": "48",
             "coreInstanceType": "m5.xlarge",
             "masterInstanceType": "m5.xlarge",
             "releaseLabel": "emr-5.31.0"
