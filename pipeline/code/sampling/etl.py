@@ -252,8 +252,9 @@ def process_regular_cohorts(cd):
                 .where(F.col('content_id').isin(content_ids))
             playout.toPandas()  # data checking, will fail if format of the playout is invalid
             process_regular_cohorts_by_date(date, playout)
-        except:
+        except Exception as e:
             print(date, 'playout not available')
+            print(e)
 
 
 def main(cd):
