@@ -107,8 +107,8 @@ def process_regular_cohorts_by_date(date, playout):
         print('skip')
         return
     # split playout data according to if platform is null
-    playout_with_platform = playout.where('platform != "na"')
-    playout_without_platform = playout.where('platform == "na"').drop('platform')
+    playout_with_platform = playout.where('platform != "na"').cache()
+    playout_without_platform = playout.where('platform == "na"').drop('platform').cache()
 
     # load watch_video data with regular cohorts
     raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
