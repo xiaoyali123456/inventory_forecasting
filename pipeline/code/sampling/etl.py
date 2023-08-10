@@ -124,7 +124,10 @@ def process_regular_cohorts_by_date(date, playout):
         F.expr('cast(timestamp as long) as end'),
         F.expr('cast(timestamp as double) - watch_time as start'),
         parse_segments('user_segments').alias('cohort'),
-    ]].fillna('hindi', ['language'])
+    ]]\
+        .withColumn('language_tmp', F.rand())\
+        .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")'))\
+        .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
     print(f'firetv data on {date}:')
     wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
 
