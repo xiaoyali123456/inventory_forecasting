@@ -52,14 +52,16 @@ def make_segment_str(lst):
 
 
 @F.udf(returnType=StringType())
-def make_segment_str_wrapper(lst):
+def parse_preroll_segment(lst):
     if lst is None:
         return None
+    if type(lst) == str:
+        lst = lst.split(",")
     return make_segment_str(lst)
 
 
 @F.udf(returnType=StringType())
-def parse_segments(segments):
+def parse_wv_segments(segments):
     if segments is None:
         return None
     try:
@@ -116,25 +118,26 @@ def process_regular_cohorts_by_date(date, playout):
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
     wt = raw_wt[['dw_d_id', 'content_id',
-        F.expr('lower(language) as language'),
-        F.expr('lower(platform) as platform'),
-        F.expr('lower(country) as country'),
-        F.expr('lower(city) as city'),
-        F.expr('lower(state) as state'),
-        F.expr('cast(timestamp as long) as end'),
-        F.expr('cast(timestamp as double) - watch_time as start'),
-        parse_segments('user_segments').alias('cohort'),
-    ]]\
+                 F.expr('lower(language) as language'),
+                 F.expr('lower(platform) as platform'),
+                 F.expr('lower(country) as country'),
+                 F.expr('lower(city) as city'),
+                 F.expr('lower(state) as state'),
+                 F.expr('cast(timestamp as long) as end'),
+                 F.expr('cast(timestamp as double) - watch_time as start'),
+                 parse_wv_segments('user_segments').alias('cohort'),
+                 ]]\
         .withColumn('language_tmp', F.rand())\
-        .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")'))\
+        .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")')) \
+        .withColumn('language', F.coalesce('language', 'audio_language'))\
         .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
-    print(f'firetv data on {date}:')
-    wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
+    # print(f'firetv data on {date}:')
+    # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
 
     # load preroll data with regular cohorts
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
-        .select('dw_d_id', make_segment_str_wrapper('user_segment').alias('preroll_cohort'))
+        .select('dw_d_id', parse_preroll_segment('user_segment').alias('preroll_cohort'))
 
     # use wt data join preroll data in case there are no segments in wt users
     wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
