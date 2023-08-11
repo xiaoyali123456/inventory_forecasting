@@ -76,6 +76,12 @@ df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('
 df.where('lower(platform)="firetv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\
     .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
 df.where('lower(platform)="androidtv" and user_segments is not null').select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
+df.where('lower(platform)="androidtv" and user_segments is not null').show()
+
+raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"') \
+        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
+spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"').where('lower(platform)="androidtv" and user_segments is not null').show()
+
 
 preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
         .select('dw_d_id', 'user_segment', 'content_id', 'device_platform').dropDuplicates(['dw_d_id']) \
