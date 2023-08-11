@@ -23,5 +23,6 @@ for cid, cd in dic.items():
     cc3.reset_index().fillna(0).to_csv(f'concurrency/{cid}_{cd}.csv')
     cc5 = cc3.fillna(0).rank(method='first', ascending=False)
     # cc6 = cc5.apply(pd.DataFrame.describe, axis=1)
-    # cc6['diff'] =cc6['max']-cc6['min']
+    # cc6['diff'] = cc6['max']-cc6['min']
+    # cc6['abs_diff'] = cc6.diff.apply(abs)
     # cc6.describe()

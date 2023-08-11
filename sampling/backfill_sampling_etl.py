@@ -164,7 +164,7 @@ def check_if_focal_season(sport_season_name):
 # load new matches which have not been updated
 def load_new_matches(cd):
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
-        .where(f'startdate > "2022-10-15" and startdate < "2023-04-01"').toPandas()
+        .where(f'startdate > "2023-06-01" and startdate < "2023-06-15"').toPandas()
     return matches[matches.sportsseasonname.map(check_if_focal_season)].drop_duplicates()
 
 
@@ -257,10 +257,11 @@ def main(cd):
     process_regular_cohorts(cd)
 
 
-if __name__ == '__main__':
-    spark = hive_spark("etl")
-    DATE = sys.argv[1]
-    main(DATE)
 
-playout = load_data_frame(spark, 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/processed_playout').cache()
-playout.groupby('platform', 'language').count().orderBy('platform', 'language').show(200, False)
+# debugging code
+spark = hive_spark()
+cd = '2023-08-10'
+def load_new_matches(cd):
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
+        .where(f'startdate > "2023-06-01" and startdate < "2023-06-15"').toPandas()
+    return matches[matches.sportsseasonname.map(check_if_focal_season)].drop_duplicates()
