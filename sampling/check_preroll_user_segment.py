@@ -15,9 +15,9 @@ df5 = df2[df2.device_platform == 'ANDROIDTV']
 df5[['demo_gender', 'user_segment']].count()
 
 wv = spark.read.parquet(f's3://hotstar-dp-datalake-processed-us-east-1-prod/events/watched_video/cd={date}/hr=12')
-
-df6 = df5.cache()
-wv2 = wv[['content_id', 'dw_d_id']].join(df6, on='dw_d_id')
+wv2 = wv.selectExpr('content_id', 'dw_d_id', 'user_segments as wv_seg') \
+    .join(df5.selectExpr('dw_d_id', 'demo_gender', 'user_segment as pr_seg'), on='dw_d_id')
+# wv2.write.parquet('s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/check_preroll_sampling_0811/')
 
 print(df6.count()) # 82406
 print(wv.count())  # 24860954
