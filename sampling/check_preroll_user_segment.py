@@ -69,10 +69,12 @@ df2 = df[df.content_id == "1540023557"]
 
 print('total', df2.count())
 print('not null', df2[(df2.user_segment=='')|df2.user_segment.isNull()].count())
+# 
 
 df3 = df2.where('lower(device_platform) = "androidtv"')
 print('total', df3.count())
 print('not null', df3[(df3.user_segment=='')|df3.user_segment.isNull()].count())
+# 
 
 
 df4 = df3.withColumn('gender', get_gender('user_segment'))
