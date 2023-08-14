@@ -69,22 +69,56 @@ print(set(df1['ds'])-set(df0['ds']))
 
 # git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
 # pip install pandas==1.3.5 pyarrow==12.0.1 s3fs==2023.1.0 prophet
-df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('MMD00')) | (F.col('user_segments').contains('_MALE_')))\
-    .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(1000, False)
-df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\
-    .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(1000, False)
-df.where('lower(platform)="firetv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\
-    .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
-df.where('lower(platform)="androidtv" and user_segments is not null').select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
-df.where('lower(platform)="androidtv" and user_segments is not null').show()
+# df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('MMD00')) | (F.col('user_segments').contains('_MALE_')))\
+#     .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(1000, False)
+# df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\
+#     .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(1000, False)
+# df.where('lower(platform)="firetv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\
+#     .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
+# df.where('lower(platform)="androidtv" and user_segments is not null').select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(10, False)
+# df.where('lower(platform)="androidtv" and user_segments is not null').show()
+# df.where('lower(platform)="androidtv"').groupBy('gender', 'ageBucket').count().show()
+# df.where('lower(platform)="firetv"').groupBy('platform', 'gender', 'ageBucket').count().show()
+# raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"') \
+#         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
+# spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"').where('lower(platform)="androidtv" and user_segments is not null').show()
+#
+#
+# preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
+#         .select('dw_d_id', 'user_segment', 'content_id', 'device_platform').dropDuplicates(['dw_d_id']) \
+#         .select('dw_d_id', 'user_segment', 'content_id', 'device_platform', make_segment_str_wrapper('user_segment').alias('preroll_cohort')).cache()
+# preroll.where('lower(device_platform)="androidtv" and user_segment is not null').where((F.col('user_segment').contains('FMD00')) | (F.col('user_segment').contains('_FEMALE_'))).show(10, False)
+from util import *
+from path import *
+from config import *
 
-raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"') \
-        .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8']))
-spark.sql(f'select * from {WV_TABLE} where cd = "2023-03-22"').where('lower(platform)="androidtv" and user_segments is not null').show()
+df = load_data_frame(spark, "")
+a = df.collect()
+set1 = {}
+set2 = {}
+for row in a:
+    date1 = row[0]
+    title1 = " vs ".join(sorted(row[1].strip().lower().split(" vs ")))
+    set1[title1] = date1
+    date2 = row[2]
+    title2 = " vs ".join(sorted([row[3].strip().lower().replace("netherlands", "west indies"), row[4].strip().lower().replace("netherlands", "west indies")]))
+    set2[title2] = date2
+
+df2 = load_hive_table(spark, "adtech.daily_predicted_vv_report").where('cd="2023-08-11"').cache()
+l = ["2023-09-05","2023-09-02","2023-09-03","2023-09-04","2023-08-31","2023-08-30","2023-09-06","2023-09-09","2023-09-10","2023-09-12","2023-09-14","2023-09-15","2023-09-17"]
+for row in a:
+    title = " vs ".join(sorted(row[1].strip().lower().split(" vs ")))
+    if title in set2:
+        l.append(set2[title])
+        print(set2[title])
+    else:
+        print("error")
 
 
-preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
-        .select('dw_d_id', 'user_segment', 'content_id', 'device_platform').dropDuplicates(['dw_d_id']) \
-        .select('dw_d_id', 'user_segment', 'content_id', 'device_platform', make_segment_str_wrapper('user_segment').alias('preroll_cohort')).cache()
-preroll.where('lower(device_platform)="androidtv" and user_segment is not null').where((F.col('user_segment').contains('FMD00')) | (F.col('user_segment').contains('_FEMALE_'))).show(10, False)
+for d in l:
+    print(df2.where(f'ds="{d}"').select('free_vv').collect()[0][0])
+
+print("")
+for d in l:
+    print(df2.where(f'ds="{d}"').select('sub_vv').collect()[0][0])
 

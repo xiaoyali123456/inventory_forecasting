@@ -12,6 +12,8 @@ def load_prediction_dataset(run_date):
     prediction_feature_df = load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
         .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'teams', 'vod_type',
                     'total_frees_number', 'total_subscribers_number', 'match_duration', 'break_duration')\
+        .withColumn('total_frees_number', F.expr("total_frees_number * 1.3"))\
+        .withColumn('total_subscribers_number', F.expr("total_subscribers_number * 1.3"))\
         .withColumn('teams', F.concat_ws(" vs ", F.col('teams')))\
         .cache()
     return prediction_feature_df
