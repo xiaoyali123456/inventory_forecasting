@@ -16,6 +16,9 @@ from pyspark.sql.types import *
 from util import *
 from path import *
 
+inventory_distribution = {}
+reach_distribution = {}
+
 
 def load_regular_cohorts_data(cd, n=30):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)  # recent 30 days on which there are matches
@@ -123,22 +126,65 @@ def unify_device(cohort):
     return ''
 
 
+@F.udf(returnType=StringType())
+def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
+    if cohort is None or cohort == "":
+        res = {}
+        for key in inventory_distribution:
+            cohort_inv = ad_time * inventory_distribution[cohort_col_name][key]
+            cohort_reach = reach * reach_distribution[cohort_col_name][key]
+            res[key] = f"{cohort_inv}#{cohort_reach}"
+    else:
+        res = {cohort: f"{ad_time}#{reach}"}
+    return res
+
+
 # unify regular cohort names
-def unify_regular_cohort_names(df, group_cols, DATE):
+def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
     valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
-    return df\
+    unify_df = df\
         .join(valid_matches, ['cd', 'content_id'])\
-        .groupby(
+        .withColumn('nccs', unify_nccs('cohort'))\
+        .withColumn('device', unify_device('cohort'))\
+        .withColumn('gender', unify_gender('cohort'))\
+        .withColumn('age', unify_age('cohort'))\
+        .cache()
+    regular_cohorts = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
+    all_cols = unify_df.columns
+    global inventory_distribution, reach_distribution
+    inventory_distribution = {}
+    reach_distribution = {}
+    for cohort in regular_cohorts:
+        dis = unify_df.where(f"{cohort} is not null and {cohort} != ''").groupby(cohort).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).collect()
+        inventory_distribution[cohort] = {}
+        total_inv = 0.0
+        total_reach = 0.0
+        for row in dis:
+            inventory_distribution[cohort][row[0]] = float(row[1])
+            reach_distribution[cohort][row[0]] = float(row[2])
+            total_inv += float(row[1])
+            total_reach += float(row[2])
+        for key in inventory_distribution[cohort]:
+            inventory_distribution[cohort][key] = inventory_distribution[cohort][key] / max(total_inv, 0.00001)
+            reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
+    print(inventory_distribution)
+    print(reach_distribution)
+    for cohort in regular_cohorts:
+        print(cohort)
+        unify_df = unify_df\
+            .withColumn(cohort, cohort_enhance(cohort, 'ad_time', 'reach', F.lit(cohort)))\
+            .select(*all_cols, F.explode(cohort)) \
+            .drop(cohort)\
+            .withColumnRenamed('key', cohort)\
+            .withColumn('ad_time', F.element_at(F.split(F.col('value'), "#"), 1).cast("float"))\
+            .withColumn('reach', F.element_at(F.split(F.col('value'), "#"), 2).cast("float"))\
+            .drop('value')
+    return unify_df.groupby(
             *group_cols,
-            'country', 'language', 'platform', 'city', 'state',
-            unify_nccs('cohort').alias('nccs'),
-            unify_device('cohort').alias('device'),
-            unify_gender('cohort').alias('gender'),
-            unify_age('cohort').alias('age'))\
+            *regular_cohorts)\
         .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
-        .toPandas()\
-        .fillna('')
+        .toPandas()
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2):
@@ -167,8 +213,9 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
 
 
 def main(cd):
-    regular_cohorts_df = load_regular_cohorts_data(cd, n=100)
+    regular_cohorts_df = load_regular_cohorts_data(cd)
     unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
+    print(len(unified_regular_cohorts_df))
 
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')

@@ -111,7 +111,7 @@ def process_regular_cohorts_by_date(date, playout):
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
-    wt = raw_wt[['dw_d_id', 'content_id',
+    wt = raw_wt[['dw_d_id', 'content_id', 'user_segments',
                  F.expr('lower(language) as language'),
                  F.expr('lower(platform) as platform'),
                  F.expr('lower(country) as country'),
@@ -119,24 +119,24 @@ def process_regular_cohorts_by_date(date, playout):
                  F.expr('lower(state) as state'),
                  F.expr('cast(timestamp as long) as end'),
                  F.expr('cast(timestamp as double) - watch_time as start'),
-                 parse_wv_segments('user_segments').alias('cohort'),
-                 ]]\
-        .withColumn('language_tmp', F.rand())\
-        .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")')) \
-        .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
-    # .withColumn('language', F.coalesce('language', 'audio_language')) \
-        # print(f'firetv data on {date}:')
-    # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
+                 parse_wv_segments('user_segments').alias('wt_cohort'),
+                 ]]
+    save_data_frame(wt, f"{sampling_data_tmp_path}/watched_video/cd={date}")
     # load preroll data with regular cohorts
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
-        .select('dw_d_id', parse_preroll_segment('user_segment').alias('preroll_cohort'))
+        .select('dw_d_id', 'user_segment', parse_preroll_segment('user_segment').alias('preroll_cohort'))
+    save_data_frame(preroll, f"{sampling_data_tmp_path}/preroll/cd={date}")
     # use wt data join preroll data in case there are no segments in wt users
-    wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
-    wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
-    wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
+    wt = load_data_frame(spark, f"{sampling_data_tmp_path}/watched_video/cd={date}")
+    preroll = load_data_frame(spark, f"{sampling_data_tmp_path}/preroll/cd={date}")
+    wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.expr('if(wt_cohort is null or wt_cohort = "", preroll_cohort, wt_cohort)'))
+    save_data_frame(wt_with_cohort, f"{sampling_data_tmp_path}/wt_join_preroll/cd={date}")
+    wt_with_cohort = load_data_frame(spark, f"{sampling_data_tmp_path}/wt_join_preroll/cd={date}")
     wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
+    save_data_frame(wt_with_platform, f"{sampling_data_tmp_path}/wt_join_preroll_join_playout_with_platform/cd={date}")
+    save_data_frame(wt_without_platform, f"{sampling_data_tmp_path}/wt_join_preroll_join_playout_without_platform/cd={date}")
     # calculate inventory and reach for each cohort
     npar = 32
     res = wt_with_platform\
@@ -148,6 +148,7 @@ def process_regular_cohorts_by_date(date, playout):
             F.expr('sum(ad_time) as ad_time'),
             F.expr('count(distinct dw_d_id) as reach')
         ).repartition(npar)
+    save_data_frame(res, f"{sampling_data_tmp_path}/wt_join_preroll_join_playout_aggr/cd={date}")
     print('end', datetime.now())
 
 
@@ -206,13 +207,11 @@ def process_custom_cohorts(cd):
     segment_dict = load_segment_to_custom_cohort_mapping(cd)
     print("segment_dict")
     print(segment_dict)
-
     # load existing segments and filter valid segments according to segment_to_custom_cohort_mapping
     segment_path_list1 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     segment_path_list2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     segment_filter = lambda x: any(x.endswith(c) for c in segment_dict)
     segment_path_list = ['s3://' + x for x in segment_path_list1 + segment_path_list2 if segment_filter(x)]
-
     if len(segment_path_list) > 0:
         custom_cohort_df = spark.read.parquet(*segment_path_list)\
             .groupby('dw_d_id')\
@@ -261,7 +260,11 @@ cd = "2023-08-14"
 sampling_data_tmp_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/intermediate_data'
 matches = load_new_matches(cd)
 print(matches)
+spark.stop()
+spark = hive_spark('etl')
 for date in matches.startdate.drop_duplicates():
+    if date >= "2023-06-10":
+        continue
     content_ids = matches[matches.startdate == date].content_id.tolist()
     try:
         raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
@@ -269,8 +272,67 @@ for date in matches.startdate.drop_duplicates():
         playout = preprocess_playout(raw_playout)\
             .where(F.col('content_id').isin(content_ids))
         playout.toPandas()  # data checking, will fail if format of the playout is invalid
-        save_data_frame(playout, f"{sampling_data_tmp_path}/playout/cd={date}")
-        process_regular_cohorts_by_date(date, playout)
     except Exception as e:
         print(date, 'playout not available')
         print(e)
+    save_data_frame(playout, f"{sampling_data_tmp_path}/playout/cd={date}")
+    process_regular_cohorts_by_date(date, playout)
+
+
+data_source_list = ['playout', 'preroll', 'watched_video', 'wt_join_preroll',
+                    'wt_join_preroll_join_playout_with_platform', 'wt_join_preroll_join_playout_without_platform',
+                    'wt_join_preroll_join_playout_aggr']
+unused_cols = ["content_id", 'playout_id', 'break_start', 'break_end', 'dw_d_id', 'start', 'end']
+date_list = get_date_list("2023-06-11", 1)
+for date in date_list:
+    print(date)
+    data_source = data_source_list[1]
+    print(data_source)
+    df = load_data_frame(spark, f"{sampling_data_tmp_path}/{data_source}/cd={date}").cache()
+    print(df.select('dw_d_id').distinct().count())
+    print(df.where('user_segment is null').select('dw_d_id').distinct().count())
+    print(df.where('user_segment = ""').select('dw_d_id').distinct().count())
+    print(df.where('preroll_cohort is null').select('dw_d_id').distinct().count())
+    print(df.where('preroll_cohort = ""').select('dw_d_id').distinct().count())
+    data_source = data_source_list[2]
+    print(data_source)
+    df = load_data_frame(spark, f"{sampling_data_tmp_path}/{data_source}/cd={date}").where('platform="androidtv"').cache()
+    print(df.select('dw_d_id').distinct().count())
+    print(df.where('user_segments is null').select('dw_d_id').distinct().count())
+    print(df.where('wt_cohort is null').select('dw_d_id').distinct().count())
+    data_source = data_source_list[3]
+    print(data_source)
+    df = load_data_frame(spark, f"{sampling_data_tmp_path}/{data_source}/cd={date}").where('platform="androidtv"').cache()
+    print(df.where('cohort is null').select('dw_d_id').distinct().count())
+
+from functools import reduce
+date = "2023-06-11"
+wt = load_data_frame(spark, f"{sampling_data_tmp_path}/watched_video/cd={date}").cache()
+preroll = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{PREROLL_INVENTORY_PATH}cd={date}').select('dw_d_id', 'user_segment') for date in ["2023-06-11"]])\
+    .withColumn('preroll_cohort', parse_preroll_segment('user_segment'))\
+    .withColumn('len', F.length(F.col('user_segment')))\
+    .withColumn('id', F.expr('row_number() over (partition by dw_d_id order by len desc)'))\
+    .cache()
+
+print(wt.select('dw_d_id').distinct().count())
+print(wt.where('wt_cohort is null or wt_cohort = ""').select('dw_d_id').distinct().count())
+print(wt.join(preroll.where('id=1'), on='dw_d_id', how='left').withColumn('wt_cohort', F.expr('if(wt_cohort is null or wt_cohort = "", preroll_cohort, wt_cohort)'))
+      .where('wt_cohort is null or wt_cohort = ""').select('dw_d_id').distinct().count())
+print(wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti')
+      .select('dw_d_id').distinct().count())
+
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).groupby('platform').count().orderBy('count', ascending=False).show(100, False)
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).groupby('language').count().orderBy('count', ascending=False).show(100, False)
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).groupby('country').count().orderBy('count', ascending=False).show(100, False)
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).groupby('city').count().orderBy('count', ascending=False).show(100, False)
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).groupby('state').count().orderBy('count', ascending=False).show(100, False)
+wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').dropDuplicates(['dw_d_id']).show(20, False)
+
+WATCH_VIDEO_SAMPLED_PATH = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+pre_wt = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{WATCH_VIDEO_SAMPLED_PATH}cd={date}').select('dw_d_id', 'user_segments') for date in get_date_list("2022-11-01", 5)]).cache()
+print(wt.join(preroll.where('id=1'), on='dw_d_id', how='left_anti').join(pre_wt, on='dw_d_id', how='left_anti')
+      .select('dw_d_id').distinct().count())
+
+
+
+
