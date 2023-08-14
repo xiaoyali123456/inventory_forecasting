@@ -143,14 +143,16 @@ def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
 def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
     valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
+    regular_cohorts = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     unify_df = df\
         .join(valid_matches, ['cd', 'content_id'])\
         .withColumn('nccs', unify_nccs('cohort'))\
         .withColumn('device', unify_device('cohort'))\
         .withColumn('gender', unify_gender('cohort'))\
-        .withColumn('age', unify_age('cohort'))\
+        .withColumn('age', unify_age('cohort')) \
+        .groupby(*group_cols, *regular_cohorts) \
+        .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
         .cache()
-    regular_cohorts = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
     all_cols = unify_df.columns
     global inventory_distribution, reach_distribution
     inventory_distribution = {}
