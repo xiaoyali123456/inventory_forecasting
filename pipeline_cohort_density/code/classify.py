@@ -115,7 +115,7 @@ def get_nccs(cohort):
 
 
 def load_history(cd):
-    days = get_last_days(input_path, n=15)
+    days = get_last_days(input_path, n=7)
     print(days)
     df = pd.concat([pd.read_parquet(input_path + 'cd=' + cd) for cd in days])
     df2 = df.groupby(['language', 'platform', 'city', 'state', 'cohort']).reach.sum().reset_index()
@@ -128,7 +128,7 @@ def load_history(cd):
 
 
 def load_baseline():
-    df = pd.read_parquet(input_path + 'cd=2022-11-13')
+    df = pd.read_parquet(input_path + 'cd=2022-11-10')
     df2 = df.groupby(['language', 'platform', 'city', 'state', 'cohort']).reach.sum().reset_index()
     df2['age'] = df2.cohort.map(get_age)
     df2['gender'] = df2.cohort.map(get_gender)

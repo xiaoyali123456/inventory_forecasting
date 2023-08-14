@@ -140,7 +140,7 @@ def process_regular_cohorts_by_date(date, playout):
         .select('dw_d_id', parse_preroll_segment('user_segment').alias('preroll_cohort'))
 
     # use wt data join preroll data in case there are no segments in wt users
-    wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.coalesce('cohort', 'preroll_cohort'))
+    wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.expr('if(cohort is null or cohort = "", preroll_cohort, cohort)'))
     wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
 
     wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
