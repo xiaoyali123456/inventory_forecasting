@@ -126,7 +126,7 @@ def unify_device(cohort):
     return ''
 
 
-@F.udf(returnType=StringType())
+@F.udf(returnType=MapType(keyType=StringType(), valueType=StringType()))
 def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
     if cohort is None or cohort == "":
         res = {}
