@@ -144,7 +144,7 @@ def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
 def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
     valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
-    regular_cohorts = ['country', 'language', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age']
+    regular_cohorts = ['gender', 'age', 'country', 'language', 'platform', 'nccs', 'device', 'city', 'state']
     unify_df = df\
         .join(valid_matches, ['cd', 'content_id'])\
         .withColumn('nccs', unify_nccs('cohort'))\
@@ -154,7 +154,7 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         .groupby(*group_cols, *regular_cohorts) \
         .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
         .cache()
-    print(unify_df.count())
+    # print(unify_df.count())
     all_cols = unify_df.columns
     global inventory_distribution, reach_distribution
     inventory_distribution = {}
@@ -176,7 +176,7 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
             reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
     # print(inventory_distribution)
     # print(reach_distribution)
-    for cohort in regular_cohorts:
+    for cohort in regular_cohorts[:-3]:
         print(cohort)
         res_df = unify_df\
             .withColumn(cohort, cohort_enhance(cohort, 'ad_time', 'reach', F.lit(cohort)))\
@@ -188,13 +188,14 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
             .drop('value') \
             .groupby(*group_cols, *regular_cohorts) \
             .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
-        save_data_frame(res_df, SAMPLING_ROOT_PATH + cohort + f"/cd={DATE}")
+        save_data_frame(res_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
         unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
     return unify_df.groupby(
             *group_cols,
             *regular_cohorts)\
         .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
-        .toPandas()
+        .toPandas()\
+        .fillna('')
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2):
@@ -225,12 +226,10 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
 def main(cd):
     regular_cohorts_df = load_regular_cohorts_data(cd)
     unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
-    print(len(unified_regular_cohorts_df))
-
+    # print(len(unified_regular_cohorts_df))
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
     combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
-
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'],target='reach')
     combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')

@@ -122,3 +122,36 @@ print("")
 for d in l:
     print(df2.where(f'ds="{d}"').select('sub_vv').collect()[0][0])
 
+import pyspark.sql.functions as F
+
+df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd=2023-08-15/').cache()
+for col in ['platform', 'ageBucket', 'city', 'state', 'devicePrice', 'gender', 'language']:
+    print(col)
+    df.where('matchId = "708501"').groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory')).toPandas().to_csv(col+'.csv')
+
+
+for col in ['platform', 'ageBucket', 'city', 'state', 'devicePrice', 'gender', 'language']:
+    print(col)
+    # df\
+    #     .where('matchId = "708501"')\
+    #     .groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory'), F.sum('inventory')/F.count('reach'))\
+    #     .show(20, False)
+
+
+df2.groupby('platform').count().show(20)
+
+df = df2.toPandas()
+target = 'ad_time'
+group_cols = ['cd']
+cohort_cols = ['country', 'platform', 'city', 'state', 'nccs', 'device', 'gender', 'age', 'language']
+# calculate the inventory/reach percentage for each cohort combination
+df[target+'_ratio'] = df[target] / df.groupby(group_cols)[target].transform('sum')  # index=cd, cols=country, platform,..., target, target_ratio
+# convert each cohort combination to one single column
+df.groupby('plaform').count()
+target_value_distribution_df = df.pivot_table(index=group_cols, columns=cohort_cols, values=target+'_ratio', aggfunc='sum').fillna(0)  # index=cd, cols=cohort_candidate_combination1, cohort_candidate_combination2, ...
+# S[n+1] = (1-alpha) * S[n] + alpha * A[n+1]
+res_df = target_value_distribution_df.ewm(alpha=alpha, adjust=False).mean().shift(1)
+# return the last row as the prediction results
+res_df.iloc[-1].rename(target).reset_index()  # cols=country, platform,..., target
+
+

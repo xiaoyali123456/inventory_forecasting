@@ -33,14 +33,11 @@ def combine_inventory_and_sampling(cd):
     for i, row in model_predictions.iterrows():
         reach = reach_ratio.copy()
         inventory = ad_time_ratio.copy()
-
         # calculate predicted inventory and reach for each cohort
         reach.reach *= row.estimated_reach
         inventory.inventory *= row.estimated_inventory
-
         common_cols = list(set(reach.columns) & set(inventory.columns))
         combine = inventory.merge(reach, on=common_cols, how='left')
-
         # add meta data for each match
         row.request_id = str(row.request_id)
         row.match_id = int(row.match_id)
@@ -52,21 +49,18 @@ def combine_inventory_and_sampling(cd):
         combine['tournamentId'] = meta_info['tournamentId']
         combine['seasonId'] = meta_info['seasonId']
         combine['adPlacement'] = 'MIDROLL'
-
         # process cases when languages of this match are incomplete
         languages = parse(meta_info.contentLanguages)
         if languages:
             combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
             combine = combine[combine.language.isin(languages)].reset_index(drop=True)
-
         # process case when platforms of this match are incomplete
         platforms = parse(meta_info.platformsSupported)
         if platforms:
             combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()
             combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
-
         combine.inventory = combine.inventory.astype(int)
         combine.reach = combine.reach.astype(int)
         combine.replace(
@@ -88,6 +82,9 @@ def combine_inventory_and_sampling(cd):
 
 if __name__ == '__main__':
     DATE = sys.argv[1]
+    # DATE = "2023-08-15"
     if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
         combine_inventory_and_sampling(DATE)
     update_dashboards()
+
+
