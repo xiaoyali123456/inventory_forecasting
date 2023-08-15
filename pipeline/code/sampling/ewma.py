@@ -131,7 +131,7 @@ def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
     global inventory_distribution, reach_distribution
     if cohort is None or cohort == "":
         res = {}
-        for key in inventory_distribution:
+        for key in inventory_distribution[cohort_col_name]:
             cohort_inv = ad_time * inventory_distribution[cohort_col_name][key]
             cohort_reach = reach * reach_distribution[cohort_col_name][key]
             res[key] = f"{cohort_inv}#{cohort_reach}"
