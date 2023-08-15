@@ -128,6 +128,7 @@ def unify_device(cohort):
 
 @F.udf(returnType=MapType(keyType=StringType(), valueType=StringType()))
 def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
+    global inventory_distribution, reach_distribution
     if cohort is None or cohort == "":
         res = {}
         for key in inventory_distribution:
