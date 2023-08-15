@@ -153,6 +153,7 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         .groupby(*group_cols, *regular_cohorts) \
         .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
         .cache()
+    print(unify_df.count())
     all_cols = unify_df.columns
     global inventory_distribution, reach_distribution
     inventory_distribution = {}
@@ -162,6 +163,8 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         inventory_distribution[cohort] = {}
         total_inv = 0.0
         total_reach = 0.0
+        inventory_distribution[cohort] = {}
+        reach_distribution[cohort] = {}
         for row in dis:
             inventory_distribution[cohort][row[0]] = float(row[1])
             reach_distribution[cohort][row[0]] = float(row[2])
