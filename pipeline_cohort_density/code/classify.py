@@ -115,7 +115,7 @@ def get_nccs(cohort):
 
 
 def load_history(cd):
-    days = get_last_days(input_path, n=7)
+    days = get_last_days(input_path, n=15)
     print(days)
     df = pd.concat([pd.read_parquet(input_path + 'cd=' + cd) for cd in days])
     df2 = df.groupby(['language', 'platform', 'city', 'state', 'cohort']).reach.sum().reset_index()
@@ -215,8 +215,13 @@ def main(cd):
     bl2 = transform(bl)
     basic = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
     cmp = df2.merge(bl2, on=basic, how='outer', suffixes=('', '_bl'))
+    print(df2.groupby('density').size())
+    print('total', len(df2))
     print(cmp[cmp.density != cmp.density_bl])
-    print('reach', cmp.reach.sum(), cmp.reach_bl.sum())
+    print('predict reach', cmp.reach.sum())
+    print('baseline reach', cmp.reach_bl.sum())
+    print('predict NA reach%', cmp[cmp.reach.isna()].reach_bl.sum()/cmp.reach_bl.sum())
+    print('baseline NA reach%', cmp[cmp.reach_bl.isna()].reach.sum()/cmp.reach.sum())
     print('mismatch reach%', cmp[cmp.density!=cmp.density_bl].reach.sum()/cmp.reach.sum())
     print('mismatch reach_baseline%', cmp[cmp.density!=cmp.density_bl].reach_bl.sum()/cmp.reach_bl.sum())
 
