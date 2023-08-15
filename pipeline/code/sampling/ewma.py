@@ -174,8 +174,8 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         for key in inventory_distribution[cohort]:
             inventory_distribution[cohort][key] = inventory_distribution[cohort][key] / max(total_inv, 0.00001)
             reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
-    print(inventory_distribution)
-    print(reach_distribution)
+    # print(inventory_distribution)
+    # print(reach_distribution)
     for cohort in regular_cohorts:
         print(cohort)
         res_df = unify_df\
