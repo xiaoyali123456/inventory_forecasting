@@ -178,14 +178,18 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
     print(reach_distribution)
     for cohort in regular_cohorts:
         print(cohort)
-        unify_df = unify_df\
+        res_df = unify_df\
             .withColumn(cohort, cohort_enhance(cohort, 'ad_time', 'reach', F.lit(cohort)))\
             .select(*all_cols, F.explode(cohort)) \
             .drop(cohort)\
             .withColumnRenamed('key', cohort)\
             .withColumn('ad_time', F.element_at(F.split(F.col('value'), "#"), 1).cast("float"))\
             .withColumn('reach', F.element_at(F.split(F.col('value'), "#"), 2).cast("float"))\
-            .drop('value')
+            .drop('value') \
+            .groupby(*group_cols, *regular_cohorts) \
+            .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
+        save_data_frame(res_df, SAMPLING_ROOT_PATH + cohort + f"/cd={DATE}")
+        unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + cohort + f"/cd={DATE}")
     return unify_df.groupby(
             *group_cols,
             *regular_cohorts)\
