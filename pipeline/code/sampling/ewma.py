@@ -190,8 +190,9 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
             .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
         save_data_frame(res_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
         unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
+    save_data_frame(unify_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
     print("null of sampling filling done")
-    return unify_df.toPandas().fillna('')
+    return load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").toPandas().fillna('')
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2):
@@ -222,13 +223,15 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
 def main(cd):
     regular_cohorts_df = load_regular_cohorts_data(cd)
     unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
-    # print(len(unified_regular_cohorts_df))
+    print(len(unified_regular_cohorts_df))
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
     combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
+    print("inventory sampling done")
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'],target='reach')
     combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')
+    print("reach sampling done")
 
 
 if __name__ == '__main__':

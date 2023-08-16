@@ -297,8 +297,20 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         .cache()
     # print(unify_df.count())
     cohort = "gender"
-    unify_df.where(f"{cohort} is not null and {cohort} != ''").groupby(cohort).agg(F.sum('ad_time').alias('ad_time'),
-                                                                                   F.sum('reach').alias('reach'))
+    unify_df\
+        .where(f"{cohort} is not null and {cohort} != ''")\
+        .groupby('cd', 'content_id', cohort)\
+        .agg(F.sum('ad_time').alias('ad_time'),
+             F.sum('reach').alias('reach'))\
+        .orderBy('cd', 'content_id')\
+        .show(1000, False)
+    unify_df \
+        .where(f"{cohort} is not null and {cohort} != ''") \
+        .groupby('cd', cohort) \
+        .agg(F.sum('ad_time').alias('ad_time'),
+             F.sum('reach').alias('reach')) \
+        .orderBy('cd', 'content_id') \
+        .show(1000, False)
     # all_cols = unify_df.columns
     # global inventory_distribution, reach_distribution
     # inventory_distribution = {}
@@ -335,4 +347,32 @@ print(last_cd)
 lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
 regular_cohorts_df = reduce(lambda x, y: x.union(y), lst)
 unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
+valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
+        .selectExpr('startdate as cd', 'content_id').distinct()
+regular_cohorts = ['gender', 'age', 'country', 'language', 'platform', 'nccs', 'device', 'city', 'state']
+unify_df = df\
+    .join(valid_matches, ['cd', 'content_id'])\
+    .withColumn('nccs', unify_nccs('cohort'))\
+    .withColumn('device', unify_device('cohort'))\
+    .withColumn('gender', unify_gender('cohort'))\
+    .withColumn('age', unify_age('cohort')) \
+    .groupby(*group_cols, *regular_cohorts) \
+    .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
+    .cache()
+# print(unify_df.count())
+cohort = "gender"
+unify_df\
+    .where(f"{cohort} is not null and {cohort} != ''")\
+    .groupby('cd', 'content_id', cohort)\
+    .agg(F.sum('ad_time').alias('ad_time'),
+         F.sum('reach').alias('reach'))\
+    .orderBy('cd', 'content_id')\
+    .show(1000, False)
+unify_df \
+    .where(f"{cohort} is not null and {cohort} != ''") \
+    .groupby('cd', cohort) \
+    .agg(F.sum('ad_time').alias('ad_time'),
+         F.sum('reach').alias('reach')) \
+    .orderBy('cd', 'content_id') \
+    .show(1000, False)
 
