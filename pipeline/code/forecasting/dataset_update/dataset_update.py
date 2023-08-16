@@ -119,8 +119,8 @@ def update_avg_dau_label(df, avg_dau_df):
 
 
 def update_prediction_dataset(request_df, avg_dau_df):
-    # prediction_df = request_df.where('matchShouldUpdate=true')
-    prediction_df = request_df  # TODO
+    prediction_df = request_df.where('matchShouldUpdate=true')
+    # prediction_df = request_df  # TODO
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     print("prediction df")
     print(prediction_df.count())

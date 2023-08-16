@@ -190,12 +190,8 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
             .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
         save_data_frame(res_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
         unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
-    return unify_df.groupby(
-            *group_cols,
-            *regular_cohorts)\
-        .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
-        .toPandas()\
-        .fillna('')
+    print("null of sampling filling done")
+    return unify_df.toPandas().fillna('')
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2):
