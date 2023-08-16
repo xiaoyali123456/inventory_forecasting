@@ -41,7 +41,7 @@
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
             "coreInstanceCount": "48",
             "coreInstanceType": "m5.xlarge",
-            "masterInstanceType": "m5.xlarge",
+            "masterInstanceType": "m5.4xlarge",
             "releaseLabel": "emr-5.31.0"
         },
         {

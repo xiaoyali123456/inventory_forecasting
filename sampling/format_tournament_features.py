@@ -345,9 +345,10 @@ for x in last_cd0:
 
 print(last_cd)
 lst = [spark.read.parquet(f'{INVENTORY_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
-regular_cohorts_df = reduce(lambda x, y: x.union(y), lst)
-unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
-valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
+df = reduce(lambda x, y: x.union(y), lst)
+# unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
+group_cols = ['cd', 'content_id']
+valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .selectExpr('startdate as cd', 'content_id').distinct()
 regular_cohorts = ['gender', 'age', 'country', 'language', 'platform', 'nccs', 'device', 'city', 'state']
 unify_df = df\
@@ -366,13 +367,34 @@ unify_df\
     .groupby('cd', 'content_id', cohort)\
     .agg(F.sum('ad_time').alias('ad_time'),
          F.sum('reach').alias('reach'))\
-    .orderBy('cd', 'content_id')\
+    .orderBy('cd', 'content_id', cohort)\
     .show(1000, False)
+
 unify_df \
     .where(f"{cohort} is not null and {cohort} != ''") \
     .groupby('cd', cohort) \
     .agg(F.sum('ad_time').alias('ad_time'),
          F.sum('reach').alias('reach')) \
-    .orderBy('cd', 'content_id') \
+    .orderBy('cd', cohort) \
     .show(1000, False)
+
+
+spark.stop()
+spark = hive_spark("etl")
+base_cid = 1540018975
+date = "2022-10-21"
+wv = load_data_frame(spark, f"s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/cd={date}") \
+    .where(f'content_id="{base_cid}"')\
+    .select('dw_d_id', 'content_id', 'user_segments')\
+    .withColumn('cohort', parse_wv_segments('user_segments'))\
+    .withColumn('age', unify_age('cohort'))\
+    .withColumn('gender', unify_gender('cohort'))\
+    .cache()
+
+print(wv.count())
+wv.show(10, False)
+wv.groupby('gender').agg(F.expr('count(distinct dw_d_id) as reach')).show()
+wv.groupby('age').agg(F.expr('count(distinct dw_d_id) as reach')).show()
+
+
 
