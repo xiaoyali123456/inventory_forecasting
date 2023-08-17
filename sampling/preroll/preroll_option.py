@@ -1,10 +1,10 @@
 import pyspark.sql.functions as F
-from pyspark.sql.types import IntegerType
-
 path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/inventory/'
 
 # cd_list = ['2023-06-10', '2023-06-11']
-cd_list = ['2023-06-07']
+# cd_list = ['2023-06-07']
+cd_list = ['2023-06-10']
+
 df = None
 for cd in cd_list:
     tmp = spark.read.parquet(path+'cd='+cd)
