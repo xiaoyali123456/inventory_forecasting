@@ -103,7 +103,24 @@ SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notificati
 REGION = "us-east-1"
 
 
-FOCAL_TOURNAMENTS = [
+FOCAL_TOURNAMENTS_FOR_FORECASTING = [
+    "ipl",
+    "world cup",
+    "asia cup",
+    "cricket world cup",
+    "sri lanka tour of pakistan",
+    "west indies tour india",
+    "india tour of new zealand",
+    "england tour of india",
+    "west indies tour of india",
+    "south africa tour of india",
+    "sri lanka tour of india",
+    "new zealand tour of india",
+    "australia tour of india"
+]
+
+
+FOCAL_TOURNAMENTS_FOR_SAMPLING = [
     "ipl",
     "world cup",
     "asia cup",

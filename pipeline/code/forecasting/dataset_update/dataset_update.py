@@ -12,7 +12,18 @@ import new_match
 holiday_list = []
 
 
+@F.udf(returnType=IntegerType())
+def check_if_focal_tournament(sport_season_name):
+    if isinstance(sport_season_name, str):
+        sport_season_name = sport_season_name.lower()
+        for t in FOCAL_TOURNAMENTS_FOR_FORECASTING:
+            if t in sport_season_name:  # sport_season_name is a super-string of tournament
+                return 1
+    return 0
+
+
 # get continent for team
+@F.udf(returnType=StringType())
 def get_continent(team, tournament_type):
     if tournament_type == "national":
         return "AS"
@@ -62,29 +73,28 @@ def feature_processing(df, run_date):
                                               'when locate("tour", tournament) > 0 then "tour" '
                                               'else "international" end')) \
         .withColumn('teams', F.array(F.col('team1'), F.col('team2'))) \
-        .withColumn('continent1', get_continent_udf('team1', 'tournament_type')) \
-        .withColumn('continent2', get_continent_udf('team2', 'tournament_type')) \
+        .withColumn('continent1', get_continent('team1', 'tournament_type')) \
+        .withColumn('continent2', get_continent('team2', 'tournament_type')) \
         .withColumn('tierOfTeam1', F.expr('lower(tierOfTeam1)')) \
-        .withColumn('tierOfTeam1', F.expr(f'if(tierOfTeam1="{UNKNOWN_TOKEN2}", "{DEFAULT_TIER}", tierOfTeam1)')) \
+        .withColumn('tierOfTeam1', F.expr(f'if(locate("{UNKNOWN_TOKEN2}", tierOfTeam1) > 0, "{DEFAULT_TIER}", tierOfTeam1)')) \
         .withColumn('tierOfTeam2', F.expr('lower(tierOfTeam2)')) \
-        .withColumn('tierOfTeam2', F.expr(f'if(tierOfTeam2="{UNKNOWN_TOKEN2}", "{DEFAULT_TIER}", tierOfTeam2)')) \
+        .withColumn('tierOfTeam2', F.expr(f'if(locate("{UNKNOWN_TOKEN2}", tierOfTeam2) > 0, "{DEFAULT_TIER}", tierOfTeam2)')) \
         .withColumn('continents', F.array(F.col('continent1'), F.col('continent2'))) \
         .withColumn('teams_tier', F.array(F.col('tierOfTeam1'), F.col('tierOfTeam2'))) \
         .withColumn('free_timer', F.col('svodFreeTimeDuration')) \
         .withColumn('match_duration', F.col('estimatedMatchDuration')) \
-        .withColumn('break_duration', F.expr('fixedBreak * averageBreakDuration + adhocBreak * adhocBreakDuration'))
-
+        .withColumn('break_duration', F.expr('fixedBreak * averageBreakDuration + adhocBreak * adhocBreakDuration'))\
+        .withColumn('if_focal_tournament', check_if_focal_tournament('tournament'))
     for col in FEATURE_COLS:
         if col not in ARRAY_FEATURE_COLS:
             feature_df = feature_df \
                 .withColumn(col, F.expr(f'cast({col} as string)')) \
                 .withColumn(col, F.array(F.col(col)))
-
     for col in LABEL_COLS:
         feature_df = feature_df \
             .withColumn(col, F.lit(-1))
-
     print("feature df")
+    feature_df.show(2000, False)
     return feature_df
 
 
@@ -132,7 +142,7 @@ def update_prediction_dataset(request_df, avg_dau_df):
 
 def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     new_match_df = request_df \
-        .where('matchHaveFinished=true and fromOldRequest=false') \
+        .where('matchHaveFinished=true and if_focal_tournament=1') \
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
         .cache()
@@ -141,6 +151,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
+        spark = hive_spark("dataset_update")
         the_day_before_run_date = get_date_list(run_date, -2)[0]
         new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
         new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
@@ -173,7 +184,6 @@ def update_dataset(run_date):
     update_train_dataset(request_df, avg_dau_df, previous_train_df)
 
 
-get_continent_udf = F.udf(get_continent, StringType())
 check_holiday_udf = F.udf(lambda date: 1 if date in holiday_list else 0, IntegerType())
 
 

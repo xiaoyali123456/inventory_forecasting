@@ -162,7 +162,7 @@ def process_regular_cohorts_by_date(date, playout):
 def check_if_focal_season(sport_season_name):
     if isinstance(sport_season_name, str):
         sport_season_name = sport_season_name.lower()
-        for t in FOCAL_TOURNAMENTS:
+        for t in FOCAL_TOURNAMENTS_FOR_SAMPLING:
             if t in sport_season_name:  # sport_season_name is a super-string of tournament
                 return True
     return False

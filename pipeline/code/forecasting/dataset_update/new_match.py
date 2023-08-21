@@ -1,5 +1,6 @@
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
+import pandas as pd
 
 from path import *
 from util import *
@@ -32,7 +33,7 @@ def calculate_reach_and_wt_from_wv_table(spark, date):
 
 # get break list with break_start_time, break_end_time
 def break_info_processing(playout_df, date):
-    cols = ['content_id', 'break_start_time_int', 'break_end_time_int', 'delivered_duration']
+    cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
     playout_df = playout_df \
         .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int)')) \
         .withColumn('rank_next', F.expr('rank+1'))
@@ -56,7 +57,6 @@ def reformat_playout_df(playout_df):
         .withColumnRenamed(CONTENT_ID_COL2, 'content_id')\
         .withColumnRenamed(START_TIME_COL2, 'start_time')\
         .withColumnRenamed(END_TIME_COL2, 'end_time')\
-        .withColumnRenamed(BREAK_DURATION_COL2, 'delivered_duration')\
         .withColumnRenamed(PLATFORM_COL2, 'platform')\
         .withColumnRenamed(TENANT_COL2, 'tenant')\
         .withColumnRenamed(CONTENT_LANGUAGE_COL2, 'content_language')\
@@ -67,7 +67,6 @@ def reformat_playout_df(playout_df):
         .withColumnRenamed(CONTENT_ID_COL, 'content_id')\
         .withColumnRenamed(START_TIME_COL, 'start_time')\
         .withColumnRenamed(END_TIME_COL, 'end_time')\
-        .withColumnRenamed(BREAK_DURATION_COL, 'delivered_duration')\
         .withColumnRenamed(PLATFORM_COL, 'platform')\
         .withColumnRenamed(TENANT_COL, 'tenant')\
         .withColumnRenamed(CONTENT_LANGUAGE_COL, 'content_language')\
@@ -75,33 +74,24 @@ def reformat_playout_df(playout_df):
         .withColumnRenamed(BREAK_ID_COL, 'break_id')\
         .withColumnRenamed(PLAYOUT_ID_COL, 'playout_id')\
         .withColumnRenamed(CREATIVE_PATH_COL, 'creative_path') \
-        .withColumn('content_id', F.trim(F.col('content_id'))) \
-        .withColumn('content_language', F.expr('lower(content_language)')) \
-        .withColumn('platform', F.expr('lower(platform)')) \
-        .withColumn('tenant', F.expr('lower(tenant)')) \
-        .withColumn('creative_id', F.expr('upper(creative_id)')) \
-        .withColumn('break_id', F.expr('upper(break_id)'))\
-        .withColumn('creative_path', F.expr('lower(creative_path)')) \
-        .withColumn('start_time', strip_udf('start_time')) \
-        .withColumn('end_time', strip_udf('end_time'))
+        .withColumn('content_id', F.trim(F.col('content_id')))
+
+
+@F.udf(returnType=TimestampType())
+def parse_timestamp(date: str, ts: str):
+    return pd.Timestamp(date + ' ' + ts)
 
 
 # playout data processing
 def playout_data_processing(spark, date):
-    playout_df = reformat_playout_df(load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}/{date}", 'csv', True))\
-        .withColumn('date', F.lit(date))\
-        .select('date', 'content_id', 'start_time', 'end_time', 'delivered_duration',
-                'platform', 'tenant', 'content_language', 'creative_id', 'break_id',
-                'playout_id', 'creative_path') \
-        .withColumn('start_time', F.expr('if(length(start_time)==8, start_time, from_unixtime(unix_timestamp(start_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
-        .withColumn('end_time', F.expr('if(length(end_time)==8, end_time, from_unixtime(unix_timestamp(end_time, "hh:mm:ss aa"), "HH:mm:ss"))')) \
-        .withColumn('delivered_duration', F.expr('cast(unix_timestamp(delivered_duration, "HH:mm:ss") as long)'))\
-        .where('start_time is not null and end_time is not null')\
-        .withColumn('simple_start_time', F.expr('substring(start_time, 1, 5)'))\
-        .withColumn('start_time', F.concat_ws(" ", F.col('start_date'), F.col('start_time')))\
-        .withColumn('end_time', F.concat_ws(" ", F.col('end_date'), F.col('end_time'))) \
-        .withColumn('break_start_time_int', F.expr('cast(unix_timestamp(start_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
-        .withColumn('break_end_time_int', F.expr('cast(unix_timestamp(end_time, "yyyy-MM-dd HH:mm:ss") as long)')) \
+    playout_df = load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}/{date}", 'csv', True)\
+        .withColumn('date', F.lit(date)) \
+        .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+        .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
+        .where('break_start is not null and break_end is not null') \
+        .withColumn('break_start_time_int', F.expr('cast(break_start as long)')) \
+        .withColumn('break_end_time_int', F.expr('cast(break_end as long)'))\
+        .selectExpr('date', '`Content ID` as content_id', 'break_start_time_int', 'break_end_time_int', '`Creative Path` as creative_path') \
         .withColumn('duration', F.expr('break_end_time_int-break_start_time_int'))\
         .where('duration > 0 and duration < 3600 and creative_path != "aston"')
     save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
@@ -118,17 +108,13 @@ def load_wv_data(spark, date):
     data_source = "watched_video"
     timestamp_col = "ts_occurred_ms"
     if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
-        watch_video_df = load_data_frame(spark, f"{WATCH_VIDEO_PATH}/cd={date}") \
-            .withColumn("timestamp", F.expr(f'if(timestamp is null and {timestamp_col} is not null, '
-                                            f'from_unixtime({timestamp_col}/1000), timestamp)')) \
-            .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id',
-                    'dw_d_id') \
+        watch_video_df = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
+            .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp'))\
+            .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id') \
             .withColumn('wv_end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
-            .withColumn('wv_end_timestamp',
-                        F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
+            .withColumn('wv_end_timestamp', F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
             .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
-            .withColumn('wv_start_timestamp', F.from_unixtime(
-            F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
+            .withColumn('wv_start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
             .withColumn('wv_start_timestamp', F.from_utc_timestamp(F.col('wv_start_timestamp'), "IST")) \
             .withColumn('wv_end_timestamp', F.from_utc_timestamp(F.col('wv_end_timestamp'), "IST")) \
             .withColumn('wv_start_time_int',
@@ -148,7 +134,6 @@ def load_wv_data(spark, date):
 def calculate_midroll_inventory_and_reach_gt(spark, date):
     break_info_df = load_break_info_from_playout_logs(spark, date)
     watch_video_df = load_wv_data(spark, date)
-
     # calculate inventory and reach, need to extract the common intervals for each users
     total_inventory_df = watch_video_df\
         .join(F.broadcast(break_info_df), ['content_id'])\

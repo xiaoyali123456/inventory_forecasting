@@ -15,6 +15,7 @@ REGION="us-east-1"
 
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
+    --conf spark.driver.memory=8g \
     --py-files config.py,path.py,util.py"
 
 $SPARK preprocess/fetch_requests.py $DATE
