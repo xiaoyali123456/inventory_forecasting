@@ -1,3 +1,4 @@
+import os
 import sys
 
 import pandas as pd
@@ -196,7 +197,7 @@ def transform(df):
     # apply df3 class to df2
     for k, v in df3.groupby('density').index.sum().items():
         df2.loc[v, 'density'] = k
-    return df2
+    return df2, df3
 
 
 def main(cd):
@@ -206,13 +207,24 @@ def main(cd):
     df3: SSAI(after aggregation) -> density
     '''
     df = load_history(cd)
-    df2 = transform(df)
+    df2, df3 = transform(df)
     df2.to_json(output_path, orient='records')
+    df2['proportion'] = df2.reach / df2.reach.sum()
+    df3['proportion'] = df3.reach / df3.reach.sum()
+    df3.drop(columns='index', inplace=True)
     df2.to_json(output2_path + cd + '.json', orient='records')  # save for future check
+    os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json my_service_account.json')
+    gc = gspread.service_account('my_service_account.json')
+    sheet = gc.open('ssai_cohort_density_forecast')
+    sheet.sheet1.clear()
+    sheet.sheet1.update([df2.columns.values.tolist()] + df2.values.tolist())
+    sheet2 = sheet.get_worksheet(1)
+    sheet2.clear()
+    sheet2.update([df3.columns.values.tolist()] + df3.values.tolist())
 
     # check performance
     bl = load_baseline()
-    bl2 = transform(bl)
+    bl2, _ = transform(bl)
     basic = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
     cmp = df2.merge(bl2, on=basic, how='outer', suffixes=('', '_bl'))
     print(df2.groupby('density').size())
