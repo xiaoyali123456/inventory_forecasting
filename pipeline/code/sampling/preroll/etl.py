@@ -56,7 +56,7 @@ def process(cd, content_ids):
         'state',
         'location_cluster',
         'pincode',
-        F.expr("ibt as interest"), # separated by comma
+        F.expr("lower(ibt) as interest"), # separated by comma
         'device_brand',
         'device_model',
         parse_carrier('device_carrier').alias('primary_sim'),
