@@ -49,8 +49,8 @@ DNN_CONFIGURATION = {
     'test_batch_size': 64,
     'epoch_num': 100,
     'lr': 0.01,
-    'weight_decay': 1e-3,
-    'embedding_table_size': 100,
+    'weight_decay': 0,
+    'embedding_table_size': 32,
     'embedding_dim': 6,
     'mlp_layer_sizes': [64, 64]
 }

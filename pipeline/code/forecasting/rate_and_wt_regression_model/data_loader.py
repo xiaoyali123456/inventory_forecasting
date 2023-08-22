@@ -14,6 +14,7 @@ def generate_vocabulary(df):
     for key in DNN_CONFIGURATION['used_features']:
         vocabulary[key] = torchtext.vocab.build_vocab_from_iterator(df[key], min_freq=1, max_tokens=100000,
                                                                     specials=['<unk>']).get_stoi()
+    print(vocabulary['teams'])
     return vocabulary
 
 
