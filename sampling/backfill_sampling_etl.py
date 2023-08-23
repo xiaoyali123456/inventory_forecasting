@@ -28,7 +28,7 @@ from config import *
 def make_segment_str(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
-    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
+    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
         match = False
@@ -75,6 +75,15 @@ def parse_segments(segments):
     return make_segment_str(lst)
 
 
+@F.udf(returnType=StringType())
+def parse_preroll_segment(lst):
+    if lst is None:
+        return None
+    if type(lst) == str:
+        lst = lst.split(",")
+    return make_segment_str(lst)
+
+
 @F.udf(returnType=TimestampType())
 def parse_timestamp(date: str, ts: str):
     return pd.Timestamp(date + ' ' + ts, tz='asia/kolkata')
@@ -110,8 +119,8 @@ def process_regular_cohorts_by_date(date, playout):
     playout_with_platform = playout.where('platform != "na"')
     playout_without_platform = playout.where('platform == "na"').drop('platform')
     print('playout')
-    playout.where('platform="firetv"').show(10, False)
-    playout_with_platform.where('platform="firetv"').show(10, False)
+    # playout.where('platform="firetv"').show(10, False)
+    # playout_with_platform.where('platform="firetv"').show(10, False)
     # load watch_video data with regular cohorts
     raw_wt = spark.read.parquet(f'{WV_S3_BACKUP}cd={date}') \
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist()))
@@ -128,14 +137,23 @@ def process_regular_cohorts_by_date(date, playout):
         parse_segments('user_segments').alias('cohort'),
     ]]
     print('wt')
-    wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
-    wt_with_cohort = wt
+    # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
+    if date >= "2023-06-01":
+        preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
+            .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
+            .select('dw_d_id', parse_preroll_segment('user_segment').alias('preroll_cohort'))
+        # use wt data join preroll data in case there are no segments in wt users
+        wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.expr(
+            'if(cohort is null or cohort = "", preroll_cohort, cohort)'))
+    else:
+        wt_with_cohort = wt
+
     wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
     wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
     wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
-    wt_with_platform.where('platform="firetv"').show(10, False)
-    wt_without_platform.where('platform="firetv"').show(10, False)
+    # wt_with_platform.where('platform="firetv"').show(10, False)
+    # wt_without_platform.where('platform="firetv"').show(10, False)
 
     # calculate inventory and reach for each cohort
     npar = 32
@@ -163,8 +181,9 @@ def check_if_focal_season(sport_season_name):
 
 # load new matches which have not been updated
 def load_new_matches(cd):
-    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
-        .where(f'startdate > "2023-06-01" and startdate < "2023-06-15"').toPandas()
+    matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd).where(f'startdate > "2022-10-15" and startdate < "2023-06-15"').toPandas()
+    # matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd).where(f'startdate > "2022-10-15" and startdate < "2023-04-01"').toPandas()
+    # matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd).where(f'startdate > "2023-06-01" and startdate < "2023-06-15"').toPandas()
     return matches[matches.sportsseasonname.map(check_if_focal_season)].drop_duplicates()
 
 
@@ -245,7 +264,7 @@ def process_regular_cohorts(cd):
                 .where(F.col('content_id').isin(content_ids))
             playout.toPandas()  # data checking, will fail if format of the playout is invalid
             playout.repartition(1).write.mode('overwrite').parquet(f's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/processed_playout/cd={date}')
-            # process_regular_cohorts_by_date(date, playout)
+            process_regular_cohorts_by_date(date, playout)
         except Exception as e:
             print(date, 'playout not available')
             print(e)

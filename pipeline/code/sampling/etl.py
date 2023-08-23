@@ -28,7 +28,7 @@ from config import *
 def make_segment_str(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
-    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
+    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
         match = False

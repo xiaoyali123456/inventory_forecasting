@@ -40,9 +40,9 @@ def unify_nccs(cohort):
 def unify_gender(cohort):
     if cohort is not None:
         for x in cohort.split('|'):
-            if x.startswith('FMD00') or '_FEMALE_' in x:
+            if x.startswith('FMD00') or '_FEMALE_' in x or x.startswith('R_F'):
                 return 'f'
-            if x.startswith('MMD00') or '_MALE_' in x:
+            if x.startswith('MMD00') or '_MALE_' in x or x.startswith('R_M'):
                 return 'm'
     return ''
 

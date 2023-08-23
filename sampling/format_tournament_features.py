@@ -449,7 +449,7 @@ from config import *
 def make_segment_str(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
-    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
+    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
         match = False
@@ -521,18 +521,29 @@ def preprocess_playout(df):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
 
 
-spark.stop()
-spark = hive_spark('etl')
-s = """SELECT count(distinct dw_d_id) AS reach, SUM(ad_inventory) AS preroll_inventory, content_type,substring(demo_gender, 1, 2) AS demo_gender,content_id
-FROM adtech.pk_inventory_metrics_daily
-WHERE ad_placement='Preroll' and content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')
-AND content_type='SPORT_LIVE'
-AND cd>= date '2022-10-16'
-AND cd<= date '2022-11-14'
-GROUP BY content_type,4,content_id
-order by content_id"""
-spark.sql(s).show(1000, False)
+# spark.stop()
+# spark = hive_spark('etl')
+# # s = """SELECT count(distinct dw_d_id) AS reach, SUM(ad_inventory) AS preroll_inventory, content_type,substring(demo_gender, 1, 2) AS demo_gender,content_id
+# # FROM adtech.pk_inventory_metrics_daily
+# # WHERE ad_placement='Preroll' and content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')
+# # AND content_type='SPORT_LIVE'
+# # AND cd>= date '2022-10-16'
+# # AND cd<= date '2022-11-14'
+# # GROUP BY content_type,4,content_id
+# # order by content_id"""
+# # spark.sql(s).show(1000, False)
+# s = """SELECT dw_d_id, substring(demo_gender, 1, 2) AS demo_gender
+# FROM adtech.pk_inventory_metrics_daily
+# WHERE ad_placement='Preroll' and content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')
+# AND content_type='SPORT_LIVE'
+# AND cd>= date '2022-10-16'
+# AND cd<= date '2022-11-14'
+# """
+# save_data_frame(spark.sql(s), f"{PIPELINE_BASE_PATH}/data_tmp/gender_analysis/pk_inventory_metrics_daily/wc2022")
 
+
+# R_F1317,R_F1824,R_F2534,R_F3599
+# R_M1317,R_M1824,R_M2534,R_M3599
 
 @F.udf(returnType=StringType())
 def unify_gender(cohort):
@@ -542,7 +553,12 @@ def unify_gender(cohort):
                 return 'f'
             if x.startswith('MMD00') or '_MALE_' in x:
                 return 'm'
+            if x.startswith('R_F'):
+                return 'f_from_random'
+            if x.startswith('R_M'):
+                return 'm_from_random'
     return ''
+
 
 from functools import reduce
 
@@ -560,4 +576,6 @@ wt.groupby('content_id', 'gender')\
 wt.groupby('gender')\
     .agg(F.countDistinct('dw_d_id'))\
     .show(2000, False)
+
+save_data_frame(wt, f"{PIPELINE_BASE_PATH}/data_tmp/gender_analysis/sampled_wv/wc2022")
 
