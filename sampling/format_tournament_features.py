@@ -435,4 +435,129 @@ res.drop('playout_id', 'language', 'platform', 'country', 'city', 'state', 'coho
 
 save_data_frame(res.drop('playout_id', 'language', 'platform', 'country', 'city', 'state', 'cohort', 'ad_time', 'reach').distinct(), PIPELINE_BASE_PATH+"/inventory_label/icc_world_test_championship")
 
+import sys
+
+import pandas as pd
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
+
+from util import *
+from path import *
+from config import *
+
+
+def make_segment_str(lst):
+    filtered = set()
+    equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
+    prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
+    middles = ['_MALE_', '_FEMALE_']
+    for t in lst:
+        match = False
+        for s in equals:
+            if t == s:
+                match = True
+                break
+        if not match:
+            for s in prefixs:
+                if t.startswith(s):
+                    match = True
+                    break
+        if not match:
+            for s in middles:
+                if s in t:
+                    match = True
+                    break
+        if match:
+            filtered.add(t)
+    return '|'.join(sorted(filtered))
+
+
+@F.udf(returnType=StringType())
+def parse_preroll_segment(lst):
+    if lst is None:
+        return None
+    if type(lst) == str:
+        lst = lst.split(",")
+    return make_segment_str(lst)
+
+
+@F.udf(returnType=StringType())
+def parse_wv_segments(segments):
+    if segments is None:
+        return None
+    try:
+        js = json.loads(segments)
+    except:
+        return None
+    if type(js) == list:
+        lst = js
+    elif type(js) == dict:
+        lst = js.get('data', [])
+    else:
+        return None
+    return make_segment_str(lst)
+
+
+@F.udf(returnType=TimestampType())
+def parse_timestamp(date: str, ts: str):
+    return pd.Timestamp(date + ' ' + ts, tz='asia/kolkata')
+
+
+def preprocess_playout(df):
+    return df\
+        .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+        .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
+        .selectExpr(
+            '`Content ID` as content_id',
+            'trim(lower(`Playout ID`)) as playout_id',
+            'trim(lower(Language)) as language',
+            'trim(lower(Tenant)) as country',
+            'explode(split(trim(lower(Platform)), "\\\\|")) as platform',
+            'break_start',
+            'break_end',
+        )\
+        .where('break_start is not null and break_end is not null') \
+        .withColumn('break_start', F.expr('cast(break_start as long)')) \
+        .withColumn('break_end', F.expr('cast(break_end as long)'))
+
+
+spark.stop()
+spark = hive_spark('etl')
+s = """SELECT count(distinct dw_d_id) AS reach, SUM(ad_inventory) AS preroll_inventory, content_type,substring(demo_gender, 1, 2) AS demo_gender,content_id
+FROM adtech.pk_inventory_metrics_daily
+WHERE ad_placement='Preroll' and content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')
+AND content_type='SPORT_LIVE'
+AND cd>= date '2022-10-16'
+AND cd<= date '2022-11-14'
+GROUP BY content_type,4,content_id
+order by content_id"""
+spark.sql(s).show(1000, False)
+
+
+@F.udf(returnType=StringType())
+def unify_gender(cohort):
+    if cohort is not None:
+        for x in cohort.split('|'):
+            if x.startswith('FMD00') or '_FEMALE_' in x:
+                return 'f'
+            if x.startswith('MMD00') or '_MALE_' in x:
+                return 'm'
+    return ''
+
+from functools import reduce
+
+watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+wt = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{watch_video_sampled_path}cd={date}").select('dw_d_id','content_id', 'user_segments')
+                                 for date in get_date_list("2022-10-16", 30)])\
+    .where("content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')")\
+    .withColumn('cohort', parse_wv_segments('user_segments'))\
+    .withColumn('gender', unify_gender('cohort')).cache()
+
+wt.groupby('content_id', 'gender')\
+    .agg(F.countDistinct('dw_d_id'))\
+    .show(2000, False)
+
+wt.groupby('gender')\
+    .agg(F.countDistinct('dw_d_id'))\
+    .show(2000, False)
 

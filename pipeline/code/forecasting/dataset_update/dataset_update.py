@@ -161,6 +161,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
             .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
             .cache()
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
+    new_train_df.groupby('tournament').count().show(200, False)
 
 
 # update train dataset and prediction dataset from request data
