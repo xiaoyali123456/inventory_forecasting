@@ -29,6 +29,7 @@ def make_segment_str(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
+    # prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_']
     middles = ['_MALE_', '_FEMALE_']
     for t in lst:
         match = False
@@ -125,7 +126,11 @@ def process_regular_cohorts_by_date(date, playout):
                  F.expr('cast(timestamp as long) as end'),
                  F.expr('cast(timestamp as double) - watch_time as start'),
                  parse_wv_segments('user_segments').alias('cohort'),
-                 ]]
+                 ]] \
+        .withColumn('language_tmp', F.rand()) \
+        .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")')) \
+        .withColumn('language', F.coalesce('language', 'audio_language')) \
+        .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
     # .withColumn('language', F.coalesce('language', 'audio_language')) \
         # print(f'firetv data on {date}:')
     # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
