@@ -5,3 +5,10 @@ do
 #  TASK="impression"
 #  aws s3 sync s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_"${TASK}"/cd="${DATE}" s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/preroll/"${TASK}"_data/raw_data/"${DATE}"
 done
+
+# Back up WTC 2023
+for DATE in 2023-06-07 2023-06-08 2023-06-09 2023-06-10 2023-06-11
+do
+  TASK="inventory"
+  aws s3 sync s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_"${TASK}"/cd="${DATE}" s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/preroll/"${TASK}"_data/raw_data/"${DATE}"
+done
