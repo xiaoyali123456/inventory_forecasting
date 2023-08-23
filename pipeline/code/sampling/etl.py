@@ -111,7 +111,6 @@ def process_regular_cohorts_by_date(date, playout):
     # split playout data according to if platform is null
     playout_with_platform = playout.where('platform != "na"').cache()
     playout_without_platform = playout.where('platform == "na"').drop('platform').cache()
-
     # load watch_video data with regular cohorts
     raw_wt = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
         .where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])) \
@@ -130,20 +129,16 @@ def process_regular_cohorts_by_date(date, playout):
     # .withColumn('language', F.coalesce('language', 'audio_language')) \
         # print(f'firetv data on {date}:')
     # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
-
     # load preroll data with regular cohorts
     preroll = spark.read.parquet(f'{PREROLL_INVENTORY_PATH}cd={date}') \
         .select('dw_d_id', 'user_segment').dropDuplicates(['dw_d_id']) \
         .select('dw_d_id', parse_preroll_segment('user_segment').alias('preroll_cohort'))
-
     # use wt data join preroll data in case there are no segments in wt users
     wt_with_cohort = wt.join(preroll, on='dw_d_id', how='left').withColumn('cohort', F.expr('if(cohort is null or cohort = "", preroll_cohort, cohort)'))
     wt_with_cohort.write.mode('overwrite').parquet(TMP_WATCHED_VIDEO_PATH)
-
     wt_with_cohort = spark.read.parquet(TMP_WATCHED_VIDEO_PATH)
     wt_with_platform = wt_with_cohort.join(playout_with_platform.hint('broadcast'), on=['content_id', 'language', 'platform', 'country'])
     wt_without_platform = wt_with_cohort.join(playout_without_platform.hint('broadcast'), on=['content_id', 'language', 'country'])[wt_with_platform.columns]
-
     # calculate inventory and reach for each cohort
     npar = 32
     res = wt_with_platform\
@@ -213,13 +208,11 @@ def process_custom_cohorts(cd):
     segment_dict = load_segment_to_custom_cohort_mapping(cd)
     print("segment_dict")
     print(segment_dict)
-
     # load existing segments and filter valid segments according to segment_to_custom_cohort_mapping
     segment_path_list1 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/ap_user_tag/cd*/hr*/segment*/')
     segment_path_list2 = s3.glob('hotstar-ads-targeting-us-east-1-prod/adw/user-segment/custom-audience/cd*/hr*/segment*/')
     segment_filter = lambda x: any(x.endswith(c) for c in segment_dict)
     segment_path_list = ['s3://' + x for x in segment_path_list1 + segment_path_list2 if segment_filter(x)]
-
     if len(segment_path_list) > 0:
         custom_cohort_df = spark.read.parquet(*segment_path_list)\
             .groupby('dw_d_id')\
@@ -255,7 +248,7 @@ def process_regular_cohorts(cd):
             playout.toPandas()  # data checking, will fail if format of the playout is invalid
             process_regular_cohorts_by_date(date, playout)
         except Exception as e:
-            print(date, 'playout not available')
+            print(date, 'error happend!!')
             print(e)
 
 

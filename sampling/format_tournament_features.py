@@ -521,8 +521,8 @@ def preprocess_playout(df):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
 
 
-# spark.stop()
-# spark = hive_spark('etl')
+spark.stop()
+spark = hive_spark('etl')
 # # s = """SELECT count(distinct dw_d_id) AS reach, SUM(ad_inventory) AS preroll_inventory, content_type,substring(demo_gender, 1, 2) AS demo_gender,content_id
 # # FROM adtech.pk_inventory_metrics_daily
 # # WHERE ad_placement='Preroll' and content_id in ('1540018945','1540018948','1540019085','1540019088','1540018957','1540018960','1540019091','1540019094','1540018969','1540018972','1540018975','1540018978','1540018981','1540018984','1540018987','1540018990','1540018993','1540018996','1540018999','1540019002','1540019008','1540019011','1540019097','1540019020','1540019023','1540019026','1540019100','1540019029','1540019032','1540019035','1540019038','1540019041','1540019044','1540019047','1540019050','1540019053','1540019056','1540019059','1540019103','1540019062','1540019065','1540019068')

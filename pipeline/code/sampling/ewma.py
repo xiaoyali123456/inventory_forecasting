@@ -108,6 +108,14 @@ def unify_age(cohort):
         "MMD009V0052534SRMLDESTADS": "25-34",
         "MMD009V0053599HIGHSRMLDESTADS": "35-99",
         "MMD009V0053599SRMLDESTADS": "35-99",
+        "R_F1317": "13-17",
+        "R_F1824": "18-24",
+        "R_F2534": "25-34",
+        "R_F3599": "35-99",
+        "R_M1317": "13-17",
+        "R_M1824": "18-24",
+        "R_M2534": "25-34",
+        "R_M3599": "35-99"
     }
     if cohort is not None:
         for x in cohort.split('|'):
@@ -174,8 +182,8 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         for key in inventory_distribution[cohort]:
             inventory_distribution[cohort][key] = inventory_distribution[cohort][key] / max(total_inv, 0.00001)
             reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
-    # print(inventory_distribution)
-    # print(reach_distribution)
+    print(inventory_distribution)
+    print(reach_distribution)
     for cohort in regular_cohorts[:-3]:
         print(cohort)
         res_df = unify_df\
