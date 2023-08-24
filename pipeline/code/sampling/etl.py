@@ -101,6 +101,39 @@ def preprocess_playout(df):
         .withColumn('break_end', F.expr('cast(break_end as long)'))
 
 
+@F.udf(returnType=StringType())
+def languages_process(language):
+    res = []
+    if language:
+        if language.startswith("ben"):
+            res.append("bengali")
+        elif language.startswith("dug"):
+            res.append("dugout")
+        elif language.startswith("eng") or language.startswith("الإنجليزية"):
+            res.append("english")
+        elif language.startswith("guj"):
+            res.append("gujarati")
+        elif language.startswith("hin") or language.startswith("הינדי") or language.startswith("हिन्दी"):
+            res.append("hindi")
+        elif language.startswith("kan"):
+            res.append("kannada")
+        elif language.startswith("mal") or language.startswith("മലയാളം"):
+            res.append("malayalam")
+        elif language.startswith("mar"):
+            res.append("marathi")
+        elif language.startswith("tam") or language.startswith("தமிழ்"):
+            res.append("tamil")
+        elif language.startswith("tel") or language.startswith("తెలుగు"):
+            res.append("telugu")
+        elif language.startswith("unknown") or language == "":
+            res.append("unknown")
+        else:
+            res.append(language)
+    else:
+        res.append("unknown")
+    return res[0]
+
+
 def process_regular_cohorts_by_date(date, playout):
     print('process_regular_tags', date)
     # print('begin', datetime.now())
@@ -118,6 +151,7 @@ def process_regular_cohorts_by_date(date, playout):
         .where(F.col('content_id').isin(playout.toPandas().content_id.drop_duplicates().tolist())) \
         .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp')) # timestamp has changed in HotstarX
     wt = raw_wt[['dw_d_id', 'content_id',
+                 F.expr('lower(audio_language) as audio_language'),
                  F.expr('lower(language) as language'),
                  F.expr('lower(platform) as platform'),
                  F.expr('lower(country) as country'),
@@ -127,9 +161,11 @@ def process_regular_cohorts_by_date(date, playout):
                  F.expr('cast(timestamp as double) - watch_time as start'),
                  parse_wv_segments('user_segments').alias('cohort'),
                  ]] \
+        .withColumn('audio_language', languages_process('audio_language'))\
+        .withColumn('language', F.coalesce('language', 'audio_language'))\
         .withColumn('language_tmp', F.rand()) \
         .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")')) \
-        .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
+        .withColumn('language', F.expr('if(language is null or language in ("", "unknown language", "na"), language_tmp, language)'))
     # .withColumn('language', F.coalesce('language', 'audio_language')) \
         # print(f'firetv data on {date}:')
     # wt.where('platform="firetv"').groupBy('language', 'platform', 'country').count().show(10, False)
