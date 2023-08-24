@@ -129,7 +129,6 @@ def process_regular_cohorts_by_date(date, playout):
                  ]] \
         .withColumn('language_tmp', F.rand()) \
         .withColumn('language_tmp', F.expr('if(language_tmp<0.5, "hindi", "english")')) \
-        .withColumn('language', F.coalesce('language', 'audio_language')) \
         .withColumn('language', F.expr('if(language is null, language_tmp, language)'))
     # .withColumn('language', F.coalesce('language', 'audio_language')) \
         # print(f'firetv data on {date}:')
