@@ -19,8 +19,8 @@ def parse(string):
 
 def combine_inventory_and_sampling(cd):
     model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').toPandas()
-    reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/')
-    ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
+    reach_ratio = pd.read_parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/')
+    ad_time_ratio = pd.read_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/')
     ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
     processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
     # sampling match one by one
@@ -29,7 +29,7 @@ def combine_inventory_and_sampling(cd):
         inventory = ad_time_ratio.copy()
         # calculate predicted inventory and reach for each cohort
         reach.reach *= row.estimated_reach
-        inventory.inventory *= row.estimated_inventory
+        inventory.inventory *= row.estimated_preroll_inventory
         common_cols = list(set(reach.columns) & set(inventory.columns))
         combine = inventory.merge(reach, on=common_cols, how='left')
         # add meta data for each match
@@ -42,7 +42,7 @@ def combine_inventory_and_sampling(cd):
         meta_info = processed_input[(processed_input.matchId == row.match_id)].iloc[0]
         combine['tournamentId'] = meta_info['tournamentId']
         combine['seasonId'] = meta_info['seasonId']
-        combine['adPlacement'] = 'MIDROLL'
+        combine['adPlacement'] = 'PREROLL'
         # process cases when languages of this match are incomplete
         languages = parse(meta_info.contentLanguages)
         if languages:
@@ -69,9 +69,9 @@ def combine_inventory_and_sampling(cd):
         combine = combine[(combine.inventory >= 1)
                           & (combine.reach >= 1)
                           & (combine.city.map(len) != 1)].reset_index(drop=True)
-        combine.to_parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
-    df = spark.read.parquet(f'{FINAL_ALL_PREDICTION_PATH}cd={cd}/')
-    df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
+        combine.to_parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
+    df = spark.read.parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/')
+    df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREROLL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
 
 
 if __name__ == '__main__':

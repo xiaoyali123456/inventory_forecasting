@@ -1,10 +1,12 @@
 import sys
-from datetime import datetime, timedelta
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import StringType
 
-from common import *
+from util import *
+from path import *
+from config import *
+
 
 def should_be_used_season(sport_season_name):
     if isinstance(sport_season_name, str):
@@ -12,7 +14,7 @@ def should_be_used_season(sport_season_name):
         tournaments = [
             'icc world test championship',
             "icc men's cwc qualifier",
-        ] + FOCAL_TOURNAMENTS
+        ] + FOCAL_TOURNAMENTS_FOR_SAMPLING
         for t in tournaments:
             if t in sport_season_name:
                 return True
@@ -39,6 +41,40 @@ def parse_carrier(carrier):
     return 'other'
 
 
+@F.udf(returnType=StringType())
+def languages_process(language):
+    res = []
+    if language:
+        language = language.lower()
+        if language.startswith("ben"):
+            res.append("bengali")
+        elif language.startswith("dug"):
+            res.append("dugout")
+        elif language.startswith("eng") or language.startswith("الإنجليزية"):
+            res.append("english")
+        elif language.startswith("guj"):
+            res.append("gujarati")
+        elif language.startswith("hin") or language.startswith("הינדי") or language.startswith("हिन्दी"):
+            res.append("hindi")
+        elif language.startswith("kan"):
+            res.append("kannada")
+        elif language.startswith("mal") or language.startswith("മലയാളം"):
+            res.append("malayalam")
+        elif language.startswith("mar"):
+            res.append("marathi")
+        elif language.startswith("tam") or language.startswith("தமிழ்"):
+            res.append("tamil")
+        elif language.startswith("tel") or language.startswith("తెలుగు"):
+            res.append("telugu")
+        elif language.startswith("unknown") or language == "":
+            res.append("unknown")
+        else:
+            res.append(language)
+    else:
+        res.append("unknown")
+    return res[0]
+
+
 def process(cd, content_ids):
     print('process', cd)
     print('begin', datetime.now())
@@ -50,24 +86,25 @@ def process(cd, content_ids):
     preroll = spark.read.parquet(PREROLL_INVENTORY_PATH + f'cd={cd}/').where(
         F.col('content_id').isin(content_ids) & F.expr("lower(ad_placement) = 'preroll'")
     ).groupby(
-        F.expr('split(demo_gender, ",")[0] as gender'),
-        F.expr('split(demo_age_range, ",")[0] as age_bucket'),
-        'city',
-        'state',
-        'location_cluster',
-        'pincode',
+        F.expr('lower(split(demo_gender, ",")[0]) as gender'),
+        F.expr('lower(split(demo_age_range, ",")[0]) as age_bucket'),
+        F.expr('lower(city) as city'),
+        F.expr('lower(state) as state'),
+        F.expr('lower(location_cluster) as location_cluster'),
+        F.expr('lower(pincode) as pincode'),
         F.expr("lower(ibt) as interest"), # separated by comma
-        'device_brand',
-        'device_model',
+        F.expr('lower(device_brand) as device_brand'),
+        F.expr('lower(device_model) as device_model'),
+        languages_process('content_language').alias('language'),
         parse_carrier('device_carrier').alias('primary_sim'),
         F.expr('lower(device_network_data) as data_sim'),
-        F.col('device_platform').alias('platform'),
-        F.col('device_os_version').alias('os'),
-        F.col('device_app_version').alias('app_version'),
-        F.col('user_account_type').alias('subscription_type'),
-        'content_type',
+        F.expr('lower(device_platform) as platform'),
+        F.expr('lower(device_os_version) as os'),
+        F.expr('lower(device_app_version) as app_version'),
+        F.expr('lower(user_account_type) as subscription_type'),
+        F.expr('lower(content_type) as content_type'),
         F.lit('cricket').alias('content_genre'),
-    ).agg(F.count('dw_d_id').alias('inventory'), F.expr('count(distinct dw_d_id) as reach'))
+    ).agg(F.count('dw_d_id').alias('ad_time'), F.expr('count(distinct dw_d_id) as reach'))
     preroll.repartition(64).write.mode('overwrite').parquet(final_output_path)
     print('end', datetime.now())
 

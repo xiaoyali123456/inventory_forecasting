@@ -207,7 +207,7 @@ def check_if_focal_season(sport_season_name):
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
-        .where(f'startdate > "{last_cd}"').toPandas()
+        .where(f'startdate > "{last_cd}" and startdate < "{cd}"').toPandas()
     return matches[matches.sportsseasonname.map(check_if_focal_season)]
 
 
