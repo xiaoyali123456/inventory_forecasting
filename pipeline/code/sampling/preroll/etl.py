@@ -22,7 +22,7 @@ def should_be_used_season(sport_season_name):
 
 
 def load_new_matches(cd):
-    last_cd = get_last_cd(PREROLL_SAMPLING_PATH, cd)
+    last_cd = get_last_cd(PREROLL_SAMPLING_PATH+"aa/", cd)
     if last_cd is None:
         last_cd = '2022-10-15' # 10-16 is world cup 22
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
