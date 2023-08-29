@@ -44,11 +44,11 @@ def main(cd):
     regular_cohorts_df = load_inventory(cd)
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='ad_time')
-    combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
+    combine_custom_cohort(regular_cohort_inventory_df.toPandas().fillna(''), cd, 'watch_time', 'ad_time').to_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
     print("inventory sampling done")
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='reach')
-    combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
+    combine_custom_cohort(regular_cohort_reach_df.toPandas().fillna(''), cd, 'reach', 'reach').to_parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
     print("reach sampling done")
 
 

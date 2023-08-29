@@ -77,7 +77,7 @@ def languages_process(language):
 
 def process(cd, content_ids):
     print('process', cd)
-    print('begin', datetime.now())
+    print('begin')
     final_output_path = f'{PREROLL_SAMPLING_PATH}cd={cd}/'
     success_path = f'{final_output_path}_SUCCESS'
     if s3.isfile(success_path):
@@ -106,7 +106,7 @@ def process(cd, content_ids):
         F.lit('cricket').alias('content_genre'),
     ).agg(F.count('dw_d_id').alias('ad_time'), F.expr('count(distinct dw_d_id) as reach'))
     preroll.repartition(64).write.mode('overwrite').parquet(final_output_path)
-    print('end', datetime.now())
+    print('end')
 
 
 def main(cd):
