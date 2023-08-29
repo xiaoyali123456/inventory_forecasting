@@ -75,7 +75,7 @@ def unify_regular_cohort_names(unify_df: DataFrame, group_cols, DATE):
 def load_inventory(cd, n=15):
     last_cd = get_last_cd(PREROLL_SAMPLING_PATH, cd, n)
     lst = [spark.read.parquet(f'{PREROLL_SAMPLING_PATH}cd={i}').withColumn('cd', F.lit(i)) for i in last_cd]
-    return reduce(lambda x, y: x.union(y), lst)
+    return reduce(lambda x, y: x.union(y), lst).fillna('', cohort_cols)
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, lambda_=0.8):
@@ -95,21 +95,23 @@ def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     ch = ch[~(ch.is_cricket==False)]
     ch.segments.fillna('', inplace=True)
     ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
-    df2 = df.merge(ch2, how='cross')
-    df2[dst_col] = df2[dst_col+'_x'] * df2[dst_col+'_y']
-    return df2.drop(columns=[dst_col+'_x', dst_col+'_y'])
+    print(ch2)
+    df2 = df.crossJoin(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c"))\
+        .withColumn(dst_col, F.expr(f'{dst_col} * {dst_col}_c'))\
+        .drop(dst_col+"_c")
+    return df2
 
 
 def main(cd):
     regular_cohorts_df = load_inventory(cd)
-    regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
+    regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd'], cd)
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='ad_time')
-    combine_custom_cohort(regular_cohort_inventory_df.toPandas().fillna(''), cd, 'watch_time', 'ad_time').to_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
+    save_data_frame(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}')
     print("inventory sampling done")
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='reach')
-    combine_custom_cohort(regular_cohort_reach_df.toPandas().fillna(''), cd, 'reach', 'reach').to_parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
+    save_data_frame(combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach'), f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}')
     print("reach sampling done")
 
 
