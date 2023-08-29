@@ -63,10 +63,10 @@ def unify_regular_cohort_names(unify_df: DataFrame, group_cols, DATE):
             .drop('value') \
             .groupby(*group_cols, *cohort_cols) \
             .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
-        save_data_frame(res_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
+        save_data_frame(res_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
         unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
     save_data_frame(unify_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
-    unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
+    unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
     print(unify_df.count())
     print("null of sampling filling done")
     return unify_df
@@ -95,7 +95,6 @@ def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     ch = ch[~(ch.is_cricket==False)]
     ch.segments.fillna('', inplace=True)
     ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
-    print(ch2)
     df2 = df.crossJoin(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c"))\
         .withColumn(dst_col, F.expr(f'{dst_col} * {dst_col}_c'))\
         .drop(dst_col+"_c")
