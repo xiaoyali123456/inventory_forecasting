@@ -59,6 +59,7 @@ PREROLL_INVENTORY_AGG_PATH = 's3://hotstar-ads-targeting-us-east-1-prod/trackers
 TMP_WATCHED_VIDEO_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/watched_video_tmp/'
 # preroll
 # PREROLL_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/inventory/'
+PREROLL_SAMPLING_ROOT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/'
 PREROLL_SAMPLING_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/etl_result/'
 PREROLL_INVENTORY_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/ratio/inventory/'
 PREROLL_REACH_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/ratio/reach/'

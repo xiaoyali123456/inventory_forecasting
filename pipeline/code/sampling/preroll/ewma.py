@@ -1,15 +1,75 @@
 import pandas as pd
 import sys
 from functools import reduce
-import pyspark.sql.functions as F
 from pyspark.sql.window import Window
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
 
 from util import *
 from path import *
 
-
+inventory_distribution = {}
+reach_distribution = {}
 cohort_cols = ['gender', 'age_bucket', 'city', 'language', 'state', 'location_cluster', 'pincode', 'interest', 'device_brand', 'device_model',
     'primary_sim', 'data_sim', 'platform', 'os', 'app_version', 'subscription_type', 'content_type', 'content_genre']
+
+
+@F.udf(returnType=MapType(keyType=StringType(), valueType=StringType()))
+def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
+    global inventory_distribution, reach_distribution
+    if cohort is None or cohort == "":
+        res = {}
+        for key in inventory_distribution[cohort_col_name]:
+            cohort_inv = ad_time * inventory_distribution[cohort_col_name][key]
+            cohort_reach = reach * reach_distribution[cohort_col_name][key]
+            res[key] = f"{cohort_inv}#{cohort_reach}"
+    else:
+        res = {cohort: f"{ad_time}#{reach}"}
+    return res
+
+
+# unify regular cohort names
+def unify_regular_cohort_names(unify_df: DataFrame, group_cols, DATE):
+    all_cols = unify_df.columns
+    global inventory_distribution, reach_distribution
+    inventory_distribution = {}
+    reach_distribution = {}
+    for cohort in cohort_cols[:2]:
+        dis = unify_df.where(f"{cohort} is not null and {cohort} != ''").groupby(cohort).agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach')).collect()
+        inventory_distribution[cohort] = {}
+        total_inv = 0.0
+        total_reach = 0.0
+        inventory_distribution[cohort] = {}
+        reach_distribution[cohort] = {}
+        for row in dis:
+            inventory_distribution[cohort][row[0]] = float(row[1])
+            reach_distribution[cohort][row[0]] = float(row[2])
+            total_inv += float(row[1])
+            total_reach += float(row[2])
+        for key in inventory_distribution[cohort]:
+            inventory_distribution[cohort][key] = inventory_distribution[cohort][key] / max(total_inv, 0.00001)
+            reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
+    print(inventory_distribution)
+    print(reach_distribution)
+    for cohort in cohort_cols[:2]:
+        print(cohort)
+        res_df = unify_df\
+            .withColumn(cohort, cohort_enhance(cohort, 'ad_time', 'reach', F.lit(cohort)))\
+            .select(*all_cols, F.explode(cohort)) \
+            .drop(cohort)\
+            .withColumnRenamed('key', cohort)\
+            .withColumn('ad_time', F.element_at(F.split(F.col('value'), "#"), 1).cast("float"))\
+            .withColumn('reach', F.element_at(F.split(F.col('value'), "#"), 2).cast("float"))\
+            .drop('value') \
+            .groupby(*group_cols, *cohort_cols) \
+            .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
+        save_data_frame(res_df, SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
+        unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
+    save_data_frame(unify_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
+    unify_df = load_data_frame(spark, SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
+    print(unify_df.count())
+    print("null of sampling filling done")
+    return unify_df
 
 
 def load_inventory(cd, n=15):
@@ -42,6 +102,7 @@ def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
 
 def main(cd):
     regular_cohorts_df = load_inventory(cd)
+    regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='ad_time')
     combine_custom_cohort(regular_cohort_inventory_df.toPandas().fillna(''), cd, 'watch_time', 'ad_time').to_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/p0.parquet')
