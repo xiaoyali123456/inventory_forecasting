@@ -415,7 +415,7 @@ def load_regular_cohorts_data(cd, n=30) -> DataFrame:
     return reduce(lambda x, y: x.union(y), lst)
 
 
-cd = "2023-08-17"
+cd = "2023-08-30"
 spark.stop()
 spark = hive_spark("etl")
 content_ids = load_regular_cohorts_data(cd, n=4).cache()
