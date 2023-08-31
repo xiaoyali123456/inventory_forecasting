@@ -24,7 +24,7 @@
             "startDateTime": "#{myStartDate}T01:00:00"
         },
         {
-            "id": "Emr1",
+            "id": "EmrSmall",
             "type": "EmrCluster",
             "applications": "spark",
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
@@ -35,11 +35,11 @@
             "subnetId": "subnet-2cc15576"
         },
         {
-            "id": "Emr2",
+            "id": "EmrBig",
             "type": "EmrCluster",
             "applications": "spark",
             "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
-            "coreInstanceCount": "48",
+            "coreInstanceCount": "64",
             "coreInstanceType": "m5.xlarge",
             "masterInstanceType": "m5.4xlarge",
             "releaseLabel": "emr-5.31.0"
@@ -77,7 +77,7 @@
             ],
             "maximumRetries": "3",
             "runsOn": {
-                "ref": "Emr1"
+                "ref": "EmrSmall"
             }
         },
         {
@@ -92,7 +92,7 @@
                 "ref": "Preprocess"
             },
             "runsOn": {
-                "ref": "Emr1"
+                "ref": "EmrBig"
             }
         },
         {
@@ -122,7 +122,7 @@
                 "ref": "ForecastingRatePrediction"
             },
             "runsOn": {
-                "ref": "Emr1"
+                "ref": "EmrSmall"
             }
         },
         {
@@ -137,7 +137,7 @@
                 "ref": "ForecastingInventory"
             },
             "runsOn": {
-                "ref": "Emr2"
+                "ref": "EmrBig"
             }
         },
         {
@@ -152,7 +152,7 @@
                 "ref": "Sampling"
             },
             "runsOn": {
-                "ref": "Emr1"
+                "ref": "EmrSmall"
             }
         },
         {

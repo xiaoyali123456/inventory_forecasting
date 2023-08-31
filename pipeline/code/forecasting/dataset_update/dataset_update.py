@@ -135,7 +135,7 @@ def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     print("prediction df")
     print(prediction_df.count())
-    prediction_df.show(200, False)
+    prediction_df.show(200)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
@@ -147,7 +147,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .select(*MATCH_TABLE_COLS) \
         .cache()
     print("new_match df")
-    new_match_df.show(20, False)
+    new_match_df.show(20)
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
@@ -173,16 +173,12 @@ def update_dataset(run_date):
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
-
     # feature processing
     request_df = feature_processing(request_df, run_date)
-
     # calculate avg dau of each tournament
     avg_dau_df = calculate_avg_dau(previous_train_df, request_df, run_date)
-
     # save future match data for inventory prediction
     update_prediction_dataset(request_df, avg_dau_df)
-
     # update training dataset according to recently finished match data
     update_train_dataset(request_df, avg_dau_df, previous_train_df)
 

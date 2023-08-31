@@ -415,9 +415,10 @@ def load_regular_cohorts_data(cd, n=30) -> DataFrame:
     return reduce(lambda x, y: x.union(y), lst)
 
 
-cd = "2023-08-30"
+date = "2023-08-30"
 spark.stop()
 spark = hive_spark("etl")
+df = spark.createDataFrame([('1970-01-02 00:00:00', '1540024245')], ['ts', 'content_id'])
 content_ids = load_regular_cohorts_data(cd, n=4).cache()
 content_ids.select('cd', 'content_id').distinct().show(10, False)
 dates = [item[0] for item in content_ids.select('cd').distinct().collect()]

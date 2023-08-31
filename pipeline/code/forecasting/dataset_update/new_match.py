@@ -48,6 +48,7 @@ def break_info_processing(playout_df, date):
         .select(*cols) \
         .union(res_df.select(*cols))
     save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+    res_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
     return res_df
 
 
@@ -124,9 +125,8 @@ def load_wv_data(spark, date):
             .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp') \
             .cache()
         save_data_frame(watch_video_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
-    else:
-        watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
-            .cache()
+    watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
+        .cache()
     return watch_video_df
 
 
