@@ -10,6 +10,7 @@ from util import *
 import new_match
 
 holiday_list = []
+cid_mapping = {}
 
 
 @F.udf(returnType=IntegerType())
@@ -37,20 +38,32 @@ def get_holidays(country, year):
     return [str(x) for x in list(holidays.country_holidays(country, years=year).keys())]
 
 
+@F.udf(returnType=StringType())
+def get_cms_content_id(date, team1, team2, raw_content_id):
+    global cid_mapping
+    if date in cid_mapping:
+        if f"{team1} vs {team2}" in cid_mapping[date][1] or f"{team2} vs {team1}" in cid_mapping[date][1]:
+            return cid_mapping[date][0]
+    return raw_content_id
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
-    global holiday_list
+    global holiday_list, cid_mapping
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
     print("df")
     df.groupby('seasonName').count().show(20, False)
+    cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
+        .selectExpr('content_id', 'startdate', 'lower(title)').collect()
+    for row in cms_df:
+        cid_mapping[row[1]] = [row[0], row[2]]
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
         .withColumn('requestId', F.expr('cast(requestId as string)')) \
         .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
-        .withColumn('content_id', F.expr('if(content_id="45_992#-#708499", "1540024245", content_id)'))\
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
         .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
@@ -59,6 +72,7 @@ def feature_processing(df, run_date):
         .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team1)')) \
         .withColumn('team2', F.expr('lower(team2)')) \
         .withColumn('team2', F.expr(f'if(team2="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team2)')) \
+        .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
                                                     f'else "0" end')) \

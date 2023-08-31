@@ -96,6 +96,7 @@ def playout_data_processing(spark, date):
         .withColumn('duration', F.expr('break_end_time_int-break_start_time_int'))\
         .where('duration > 0 and duration < 3600 and creative_path != "aston"')
     save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
+    playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
     return playout_df
 
 

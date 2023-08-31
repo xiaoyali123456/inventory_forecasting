@@ -632,4 +632,78 @@ spark.sql(f'select * from {WV_TABLE} where cd = "2023-06-11"') \
     .count()\
     .show(500, False)
 
+run_date = "2023-08-31"
+cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
+cid_mapping = {}
 
+for row in cms_df:
+    cid_mapping[row[1]] = [row[0], row[2]]
+
+
+@F.udf(returnType=StringType())
+def get_cms_content_id(date, team1, team2, raw_content_id):
+    global cid_mapping
+    if date in cid_mapping:
+        if f"{team1} vs {team2}" in cid_mapping[date][1] or f"{team2} vs {team1}" in cid_mapping[date][1]:
+            return cid_mapping[date][0]
+    return raw_content_id
+
+
+load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
+    .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
+    .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
+    .show(20, False)
+
+
+
+
+
+the_day_before_run_date = get_date_list(run_date, -2)[0]
+gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/').withColumnRenamed('ds', 'date').cache()
+gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/')\
+    .where(f'date="{the_day_before_run_date}"')\
+    .selectExpr('date', 'content_id', *LABEL_COLS)\
+    .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num'))\
+    .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match'))\
+    .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match'))\
+    .withColumn('overall_wt', F.expr('avod_wt+svod_wt'))\
+    .withColumn('avod_reach', F.expr('total_reach*(match_active_free_num/(match_active_free_num+match_active_sub_num))'))\
+    .withColumn('svod_reach', F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))'))\
+    .join(gt_dau_df, 'date')\
+    .selectExpr('date', 'content_id', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv',
+                'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
+                'total_reach', 'avod_reach', 'svod_reach')\
+    .cache()
+cols = gt_inv_df.columns[2:]
+for col in cols:
+    gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'{col} / 1000000.0'))
+
+gt_inv_df.show(20, False)
+
+
+# get break list with break_start_time, break_end_time
+def break_info_processing(playout_df, date):
+    cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
+    playout_df = playout_df \
+        .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int)')) \
+        .withColumn('rank_next', F.expr('rank+1'))
+    res_df = playout_df \
+        .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'break_end_time_int as break_end_time_int_next'),
+              ['content_id', 'rank']) \
+        .withColumn('bias', F.expr('break_start_time_int - break_end_time_int_next')) \
+        .where('bias >= 0') \
+        .orderBy('break_start_time_int')
+    res_df = playout_df \
+        .where('rank = 1') \
+        .select(*cols) \
+        .union(res_df.select(*cols))
+    # save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+    # res_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+    print(res_df.count())
+    res_df.groupby('content_id').agg(F.sum('break_start_time_int'),F.sum('break_start_time_int')).show(20)
+    return res_df
+
+
+playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={the_day_before_run_date}").cache()
+break_info_processing(playout_df, the_day_before_run_date)
