@@ -176,7 +176,7 @@ def add_labels_to_new_matches(spark, date, new_match_df):
     res_df = new_match_df\
         .drop("match_active_free_num", "watch_time_per_free_per_match",
               "match_active_sub_num", "watch_time_per_subscriber_per_match",
-              "total_reach", "total_inventory")\
+              "total_reach", "total_inventory", "preroll_sub_inventory", "preroll_free_inventory")\
         .join(match_sub_df, 'content_id')\
         .join(match_free_df, 'content_id') \
         .join(midroll_inventory_df, 'content_id')\
