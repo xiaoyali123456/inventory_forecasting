@@ -50,6 +50,7 @@ def feature_processing(df, run_date):
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
         .withColumn('requestId', F.expr('cast(requestId as string)')) \
         .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
+        .withColumn('content_id', F.expr('if(content_id="45_992#-#708499", "1540024245", content_id)'))\
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
         .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
@@ -154,6 +155,8 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         the_day_before_run_date = get_date_list(run_date, -2)[0]
         new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
         new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
+        print("new_match df")
+        new_match_df.show(20, False)
         new_train_df = previous_train_df\
             .select(*MATCH_TABLE_COLS)\
             .union(new_match_df.select(*MATCH_TABLE_COLS))\

@@ -63,7 +63,8 @@ def load_yesterday_inputs(cd):
        'contentLanguages', 'platformsSupported'])
     df['fromOldRequest'] = True
     df['matchHaveFinished'] = df.matchDate < cd
-    any_match_finished_on_yesterday = any(df.matchDate == str(yesterday))
+    any_match_finished_on_yesterday = any(df.matchDate == str(yesterday)[:10])
+    print(any_match_finished_on_yesterday)
     df['matchShouldUpdate'] = (~df.matchHaveFinished) & any_match_finished_on_yesterday
     return df
 
@@ -149,7 +150,7 @@ def main(cd):
     df_new['requestDate'] = cd
     df_old = load_yesterday_inputs(cd)
     print('df_old')
-    print(df_old[['seasonId', 'matchId', 'tournamentId']])
+    print(df_old[['seasonId', 'matchId', 'tournamentId', 'matchShouldUpdate']])
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
     print(pd.concat([df_old, df_new])[['seasonId', 'matchId', 'tournamentId']])
     # change list to json string because parquet doesn't support
