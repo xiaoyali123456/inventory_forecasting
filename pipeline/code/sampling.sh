@@ -10,7 +10,7 @@ SPARK="spark-submit --deploy-mode client \
 
 $SPARK sampling/etl.py $DATE
 $SPARK sampling/ewma.py $DATE
-$SPARK sampling/combine.py $DATE
+#$SPARK sampling/combine.py $DATE
 
 SLACK_NOTIFICATION_TOPIC="arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION="us-east-1"

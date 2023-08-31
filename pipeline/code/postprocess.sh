@@ -17,6 +17,14 @@ aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inven
 #curl http://adtech-inventory-booking-service-alb-0-int.internal.sgp.hotstar.com/api/v1/inventory/forecast-request\?page-size\=10\&page-number\=0
 
 
+SPARK="spark-submit --deploy-mode client \
+    --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
+    --conf spark.driver.memory=8g \
+    --conf spark.driver.maxResultSize=0 \
+    --py-files config.py,path.py,util.py"
+
+$SPARK sampling/combine.py $DATE
+
 PYTHONPATH="$PWD" python3 postprocess/postprocess.py $DATE
 
 aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "postprocess done" --region $REGION

@@ -45,6 +45,16 @@
             "releaseLabel": "emr-5.31.0"
         },
         {
+            "id": "EmrBigSampling",
+            "type": "EmrCluster",
+            "applications": "spark",
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
+            "coreInstanceCount": "64",
+            "coreInstanceType": "m5.xlarge",
+            "masterInstanceType": "m5.4xlarge",
+            "releaseLabel": "emr-5.31.0"
+        },
+        {
             "id": "EmrPreroll",
             "type": "EmrCluster",
             "applications": "spark",
@@ -134,10 +144,10 @@
                 "#{myProjectFolder}/code/"
             ],
             "dependsOn": {
-                "ref": "ForecastingInventory"
+                "ref": "Preprocess"
             },
             "runsOn": {
-                "ref": "EmrBig"
+                "ref": "EmrBigSampling"
             }
         },
         {
