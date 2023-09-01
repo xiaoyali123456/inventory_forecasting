@@ -660,7 +660,7 @@ load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-08-21")\
 
 
 
-
+run_date = "2023-08-31"
 the_day_before_run_date = get_date_list(run_date, -2)[0]
 gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/').withColumnRenamed('ds', 'date').cache()
 gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/')\
@@ -683,6 +683,27 @@ for col in cols:
     gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'{col} / 1000000.0'))
 
 gt_inv_df.show(20, False)
+
+predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={run_date}/')\
+    .withColumnRenamed('ds', 'date')\
+    .withColumn('vv', F.expr("vv * 1.3"))\
+    .withColumn('sub_vv', F.expr("sub_vv * 1.3"))\
+    .withColumn('free_vv', F.expr("free_vv * 1.3"))\
+    .cache()
+predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd=2023-08-21/')\
+    .where(f'date="{the_day_before_run_date}"')\
+    .selectExpr('date', 'content_id', *LABEL_COLS)\
+    .withColumn('overall_vv', F.expr('estimated_reach/0.85'))\
+    .withColumn('avod_vv', F.expr('estimated_free_match_number/0.85'))\
+    .withColumn('svod_vv', F.expr('estimated_sub_match_number/0.85'))\
+    .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match'))\
+    .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match'))\
+    .withColumn('overall_wt', F.expr('avod_wt+svod_wt'))\
+    .join(gt_dau_df, 'date')\
+    .selectExpr('date', 'content_id', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                'overall_vv', 'avod_vv', 'svod_vv',
+                'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
+                'estimated_reach as total_reach', 'estimated_free_match_number as avod_reach', 'estimated_sub_match_number as svod_reach')
 
 
 # get break list with break_start_time, break_end_time

@@ -45,8 +45,8 @@ def main(run_date):
         .withColumn('estimated_avg_concurrency', F.expr('(estimated_free_match_number * estimated_watch_time_per_free_per_match '
         f'+ estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match)/match_duration')) \
         .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {RETENTION_RATE} * (break_duration / 10.0)')) \
-        .withColumn('estimated_reach', F.expr(f"(total_frees_number * estimated_frees_watching_match_rate / {FREE_PID_DID_RATE}) "
-                                              f"+ (total_subscribers_number * estimated_subscribers_watching_match_rate / {SUB_PID_DID_RATE})")) \
+        .withColumn('estimated_reach', F.expr(f"estimated_free_match_number / {FREE_PID_DID_RATE} "
+                                              f"+ estimated_sub_match_number / {SUB_PID_DID_RATE}")) \
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .withColumn('estimated_preroll_free_inventory', F.expr(f'if(array_contains(vod_type, "avod"), '

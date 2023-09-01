@@ -188,7 +188,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
 def update_dataset(run_date):
     # load request data and previous train dataset
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
-    last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, invalid_cd=run_date)
+    last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, end=run_date, invalid_cd=run_date)
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
     # feature processing
     request_df = feature_processing(request_df, run_date)
