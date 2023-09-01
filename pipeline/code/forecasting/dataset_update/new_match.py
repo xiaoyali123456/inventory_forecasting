@@ -35,7 +35,7 @@ def calculate_reach_and_wt_from_wv_table(spark, date):
 def break_info_processing(playout_df, date):
     cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
     playout_df = playout_df \
-        .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int)')) \
+        .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int, break_end_time_int)')) \
         .withColumn('rank_next', F.expr('rank+1'))
     res_df = playout_df \
         .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'break_end_time_int as break_end_time_int_next'),
