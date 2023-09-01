@@ -140,3 +140,14 @@ def update_dashboards():
                   'adtech.daily_midroll_corhort_report', 'adtech.daily_midroll_corhort_final_report']
     for table in table_list:
         update_single_dashboard(spark, table)
+
+
+def get_df_str(input_df):
+    return input_df._jdf.showString(20, 0, False)
+
+
+def publish_to_slack(topic, title, output_df, region):
+    cmd = 'aws sns publish --topic-arn "{}" --subject "{}" --message "{}" --region {}'. \
+        format(topic, title, {get_df_str(output_df)}, region)
+    os.system(cmd)
+

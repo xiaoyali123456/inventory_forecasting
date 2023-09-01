@@ -66,6 +66,32 @@ def main(run_date):
     save_data_frame(res_df, TOTAL_INVENTORY_PREDICTION_PATH + f"cd={run_date}/")
 
 
+def output_metrics_of_finished_matches(run_date):
+    the_day_before_run_date = get_date_list(run_date, -2)[0]
+    gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/').withColumnRenamed('ds', 'date').cache()
+    gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
+        .where(f'date="{the_day_before_run_date}"') \
+        .selectExpr('date', 'content_id', *LABEL_COLS) \
+        .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num')) \
+        .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
+        .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
+        .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+        .withColumn('avod_reach',
+                    F.expr('total_reach*(match_active_free_num/(match_active_free_num+match_active_sub_num))')) \
+        .withColumn('svod_reach',
+                    F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))')) \
+        .join(gt_dau_df, 'date') \
+        .selectExpr('date', 'content_id', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                    'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv',
+                    'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
+                    'total_reach', 'avod_reach', 'svod_reach') \
+        .cache()
+    cols = gt_inv_df.columns[2:]
+    for col in cols:
+        gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'{col} / 1000000.0'))
+    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
+
+
 if __name__ == '__main__':
     run_date = sys.argv[1]
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
