@@ -5,6 +5,7 @@
 import sys
 
 import pandas as pd
+import pyspark.sql.functions as F
 
 from util import *
 from path import *
@@ -18,58 +19,61 @@ def parse(string):
 
 
 def combine_inventory_and_sampling(cd):
-    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').toPandas()
-    reach_ratio = pd.read_parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/')
-    ad_time_ratio = pd.read_parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/')
-    ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
-    processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
+    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/')
+    reach_ratio = spark.read.parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/')
+    ad_time_ratio = spark.read.parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/')
+    ad_time_ratio = ad_time_ratio.withColumnRenamed('ad_time', 'inventory')
+    processed_input = spark.read.parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
     # sampling match one by one
-    for i, row in model_predictions.iterrows():
-        reach = reach_ratio.copy()
-        inventory = ad_time_ratio.copy()
+    for i, row in model_predictions.toPandas().iterrows():
+        reach = reach_ratio.select("*")
+        inventory = ad_time_ratio.select("*")
         # calculate predicted inventory and reach for each cohort
-        reach.reach *= row.estimated_reach
-        inventory.inventory *= row.estimated_preroll_inventory
+        reach = reach.withColumn('reach', reach['reach'] * row['estimated_reach'])
+        inventory = inventory.withColumn('inventory', inventory['inventory'] * row['estimated_preroll_inventory'])
         common_cols = list(set(reach.columns) & set(inventory.columns))
-        combine = inventory.merge(reach, on=common_cols, how='left')
+        combine = inventory.join(reach, on=common_cols, how='left')
         # add meta data for each match
-        row.request_id = str(row.request_id)
-        row.match_id = int(row.match_id)
-        combine['request_id'] = row.request_id
-        combine['matchId'] = row.match_id
-        # We assume that matchId is unique for all requests
-        # meta_info = processed_input[(processed_input.requestId == row.request_id)&(processed_input.matchId == row.match_id)]
-        meta_info = processed_input[(processed_input.matchId == row.match_id)].iloc[0]
-        combine['tournamentId'] = meta_info['tournamentId']
-        combine['seasonId'] = meta_info['seasonId']
-        combine['adPlacement'] = 'PREROLL'
+        combine = combine.withColumn('request_id', F.lit(str(row['request_id'])))
+        combine = combine.withColumn('matchId', F.lit(int(row['match_id'])))
+        meta_info = processed_input.filter(processed_input['matchId'] == row['match_id']).first()
+        combine = combine.withColumn('tournamentId', F.lit(meta_info['tournamentId']))
+        combine = combine.withColumn('seasonId', F.lit(meta_info['seasonId']))
+        combine = combine.withColumn('adPlacement', F.lit('PREROLL'))
         # process cases when languages of this match are incomplete
-        languages = parse(meta_info.contentLanguages)
+        languages = parse(meta_info['contentLanguages'])
+        print(languages)
+        # combine.show()
         if languages:
-            combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
-            combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
-            combine = combine[combine.language.isin(languages)].reset_index(drop=True)
+            language_sum = combine.groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
+            filter_language_sum = combine.filter(F.col('language').isin(languages)).groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
+            print(language_sum)
+            combine = combine.withColumn('reach', combine['reach'] * language_sum[1] / filter_language_sum[1])
+            combine = combine.withColumn('inventory', combine['inventory'] * language_sum[2] / filter_language_sum[2])
+            combine = combine.filter(F.col('language').isin(languages))
         # process case when platforms of this match are incomplete
-        platforms = parse(meta_info.platformsSupported)
+        platforms = parse(meta_info['platformsSupported'])
+        print(platforms)
         if platforms:
-            combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
-            combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()
-            combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
-        combine.inventory = combine.inventory.astype(int)
-        combine.reach = combine.reach.astype(int)
-        combine.replace(
-            {'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}},
-            inplace=True)
-        combine = combine.rename(columns={
-            'age': 'ageBucket',
-            'device': 'devicePrice',
-            'request_id': 'inventoryId',
-            'custom_cohorts': 'customCohort',
-        })
-        combine = combine[(combine.inventory >= 1)
-                          & (combine.reach >= 1)
-                          & (combine.city.map(len) != 1)].reset_index(drop=True)
-        combine.to_parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
+            platform_sum = combine.groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
+            filter_platform_sum = combine.filter(F.col('platform').isin(platforms)).groupby('adPlacement').agg(F.sum('reach'),
+                                                                                       F.sum('inventory')).collect()[0]
+            print(platform_sum)
+            combine = combine.withColumn('reach', combine['reach'] * platform_sum[1] / filter_platform_sum[1])
+            combine = combine.withColumn('inventory', combine['inventory'] * platform_sum[2] / filter_platform_sum[2])
+            combine = combine.filter(F.col('platform').isin(platforms))
+        combine = combine.withColumn('inventory', combine['inventory'].cast('integer'))
+        combine = combine.withColumn('reach', combine['reach'].cast('integer'))
+        # combine = combine.replace(
+        #    {'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}},
+        #    subset=['device']
+        # )
+        combine = combine.withColumnRenamed('age', 'ageBucket')
+        combine = combine.withColumnRenamed('device', 'devicePrice')
+        combine = combine.withColumnRenamed('request_id', 'inventoryId')
+        combine = combine.withColumnRenamed('custom_cohorts', 'customCohort')
+        combine = combine.filter((combine['inventory'] >= 1) & (combine['reach'] >= 1) & (F.length(combine['city']) != 1))
+        save_data_frame(combine, f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
     df = spark.read.parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/')
     df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREROLL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
 
