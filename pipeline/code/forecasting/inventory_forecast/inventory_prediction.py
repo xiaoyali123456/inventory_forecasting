@@ -89,7 +89,7 @@ def output_metrics_of_finished_matches(run_date):
     cols = gt_inv_df.columns[2:]
     for col in cols:
         gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'{col} / 1000000.0'))
-    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
+    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches ", output_df=gt_inv_df, region=REGION)
 
 
 if __name__ == '__main__':
