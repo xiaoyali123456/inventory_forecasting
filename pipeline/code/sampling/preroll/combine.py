@@ -73,8 +73,8 @@ def combine_inventory_and_sampling(cd):
         combine = combine.withColumnRenamed('request_id', 'inventoryId')
         combine = combine.withColumnRenamed('custom_cohorts', 'customCohort')
         combine = combine.filter((combine['inventory'] >= 1) & (combine['reach'] >= 1) & (F.length(combine['city']) != 1))
-        save_data_frame(combine, f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/p{i}.parquet')
-    df = spark.read.parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/')
+        save_data_frame(combine, f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/saved_id={i}')
+    df = spark.read.option("mergeSchema", "true").parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/')
     df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREROLL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
 
 
