@@ -42,8 +42,9 @@ def get_holidays(country, year):
 def get_cms_content_id(date, team1, team2, raw_content_id):
     global cid_mapping
     if date in cid_mapping:
-        if f"{team1} vs {team2}" in cid_mapping[date][1] or f"{team2} vs {team1}" in cid_mapping[date][1]:
-            return cid_mapping[date][0]
+        for match in cid_mapping[date]:
+            if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
+                return match[0]
     return raw_content_id
 
 
@@ -57,7 +58,9 @@ def feature_processing(df, run_date):
     cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
         .selectExpr('content_id', 'startdate', 'lower(title)').collect()
     for row in cms_df:
-        cid_mapping[row[1]] = [row[0], row[2]]
+        if row[1] not in cid_mapping:
+            cid_mapping[row[1]] = []
+        cid_mapping[row[1]].append([row[0], row[2]])
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \

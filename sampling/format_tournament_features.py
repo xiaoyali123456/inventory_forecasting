@@ -637,19 +637,22 @@ cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('con
 cid_mapping = {}
 
 for row in cms_df:
-    cid_mapping[row[1]] = [row[0], row[2]]
+    if row[1] not in cid_mapping:
+        cid_mapping[row[1]] = []
+    cid_mapping[row[1]].append([row[0], row[2]])
 
 
 @F.udf(returnType=StringType())
 def get_cms_content_id(date, team1, team2, raw_content_id):
     global cid_mapping
     if date in cid_mapping:
-        if f"{team1} vs {team2}" in cid_mapping[date][1] or f"{team2} vs {team1}" in cid_mapping[date][1]:
-            return cid_mapping[date][0]
+        for match in cid_mapping[date]:
+            if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
+                return match[0]
     return raw_content_id
 
 
-load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
+load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-08-21")\
     .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
     .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
     .show(20, False)
