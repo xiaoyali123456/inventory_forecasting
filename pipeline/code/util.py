@@ -148,6 +148,6 @@ def get_df_str(input_df):
 
 def publish_to_slack(topic, title, output_df, region):
     cmd = 'aws sns publish --topic-arn "{}" --subject "{} report" --message "{}" --region {}'. \
-        format(topic, title, {get_df_str(output_df)}, region)
+        format(topic, title, get_df_str(output_df), region)
     os.system(cmd)
 
