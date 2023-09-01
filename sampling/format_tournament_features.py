@@ -684,27 +684,32 @@ for col in cols:
 
 gt_inv_df.show(20, False)
 
-predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={run_date}/')\
+# factor = 1.0
+factor = 1.3
+predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={the_day_before_run_date}/')\
     .withColumnRenamed('ds', 'date')\
-    .withColumn('vv', F.expr("vv * 1.3"))\
-    .withColumn('sub_vv', F.expr("sub_vv * 1.3"))\
-    .withColumn('free_vv', F.expr("free_vv * 1.3"))\
+    .withColumn('vv', F.expr(f"vv * {factor}"))\
+    .withColumn('free_vv', F.expr(f"free_vv * {factor}"))\
+    .withColumn('sub_vv', F.expr(f"vv - free_vv"))\
     .cache()
 predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd=2023-08-21/')\
     .where(f'date="{the_day_before_run_date}"')\
-    .selectExpr('date', 'content_id', *LABEL_COLS)\
     .withColumn('overall_vv', F.expr('estimated_reach/0.85'))\
     .withColumn('avod_vv', F.expr('estimated_free_match_number/0.85'))\
     .withColumn('svod_vv', F.expr('estimated_sub_match_number/0.85'))\
     .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match'))\
     .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match'))\
     .withColumn('overall_wt', F.expr('avod_wt+svod_wt'))\
-    .join(gt_dau_df, 'date')\
+    .join(predict_dau_df, 'date')\
     .selectExpr('date', 'content_id', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
                 'overall_vv', 'avod_vv', 'svod_vv',
                 'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
                 'estimated_reach as total_reach', 'estimated_free_match_number as avod_reach', 'estimated_sub_match_number as svod_reach')
+cols = predict_inv_df.columns[2:]
+for col in cols:
+    predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'{col} / 1000000.0'))
 
+predict_inv_df.show(20, False)
 
 # get break list with break_start_time, break_end_time
 def break_info_processing(playout_df, date):
