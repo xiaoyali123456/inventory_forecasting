@@ -158,9 +158,10 @@
                 "#{myRunningDate}",
                 "#{myProjectFolder}/code/"
             ],
-            "dependsOn": {
-                "ref": "Sampling"
-            },
+            "dependsOn": [
+                {"ref": "Sampling"},
+                {"ref": "ForecastingInventory"}
+            ],
             "runsOn": {
                 "ref": "EmrSmall"
             }
