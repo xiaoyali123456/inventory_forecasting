@@ -71,7 +71,10 @@ def output_metrics_of_finished_matches(run_date):
     last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
     print(the_day_before_run_date)
     print(last_update_date)
-    gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/').withColumnRenamed('ds', 'date').cache()
+    gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/')\
+        .withColumnRenamed('ds', 'date')\
+        .where(f'date="{the_day_before_run_date}"')\
+        .cache()
     gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
         .where(f'date="{the_day_before_run_date}"') \
         .selectExpr('date', 'teams', *LABEL_COLS) \

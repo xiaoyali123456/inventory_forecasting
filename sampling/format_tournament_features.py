@@ -1011,3 +1011,76 @@ total_inventory_df = watch_video_df\
 total_inventory_df.show(20, False)
 
 
+the_day_before_run_date = get_date_list(run_date, -2)[0]
+last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
+print(the_day_before_run_date)
+print(last_update_date)
+gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/')\
+    .withColumnRenamed('ds', 'date')\
+    .where(f'date="{the_day_before_run_date}"')\
+    .cache()
+gt_dau_df.show()
+gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
+    .where(f'date="{the_day_before_run_date}"') \
+    .selectExpr('date', 'teams', *LABEL_COLS) \
+    .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num')) \
+    .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
+    .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
+    .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+    .withColumn('avod_reach',
+                F.expr('total_reach*(match_active_free_num/(match_active_free_num+match_active_sub_num))')) \
+    .withColumn('svod_reach',
+                F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))')) \
+    .join(gt_dau_df, 'date') \
+    .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv',
+                'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
+                'total_reach', 'avod_reach', 'svod_reach') \
+    .cache()
+cols = gt_inv_df.columns[2:]
+for col in cols:
+    gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
+publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
+
+
+load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd=2023-09-03', fmt="orc").where('content_id="1540024251"').groupBy('content_id') \
+        .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
+             F.sum('watch_time').alias('total_watch_time')).show()
+
+load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd=2023-09-02', fmt="orc")\
+    .where('content_id="1540024251"')\
+    .select('content_id', 'dw_p_id', 'watch_time')\
+    .groupBy('content_id') \
+    .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'), F.sum('watch_time').alias('total_watch_time')).show()
+
+# +----------+--------------------+--------------------+
+# |content_id|match_active_sub_num|    total_watch_time|
+# +----------+--------------------+--------------------+
+# |1540024251|            47268737|3.0633873293017254E9|
+# +----------+--------------------+--------------------+
+
+load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd=2023-09-02', fmt="orc")\
+    .where('content_id="1540024251"')\
+    .select('content_id', 'dw_p_id', 'watch_time').union(load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd=2023-09-03', fmt="orc")
+    .where('content_id="1540024251"')
+    .select('content_id', 'dw_p_id', 'watch_time'))\
+    .groupBy('content_id') \
+    .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'), F.sum('watch_time').alias('total_watch_time')).show()
+
+# +----------+--------------------+-----------------+
+# |content_id|match_active_sub_num| total_watch_time|
+# +----------+--------------------+-----------------+
+# |1540024251|            47556965|3.0954943893241E9|
+# +----------+--------------------+-----------------+
+
+load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}/2023-09-02", 'csv', True)\
+        .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+        .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
+        .where('break_start is not null and break_end is not null') \
+        .withColumn('break_start_time_int', F.expr('cast(break_start as long)')) \
+        .withColumn('break_end_time_int', F.expr('cast(break_end as long)'))\
+        .selectExpr('`Content ID` as content_id', 'break_start_time_int', 'break_end_time_int', '`Creative Path` as creative_path') \
+        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int'))\
+        .where('duration > 0 and duration < 3600 and creative_path != "aston" and content_id="1540024251"').count()
+
+spark.sql(f'select * from {WV_TABLE} where cd = "2023-09-03"').where('content_id="1540024251"').count()
