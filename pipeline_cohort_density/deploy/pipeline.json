@@ -21,7 +21,7 @@
             "id": "DefaultSchedule",
             "type": "Schedule",
             "period": "1 day",
-            "startDateTime": "#{myStartDate}T01:30:00"
+            "startDateTime": "#{myStartDate}T05:00:00"
         },
         {
             "id": "Ec2",
