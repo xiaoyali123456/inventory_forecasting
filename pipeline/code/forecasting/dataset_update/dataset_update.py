@@ -197,7 +197,7 @@ def update_dataset(run_date):
     # save future match data for inventory prediction
     update_prediction_dataset(request_df, avg_dau_df)
     # update training dataset according to recently finished match data
-    update_train_dataset(request_df, avg_dau_df, previous_train_df)
+    # update_train_dataset(request_df, avg_dau_df, previous_train_df)
 
 
 check_holiday_udf = F.udf(lambda date: 1 if date in holiday_list else 0, IntegerType())
