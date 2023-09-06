@@ -45,7 +45,7 @@ def main(run_date):
         .withColumn('estimated_avg_concurrency', F.expr('(estimated_free_match_number * estimated_watch_time_per_free_per_match '
         f'+ estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match)/match_duration')) \
         .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {RETENTION_RATE} * (break_duration / 10.0)')) \
-        .withColumn('estimated_reach', F.expr(f"estimated_free_match_number + estimated_sub_match_number")) \
+        .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number + estimated_sub_match_number)  * {RETENTION_RATE}")) \
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
         .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
         .withColumn('estimated_preroll_free_inventory', F.expr(f'if(array_contains(vod_type, "avod"), '
@@ -67,6 +67,7 @@ def main(run_date):
 
 
 def output_metrics_of_finished_matches(run_date):
+    res = []
     the_day_before_run_date = get_date_list(run_date, -2)[0]
     last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
     print(the_day_before_run_date)
@@ -78,6 +79,7 @@ def output_metrics_of_finished_matches(run_date):
     gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
         .where(f'date="{the_day_before_run_date}"') \
         .selectExpr('date', 'teams', *LABEL_COLS) \
+        .withColumn('teams', F.concat_ws(' vs ', F.col('teams'))) \
         .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num')) \
         .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
         .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
@@ -88,14 +90,18 @@ def output_metrics_of_finished_matches(run_date):
                     F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))')) \
         .join(gt_dau_df, 'date') \
         .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
-                    'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv',
+                    'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv', 'match_active_free_num/match_active_sub_num as vv_rate',
                     'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
                     'total_reach', 'avod_reach', 'svod_reach') \
         .cache()
     cols = gt_inv_df.columns[2:]
     for col in cols:
-        gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
-    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
+        if col != "vv_rate":
+            gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
+        else:
+            gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
+    # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
+    res.append(gt_inv_df)
     factor = 1.3
     predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={last_update_date}/') \
         .withColumnRenamed('ds', 'date') \
@@ -105,26 +111,45 @@ def output_metrics_of_finished_matches(run_date):
         .cache()
     predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/') \
         .where(f'date="{the_day_before_run_date}"') \
-        .withColumn('overall_vv', F.expr('estimated_reach/0.85')) \
-        .withColumn('avod_vv', F.expr('estimated_free_match_number/0.85')) \
-        .withColumn('svod_vv', F.expr('estimated_sub_match_number/0.85')) \
+        .withColumn('avod_vv', F.expr('estimated_free_match_number/1')) \
+        .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
+        .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
+        .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
+        .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
         .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
         .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
         .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
         .join(predict_dau_df, 'date') \
         .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
-                    'overall_vv', 'avod_vv', 'svod_vv',
+                    'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
                     'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
-                    'estimated_reach as total_reach', 'estimated_free_match_number as avod_reach',
-                    'estimated_sub_match_number as svod_reach')
+                    f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
     cols = predict_inv_df.columns[2:]
     for col in cols:
-        predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
-    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches with multiple 1.3", output_df=predict_inv_df, region=REGION)
+        if col != "vv_rate":
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
+        else:
+            gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
+    # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches with multiple 1.3", output_df=predict_inv_df, region=REGION)
+    res.append(predict_inv_df)
     cols = predict_inv_df.columns[2:]
     for col in cols:
-        predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / {factor}, 1)'))
-    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3", output_df=predict_inv_df, region=REGION)
+        if col != "vv_rate":
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / {factor}, 1)'))
+        else:
+            gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
+    # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3", output_df=predict_inv_df, region=REGION)
+    res.append(predict_inv_df)
+    res_df = res[0].withColumn('tag', F.lit('gt')).union(res[2].withColumn('tag', F.lit('ml_only'))).union(res[1].withColumn('tag', F.lit('ml')))
+    publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3",
+                     output_df=res_df, region=REGION)
+
+
+# for run_date in get_date_list("2023-08-21", 18):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         # main(run_date)
+#         if run_date != "2023-08-21":
+#             output_metrics_of_finished_matches(run_date)
 
 
 if __name__ == '__main__':
