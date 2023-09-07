@@ -182,7 +182,14 @@ def output_metrics_of_finished_matches(run_date):
         else:
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
     res.append(predict_inv_df.withColumn('tag', F.lit('ml_on_08_11')))
-    res_df = res[0].union(res[2]).union(res[1]).union(res[4]).union(res[3])
+    for col in cols:
+        if col != "vv_rate":
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / {factor}, 1)'))
+        else:
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
+    # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3", output_df=predict_inv_df, region=REGION)
+    res.append(predict_inv_df.withColumn('tag', F.lit('ml_on_08_11_only')))
+    res_df = res[0].union(res[2]).union(res[1]).union(res[5]).union(res[4]).union(res[3])
     res_cols = res_df.columns
     for col in cols:
         res_df = res_df.withColumn(col, F.expr(f'cast({col} as double)'))
@@ -191,10 +198,10 @@ def output_metrics_of_finished_matches(run_date):
     save_data_frame(res_df.withColumn('teams', F.expr(f'if(teams!="{teams}", "{teams}", teams)')).select(res_cols), f"{METRICS_PATH}cd={the_day_before_run_date}")
 
 
-for run_date in get_date_list("2023-08-31", 8):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        print(run_date)
-        output_metrics_of_finished_matches(run_date)
+# for run_date in get_date_list("2023-08-31", 8):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         print(run_date)
+#         output_metrics_of_finished_matches(run_date)
 
 
 if __name__ == '__main__':
