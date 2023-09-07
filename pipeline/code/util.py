@@ -137,7 +137,8 @@ def update_dashboards():
     spark = hive_spark("update_dashboards")
     table_list = ['adtech.daily_vv_report', 'adtech.daily_predicted_vv_report',
                   'adtech.daily_predicted_inventory_report',
-                  'adtech.daily_midroll_corhort_report', 'adtech.daily_midroll_corhort_final_report']
+                  'adtech.daily_midroll_corhort_report', 'adtech.daily_midroll_corhort_final_report',
+                  'adtech.daily_inventory_forecasting_metrics']
     for table in table_list:
         update_single_dashboard(spark, table)
 

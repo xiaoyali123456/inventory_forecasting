@@ -78,7 +78,7 @@ def processing_match_stage(match_stage):
         return match_stage
 
 
-def unify_format(df):
+def unify_format(df, cd):
     df.rename(columns={'id': 'requestId'}, inplace=True)
     team_col = 'teamResponses'
     if team_col in df.columns:
@@ -94,13 +94,14 @@ def unify_format(df):
         df[match_stage_col] = df[match_stage_col].map(lambda x: processing_match_stage(x))
     df = set_ids_as_int(df)
     df['fromOldRequest'] = False
-    df['matchHaveFinished'] = False  # no need to adjust for new match
+    if "matchDate" in df.columns:
+        df['matchHaveFinished'] = df.matchDate < cd  # no need to adjust for new match
     df['matchShouldUpdate'] = True
     return df
 
 
 # explode match details
-def convert_list_to_df(lst):
+def convert_list_to_df(lst, cd):
     union = []
     for req in lst:
         req = req.copy() # protect origin data
@@ -111,11 +112,12 @@ def convert_list_to_df(lst):
         for match in matches:
             union.append({**req, **match})
     df = pd.DataFrame(union)
-    df = unify_format(df)
+    df = unify_format(df, cd)
     return df
 
 
 def dump_to_json_str(x):
+    print(x)
     if isinstance(x, str):
         return x
     else:
@@ -133,8 +135,8 @@ def main(cd):
     page_size = 10
     i, total = 0, 1
     while i < total:
-        # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
-        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
+        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
+        # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
         df = pd.read_json(url)
         req_list += df.inventoryForecastResponses.tolist()
         if len(df.totalPages) == 0:
@@ -144,7 +146,7 @@ def main(cd):
         print(i)
     with s3.open(REQUESTS_PATH_TEMPL % cd, 'w') as f:
         json.dump(req_list, f)
-    df_new = convert_list_to_df(req_list)
+    df_new = convert_list_to_df(req_list, cd)
     print('df_new')
     print(df_new)
     df_new['requestDate'] = cd
