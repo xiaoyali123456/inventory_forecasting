@@ -133,8 +133,8 @@ def main(cd):
     page_size = 10
     i, total = 0, 1
     while i < total:
-        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
-        # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
+        # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
+        url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
         df = pd.read_json(url)
         req_list += df.inventoryForecastResponses.tolist()
         if len(df.totalPages) == 0:

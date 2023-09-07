@@ -1084,3 +1084,5 @@ print(set(df1['ds'])-set(df0['ds']))
 #         .where('duration > 0 and duration < 3600 and creative_path != "aston" and content_id="1540024251"').count()
 #
 # spark.sql(f'select * from {WV_TABLE} where cd = "2023-09-03"').where('content_id="1540024251"').count()
+
+
