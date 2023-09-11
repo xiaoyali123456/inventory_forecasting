@@ -80,7 +80,10 @@ def reformat_playout_df(playout_df):
 
 @F.udf(returnType=TimestampType())
 def parse_timestamp(date: str, ts: str):
-    return pd.Timestamp(date + ' ' + ts)
+    try:
+        return pd.Timestamp(date + ' ' + ts)
+    except:
+        return None
 
 
 # playout data processing
