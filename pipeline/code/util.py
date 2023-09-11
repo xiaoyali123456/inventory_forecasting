@@ -9,6 +9,7 @@ import json
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.storagelevel import StorageLevel
+import pyspark.sql.functions as F
 
 
 storageLevel = StorageLevel.DISK_ONLY
@@ -51,6 +52,47 @@ def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header
     else:
         print("the format is not supported")
         return DataFrame(None, None)
+
+
+def load_multiple_csv_file(spark, file_paths, delimiter: str = ','):
+    # Initialize an empty list to store all the columns
+    all_columns = []
+    # Iterate over the file paths to get all the columns
+    for file_path in file_paths:
+        # Read the CSV file
+        # print(file_path)
+        df = spark.read.option("header", "true").csv(file_path)
+        # Get the columns of the current DataFrame
+        columns = df.columns
+        # print(file_path)
+        # print(columns)
+        # Add the columns to the list of all columns
+        all_columns.extend(columns)
+    # Remove duplicate columns
+    all_columns = list(set(all_columns))
+    # print(all_columns)
+    all_columns.remove('Sr. No.')
+    # Initialize an empty DataFrame with the desired schema
+    output_df = spark.read.option("header", "true").option('delimiter', delimiter).csv(file_paths[0])
+    # output_df.printSchema()
+    missing_cols = set(all_columns) - set(output_df.columns)
+    for col in missing_cols:
+        output_df = output_df.withColumn(col, F.lit(None).cast("string"))
+    output_df = output_df.select(*all_columns)
+    # Iterate over the file paths again to merge the data
+    for file_path in file_paths[1:]:
+        # Read the CSV file
+        df = spark.read.option("header", "true").option('delimiter', delimiter).csv(file_path)
+        # Add missing columns to the current DataFrame
+        missing_cols = set(all_columns) - set(df.columns)
+        for col in missing_cols:
+            df = df.withColumn(col, F.lit(None).cast("string"))
+        # Select the desired columns in the desired order
+        df = df.select(*all_columns)
+        # Union the current DataFrame with the output DataFrame
+        output_df = output_df.union(df)
+    # Show the final DataFrame
+    return output_df
 
 
 def hive_spark(name: str) -> SparkSession:

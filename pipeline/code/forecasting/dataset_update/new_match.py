@@ -1,6 +1,7 @@
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 import pandas as pd
+import boto3
 
 from path import *
 from util import *
@@ -85,14 +86,18 @@ def parse_timestamp(date: str, ts: str):
     except:
         return None
 
-# date = "2023-09-10"
-# load_data_frame(spark, f"s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/{date}", 'csv', True)\
-#     .groupBy('End Date', 'End Time', 'Language', 'Platform').count().orderBy('count', ascending=False).show(100, False)
-
 
 # playout data processing
 def playout_data_processing(spark, date):
-    playout_df = load_data_frame(spark, f"{PLAY_OUT_LOG_INPUT_PATH}/{date}", 'csv', True)\
+    bucket_name = "hotstar-ads-data-external-us-east-1-prod"
+    folder_path = f'run_log/blaze/prod/test/{date}/'
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket(bucket_name)
+    file_list = []
+    for object_summary in my_bucket.objects.filter(Prefix=folder_path):
+        if object_summary.key.endswith("csv"):
+            file_list.append("s3://hotstar-ads-data-external-us-east-1-prod/" + object_summary.key)
+    playout_df = load_multiple_csv_file(spark, file_list)\
         .withColumn('date', F.lit(date)) \
         .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
         .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
@@ -104,6 +109,7 @@ def playout_data_processing(spark, date):
         .where('duration > 0 and duration < 3600 and creative_path != "aston"')
     save_data_frame(playout_df, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
     playout_df = load_data_frame(spark, PIPELINE_BASE_PATH + '/label' + PLAYOUT_LOG_PATH_SUFFIX + f"/cd={date}")
+    print(playout_df.count())
     return playout_df
 
 
