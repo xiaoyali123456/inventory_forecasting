@@ -42,23 +42,23 @@ def combine_inventory_and_sampling(cd):
         combine = combine.withColumn('adPlacement', F.lit('PREROLL'))
         # process cases when languages of this match are incomplete
         languages = parse(meta_info['contentLanguages'])
-        print(languages)
+        # print(languages)
         # combine.show()
         if languages:
             language_sum = combine.groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
             filter_language_sum = combine.filter(F.col('language').isin(languages)).groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
-            print(language_sum)
+            # print(language_sum)
             combine = combine.withColumn('reach', combine['reach'] * language_sum[1] / filter_language_sum[1])
             combine = combine.withColumn('inventory', combine['inventory'] * language_sum[2] / filter_language_sum[2])
             combine = combine.filter(F.col('language').isin(languages))
         # process case when platforms of this match are incomplete
         platforms = parse(meta_info['platformsSupported'])
-        print(platforms)
+        # print(platforms)
         if platforms:
             platform_sum = combine.groupby('adPlacement').agg(F.sum('reach'), F.sum('inventory')).collect()[0]
             filter_platform_sum = combine.filter(F.col('platform').isin(platforms)).groupby('adPlacement').agg(F.sum('reach'),
                                                                                        F.sum('inventory')).collect()[0]
-            print(platform_sum)
+            # print(platform_sum)
             combine = combine.withColumn('reach', combine['reach'] * platform_sum[1] / filter_platform_sum[1])
             combine = combine.withColumn('inventory', combine['inventory'] * platform_sum[2] / filter_platform_sum[2])
             combine = combine.filter(F.col('platform').isin(platforms))
