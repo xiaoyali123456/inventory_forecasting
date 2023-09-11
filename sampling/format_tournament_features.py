@@ -632,7 +632,7 @@ from config import *
 #     .count()\
 #     .show(500, False)
 #
-run_date = "2023-09-10"
+run_date = "2023-09-11"
 cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
 cid_mapping = {}
 
@@ -649,15 +649,16 @@ def get_cms_content_id(date, team1, team2, raw_content_id):
         for match in cid_mapping[date]:
             if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
                 return match[0]
-            if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
-                return match[0]
+            if team1 in SHORT_TEAM_MAPPING and team2 in SHORT_TEAM_MAPPING:
+                if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
+                    return match[0]
     return raw_content_id
 
 
 load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
     .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
     .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
-    .where('date="2023-09-09"')\
+    .orderBy('date')\
     .show(20, False)
 
 #

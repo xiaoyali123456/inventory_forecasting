@@ -45,8 +45,9 @@ def get_cms_content_id(date, team1, team2, raw_content_id):
         for match in cid_mapping[date]:
             if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
                 return match[0]
-            if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
-                return match[0]
+            if team1 in SHORT_TEAM_MAPPING and team2 in SHORT_TEAM_MAPPING:
+                if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
+                    return match[0]
     return raw_content_id
 
 
