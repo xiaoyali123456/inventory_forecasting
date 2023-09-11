@@ -153,28 +153,45 @@ def output_metrics_of_finished_matches(run_date):
             else:
                 growth_df = growth_df.withColumn(col, F.lit(None))
     res.append(growth_df.select(predict_inv_df.columns).withColumn('tag', F.lit('growth_team_method')))
-    base_date = "2023-08-21"
-    predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={base_date}/') \
-        .withColumnRenamed('ds', 'date') \
-        .withColumn('vv', F.expr(f"vv * {factor}")) \
-        .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
-        .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
-        .cache()
-    predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={base_date}/') \
-        .where(f'date="{the_day_before_run_date}"') \
-        .withColumn('avod_vv', F.expr('estimated_free_match_number/1')) \
-        .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
-        .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
-        .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
-        .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
-        .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
-        .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
-        .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
-        .join(predict_dau_df, 'date') \
-        .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
-                    'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
-                    'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
-                    f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
+    if the_day_before_run_date > "2023-09-05":
+        predict_inv_df = load_data_frame(spark, ML_STATIC_MODEL_PREDICITON_PATH, "csv", True).where(f"date='{the_day_before_run_date}'").cache()
+        cols = predict_inv_df.columns[2:]
+        for col in cols:
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f"cast({col} as float)"))
+        predict_inv_df = predict_inv_df\
+            .withColumnRenamed('free_vv', 'avod_vv')\
+            .withColumnRenamed('sub_vv', 'svod_vv') \
+            .withColumn('avod_dau', F.expr(f"avod_dau * {factor}")) \
+            .withColumn('svod_dau', F.expr(f"svod_dau * {factor}")) \
+            .selectExpr('date', 'teams', 'avod_dau+svod_dau as overall_dau', 'avod_dau', 'svod_dau',
+                        'estimated_vv as overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
+                        'estimated_watch_time_per_free_per_match*avod_vv+estimated_watch_time_per_subscriber_per_match*svod_vv as overall_wt',
+                        'estimated_watch_time_per_free_per_match*avod_vv as avod_wt', 'estimated_watch_time_per_subscriber_per_match*svod_vv as svod_wt',
+                        'estimated_inventory as total_inventory',
+                        f'estimated_reach as total_reach', 'free_reach as avod_reach', 'sub_reach as svod_reach')
+    else:
+        base_date = "2023-08-21"
+        predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={base_date}/') \
+            .withColumnRenamed('ds', 'date') \
+            .withColumn('vv', F.expr(f"vv * {factor}")) \
+            .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
+            .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
+            .cache()
+        predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={base_date}/') \
+            .where(f'date="{the_day_before_run_date}"') \
+            .withColumn('avod_vv', F.expr('estimated_free_match_number/1')) \
+            .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
+            .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
+            .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
+            .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
+            .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
+            .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
+            .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+            .join(predict_dau_df, 'date') \
+            .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                        'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
+                        'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
+                        f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
     cols = predict_inv_df.columns[2:]
     for col in cols:
         if col != "vv_rate":
@@ -198,7 +215,7 @@ def output_metrics_of_finished_matches(run_date):
     save_data_frame(res_df.withColumn('teams', F.expr(f'if(teams!="{teams}", "{teams}", teams)')).select(res_cols), f"{METRICS_PATH}cd={the_day_before_run_date}")
 
 
-# for run_date in get_date_list("2023-08-31", 15):
+# for run_date in get_date_list("2023-08-31", 12):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
 #         print(run_date)
 #         output_metrics_of_finished_matches(run_date)

@@ -1089,4 +1089,13 @@ load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
 #
 # spark.sql(f'select * from {WV_TABLE} where cd = "2023-09-03"').where('content_id="1540024251"').count()
 
-
+factor = 1.3
+base_date = "2023-08-21"
+load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={base_date}/') \
+    .withColumnRenamed('ds', 'date') \
+    .withColumn('vv', F.expr(f"vv * {factor}")) \
+    .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
+    .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
+    .where('date >= "2023-08-30"')\
+    .orderBy('date')\
+    .show()

@@ -85,6 +85,10 @@ def parse_timestamp(date: str, ts: str):
     except:
         return None
 
+# date = "2023-09-10"
+# load_data_frame(spark, f"s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test/{date}", 'csv', True)\
+#     .groupBy('End Date', 'End Time', 'Language', 'Platform').count().orderBy('count', ascending=False).show(100, False)
+
 
 # playout data processing
 def playout_data_processing(spark, date):

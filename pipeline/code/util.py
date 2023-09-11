@@ -41,13 +41,13 @@ def get_date_list(date: str, days: int) -> list:
 def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ','
                     ) -> DataFrame:
     if fmt == 'parquet':
-        return spark.read.parquet(path)
+        return spark.read.option("mergeSchema", "true").parquet(path)
     elif fmt == 'orc':
-        return spark.read.orc(path)
+        return spark.read.option("mergeSchema", "true").orc(path)
     elif fmt == 'jsond':
-        return spark.read.json(path)
+        return spark.read.option("mergeSchema", "true").json(path)
     elif fmt == 'csv':
-        return spark.read.option('header', header).option('delimiter', delimiter).csv(path)
+        return spark.read.option("mergeSchema", "true").option('header', header).option('delimiter', delimiter).csv(path)
     else:
         print("the format is not supported")
         return DataFrame(None, None)
