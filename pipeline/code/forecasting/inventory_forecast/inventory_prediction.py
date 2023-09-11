@@ -198,10 +198,10 @@ def output_metrics_of_finished_matches(run_date):
     save_data_frame(res_df.withColumn('teams', F.expr(f'if(teams!="{teams}", "{teams}", teams)')).select(res_cols), f"{METRICS_PATH}cd={the_day_before_run_date}")
 
 
-for run_date in get_date_list("2023-08-31", 15):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        print(run_date)
-        output_metrics_of_finished_matches(run_date)
+# for run_date in get_date_list("2023-08-31", 15):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         print(run_date)
+#         output_metrics_of_finished_matches(run_date)
 
 
 if __name__ == '__main__':
