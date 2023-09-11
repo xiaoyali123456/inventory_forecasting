@@ -442,9 +442,9 @@ print(set(df1['ds'])-set(df0['ds']))
 # import pyspark.sql.functions as F
 # from pyspark.sql.types import *
 #
-# from util import *
-# from path import *
-# from config import *
+from util import *
+from path import *
+from config import *
 #
 #
 # def make_segment_str(lst):
@@ -632,31 +632,34 @@ print(set(df1['ds'])-set(df0['ds']))
 #     .count()\
 #     .show(500, False)
 #
-# run_date = "2023-08-31"
-# cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
-# cid_mapping = {}
-#
-# for row in cms_df:
-#     if row[1] not in cid_mapping:
-#         cid_mapping[row[1]] = []
-#     cid_mapping[row[1]].append([row[0], row[2]])
-#
-#
-# @F.udf(returnType=StringType())
-# def get_cms_content_id(date, team1, team2, raw_content_id):
-#     global cid_mapping
-#     if date in cid_mapping:
-#         for match in cid_mapping[date]:
-#             if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
-#                 return match[0]
-#     return raw_content_id
-#
-#
-# load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-08-21")\
-#     .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
-#     .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
-#     .show(20, False)
-#
+run_date = "2023-09-10"
+cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
+cid_mapping = {}
+
+for row in cms_df:
+    if row[1] not in cid_mapping:
+        cid_mapping[row[1]] = []
+    cid_mapping[row[1]].append([row[0], row[2]])
+
+
+@F.udf(returnType=StringType())
+def get_cms_content_id(date, team1, team2, raw_content_id):
+    global cid_mapping
+    if date in cid_mapping:
+        for match in cid_mapping[date]:
+            if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
+                return match[0]
+            if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
+                return match[0]
+    return raw_content_id
+
+
+load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
+    .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
+    .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
+    .where('date="2023-09-09"')\
+    .show(20, False)
+
 #
 #
 # run_date = "2023-09-01"

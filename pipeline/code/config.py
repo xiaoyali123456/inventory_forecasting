@@ -62,6 +62,14 @@ INVALID_TEAM_MAPPING = {
         "ire": "ireland",
         "dc.": "dc"
 }
+
+SHORT_TEAM_MAPPING = {
+    "sri lanka": "sl",
+    "bangladesh": "ban",
+    "pakistan": "pak",
+    "india": "ind"
+}
+
 UNKNOWN_TOKEN = "<unk>"
 UNKNOWN_TOKEN2 = "unknown"
 DEFAULT_CONTINENT = "AS"

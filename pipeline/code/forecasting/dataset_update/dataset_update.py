@@ -45,6 +45,8 @@ def get_cms_content_id(date, team1, team2, raw_content_id):
         for match in cid_mapping[date]:
             if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
                 return match[0]
+            if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
+                return match[0]
     return raw_content_id
 
 
@@ -113,6 +115,7 @@ def feature_processing(df, run_date):
             .withColumn(col, F.lit(-1))
     print("feature df")
     feature_df.show(2000, False)
+    save_data_frame(feature_df, ALL_MATCH_TABLE_PATH + f"/cd={run_date}")
     return feature_df
 
 
@@ -164,7 +167,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .select(*MATCH_TABLE_COLS) \
         .cache()
     print("new_match df")
-    new_match_df.show(20)
+    new_match_df.show(20, False)
     if new_match_df.count() == 0:
         new_train_df = previous_train_df
     else:
