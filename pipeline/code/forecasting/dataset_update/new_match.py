@@ -1,7 +1,6 @@
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 import pandas as pd
-import boto3
 
 from path import *
 from util import *
@@ -91,12 +90,7 @@ def parse_timestamp(date: str, ts: str):
 def playout_data_processing(spark, date):
     bucket_name = "hotstar-ads-data-external-us-east-1-prod"
     folder_path = f'run_log/blaze/prod/test/{date}/'
-    s3 = boto3.resource('s3')
-    my_bucket = s3.Bucket(bucket_name)
-    file_list = []
-    for object_summary in my_bucket.objects.filter(Prefix=folder_path):
-        if object_summary.key.endswith("csv"):
-            file_list.append("s3://hotstar-ads-data-external-us-east-1-prod/" + object_summary.key)
+    file_list = get_s3_paths(bucket_name, folder_path)
     playout_df = load_multiple_csv_file(spark, file_list)\
         .withColumn('date', F.lit(date)) \
         .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \

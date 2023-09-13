@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import s3fs
 import json
+import boto3
 
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
@@ -52,6 +53,15 @@ def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header
     else:
         print("the format is not supported")
         return DataFrame(None, None)
+
+
+def get_s3_paths(bucket_name, folder_path):
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket(bucket_name)
+    file_list = []
+    for object_summary in my_bucket.objects.filter(Prefix=folder_path):
+        if object_summary.key.endswith("csv"):
+            file_list.append(f"s3://{bucket_name}/" + object_summary.key)
 
 
 def load_multiple_csv_file(spark, file_paths, delimiter: str = ','):

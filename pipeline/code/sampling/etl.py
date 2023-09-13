@@ -420,7 +420,11 @@ def process_regular_cohorts(cd):
     for date in matches.startdate.drop_duplicates():
         content_ids = matches[matches.startdate == date].content_id.tolist()
         try:
-            raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
+            bucket_name = "hotstar-ads-data-external-us-east-1-prod"
+            folder_path = f'run_log/blaze/prod/test/{date}/'
+            file_list = get_s3_paths(bucket_name, folder_path)
+            raw_playout = load_multiple_csv_file(spark, file_list)
+            # raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
             raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
             playout = preprocess_playout(raw_playout)\
                 .where(F.col('content_id').isin(content_ids))
