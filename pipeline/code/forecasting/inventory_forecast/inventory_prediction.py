@@ -9,11 +9,12 @@ from config import *
 
 # load prediction dataset
 def load_prediction_dataset(run_date):
+    factor = 1.0
     prediction_feature_df = load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
         .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'teams', 'vod_type',
                     'total_frees_number', 'total_subscribers_number', 'match_duration', 'break_duration')\
-        .withColumn('total_frees_number', F.expr("total_frees_number * 1.3"))\
-        .withColumn('total_subscribers_number', F.expr("total_subscribers_number * 1.3"))\
+        .withColumn('total_frees_number', F.expr(f"total_frees_number * {factor}"))\
+        .withColumn('total_subscribers_number', F.expr(f"total_subscribers_number * {factor}"))\
         .withColumn('teams', F.concat_ws(" vs ", F.col('teams')))\
         .cache()
     return prediction_feature_df
@@ -126,6 +127,12 @@ def output_metrics_of_finished_matches(run_date):
                     f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
     teams = predict_inv_df.select('teams').collect()[0][0]
     cols = predict_inv_df.columns[2:]
+    if last_update_date >= "2023-09-11":
+        for col in cols[3:]:
+            if col != "vv_rate":
+                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} * {factor}, 1)'))
+            else:
+                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
     for col in cols:
         if col != "vv_rate":
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
