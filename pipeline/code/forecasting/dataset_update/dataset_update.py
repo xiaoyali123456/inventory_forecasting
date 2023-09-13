@@ -166,6 +166,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .where('matchHaveFinished=true and if_focal_tournament=1') \
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
+        .where('date != "2023-09-10"')\
         .cache()
     print("new_match df")
     new_match_df.show(20, False)
