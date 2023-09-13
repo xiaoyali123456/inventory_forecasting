@@ -9,7 +9,10 @@ from config import *
 
 # load prediction dataset
 def load_prediction_dataset(run_date):
-    factor = 1.0
+    if run_date >= "2023-09-11":
+        factor = 1.0
+    else:
+        factor = 1.3
     prediction_feature_df = load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")\
         .selectExpr('requestId as request_id', 'matchId as match_id', 'content_id', 'date', 'tournament', 'teams', 'vod_type',
                     'total_frees_number', 'total_subscribers_number', 'match_duration', 'break_duration')\
