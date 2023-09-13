@@ -10,6 +10,7 @@ sudo python3 -m pip install \
     asynctest==0.13.0 \
     attrs==23.1.0 \
     boto==2.49.0 \
+    boto3 \
     botocore==1.27.59 \
     certifi==2022.12.7 \
     charset-normalizer==3.1.0 \
