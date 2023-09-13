@@ -62,6 +62,7 @@ def get_s3_paths(bucket_name, folder_path):
     for object_summary in my_bucket.objects.filter(Prefix=folder_path):
         if object_summary.key.endswith("csv"):
             file_list.append(f"s3://{bucket_name}/" + object_summary.key)
+    return file_list
 
 
 def load_multiple_csv_file(spark, file_paths, delimiter: str = ','):
