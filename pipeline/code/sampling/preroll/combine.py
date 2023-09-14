@@ -19,11 +19,11 @@ def parse(string):
 
 
 def combine_inventory_and_sampling(cd):
-    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/')
-    reach_ratio = spark.read.parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/')
-    ad_time_ratio = spark.read.parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/')
+    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').cache()
+    reach_ratio = spark.read.parquet(f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}/').cache()
+    ad_time_ratio = spark.read.parquet(f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}/').cache()
     ad_time_ratio = ad_time_ratio.withColumnRenamed('ad_time', 'inventory')
-    processed_input = spark.read.parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
+    processed_input = spark.read.parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/').cache()
     # sampling match one by one
     for i, row in model_predictions.toPandas().iterrows():
         reach = reach_ratio.select("*")
