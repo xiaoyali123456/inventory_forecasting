@@ -330,7 +330,7 @@ def process_regular_cohorts_by_date(date, playout):
             F.expr('count(distinct dw_d_id) as reach')
         ).repartition(npar)
     res.write.mode('overwrite').parquet(final_output_path)
-    print('end', datetime.now())
+    print('end', date)
 
 
 def check_if_focal_season(sport_season_name):
@@ -345,8 +345,10 @@ def check_if_focal_season(sport_season_name):
 # load new matches which have not been updated
 def load_new_matches(cd):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd)
+    print(last_cd)
     matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd) \
         .where(f'startdate > "{last_cd}" and startdate < "{cd}"').toPandas()
+    print(matches)
     return matches[matches.sportsseasonname.map(check_if_focal_season)]
 
 
@@ -417,22 +419,23 @@ def process_custom_cohorts(cd):
 def process_regular_cohorts(cd):
     matches = load_new_matches(cd)
     print(matches)
-    for date in matches.startdate.drop_duplicates():
-        content_ids = matches[matches.startdate == date].content_id.tolist()
-        try:
-            bucket_name = "hotstar-ads-data-external-us-east-1-prod"
-            folder_path = f'run_log/blaze/prod/test/{date}/'
-            file_list = get_s3_paths(bucket_name, folder_path)
-            raw_playout = load_multiple_csv_file(spark, file_list)
-            # raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
-            raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
-            playout = preprocess_playout(raw_playout)\
-                .where(F.col('content_id').isin(content_ids))
-            playout.toPandas()  # data checking, will fail if format of the playout is invalid
-            process_regular_cohorts_by_date(date, playout)
-        except Exception as e:
-            print(date, 'error happend!!')
-            print(e)
+    if len(matches) > 0:
+        for date in matches.startdate.drop_duplicates():
+            content_ids = matches[matches.startdate == date].content_id.tolist()
+            try:
+                bucket_name = "hotstar-ads-data-external-us-east-1-prod"
+                folder_path = f'run_log/blaze/prod/test/{date}/'
+                file_list = get_s3_paths(bucket_name, folder_path)
+                raw_playout = load_multiple_csv_file(spark, file_list)
+                # raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
+                raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
+                playout = preprocess_playout(raw_playout)\
+                    .where(F.col('content_id').isin(content_ids))
+                playout.toPandas()  # data checking, will fail if format of the playout is invalid
+                process_regular_cohorts_by_date(date, playout)
+            except Exception as e:
+                print(date, 'error happend!!')
+                print(e)
 
 
 def main(cd):
