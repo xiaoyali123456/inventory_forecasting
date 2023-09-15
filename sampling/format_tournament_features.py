@@ -1331,3 +1331,12 @@ print(set(df1['ds'])-set(df0['ds']))
 #     .orderBy('date')\
 #     .show(200, False)
 #
+
+
+from util import *
+from path import *
+from config import *
+
+df = load_data_frame(spark, f'{AD_TIME_SAMPLING_PATH}cd=2023-09-14').cache()
+df.groupby('city').sum('ad_time').where('city="bangalore"').orderBy('city').show(100,False)
+

@@ -102,8 +102,8 @@ def feature_processing(df, run_date):
         .withColumn('tierOfTeam1', F.expr(f'if(locate("{UNKNOWN_TOKEN2}", tierOfTeam1) > 0, "{DEFAULT_TIER}", tierOfTeam1)')) \
         .withColumn('tierOfTeam2', F.expr('lower(tierOfTeam2)')) \
         .withColumn('tierOfTeam2', F.expr(f'if(locate("{UNKNOWN_TOKEN2}", tierOfTeam2) > 0, "{DEFAULT_TIER}", tierOfTeam2)')) \
-        .withColumn('tierOfTeam1', F.expr(f'if(date="2023-09-14" and team1="bangladesh", "{DEFAULT_TIER}", tierOfTeam1)')) \
-        .withColumn('tierOfTeam2', F.expr(f'if(date="2023-09-14" and team2="bangladesh", "{DEFAULT_TIER}", tierOfTeam2)')) \
+        .withColumn('tierOfTeam1', F.expr(f'if(date="2023-09-14" and team1="pakistan", "{DEFAULT_TIER}", tierOfTeam1)')) \
+        .withColumn('tierOfTeam2', F.expr(f'if(date="2023-09-14" and team2="pakistan", "{DEFAULT_TIER}", tierOfTeam2)')) \
         .withColumn('continents', F.array(F.col('continent1'), F.col('continent2'))) \
         .withColumn('teams_tier', F.array(F.col('tierOfTeam1'), F.col('tierOfTeam2'))) \
         .withColumn('free_timer', F.col('svodFreeTimeDuration')) \
