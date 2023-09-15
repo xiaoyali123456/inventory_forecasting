@@ -96,7 +96,9 @@ def unify_format(df, cd):
     df['fromOldRequest'] = False
     if "matchDate" in df.columns:
         df['matchHaveFinished'] = df.matchDate < cd  # no need to adjust for new match
-    df['matchShouldUpdate'] = True
+        df['matchShouldUpdate'] = ~df.matchHaveFinished
+    else:
+        df['matchShouldUpdate'] = True
     return df
 
 

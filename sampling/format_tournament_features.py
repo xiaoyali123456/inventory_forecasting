@@ -442,9 +442,9 @@ print(set(df1['ds'])-set(df0['ds']))
 # import pyspark.sql.functions as F
 # from pyspark.sql.types import *
 #
-from util import *
-from path import *
-from config import *
+# from util import *
+# from path import *
+# from config import *
 #
 #
 # def make_segment_str(lst):
@@ -632,34 +632,34 @@ from config import *
 #     .count()\
 #     .show(500, False)
 #
-run_date = "2023-09-11"
-cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
-cid_mapping = {}
-
-for row in cms_df:
-    if row[1] not in cid_mapping:
-        cid_mapping[row[1]] = []
-    cid_mapping[row[1]].append([row[0], row[2]])
-
-
-@F.udf(returnType=StringType())
-def get_cms_content_id(date, team1, team2, raw_content_id):
-    global cid_mapping
-    if date in cid_mapping:
-        for match in cid_mapping[date]:
-            if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
-                return match[0]
-            if team1 in SHORT_TEAM_MAPPING and team2 in SHORT_TEAM_MAPPING:
-                if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
-                    return match[0]
-    return raw_content_id
-
-
-load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
-    .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
-    .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
-    .orderBy('date')\
-    .show(20, False)
+# run_date = "2023-09-11"
+# cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date).selectExpr('content_id', 'startdate', 'lower(title)').collect()
+# cid_mapping = {}
+#
+# for row in cms_df:
+#     if row[1] not in cid_mapping:
+#         cid_mapping[row[1]] = []
+#     cid_mapping[row[1]].append([row[0], row[2]])
+#
+#
+# @F.udf(returnType=StringType())
+# def get_cms_content_id(date, team1, team2, raw_content_id):
+#     global cid_mapping
+#     if date in cid_mapping:
+#         for match in cid_mapping[date]:
+#             if f"{team1} vs {team2}" in match[1] or f"{team2} vs {team1}" in match[1]:
+#                 return match[0]
+#             if team1 in SHORT_TEAM_MAPPING and team2 in SHORT_TEAM_MAPPING:
+#                 if f"{SHORT_TEAM_MAPPING[team1]} vs {SHORT_TEAM_MAPPING[team2]}" in match[1] or f"{SHORT_TEAM_MAPPING[team2]} vs {SHORT_TEAM_MAPPING[team1]}" in match[1]:
+#                     return match[0]
+#     return raw_content_id
+#
+#
+# load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
+#     .withColumn('new_cid', get_cms_content_id('date', 'team1', 'team2', 'content_id'))\
+#     .select('date', 'team1', 'team2', 'content_id', 'new_cid')\
+#     .orderBy('date')\
+#     .show(20, False)
 
 #
 #
@@ -1089,199 +1089,245 @@ load_data_frame(spark, PREDICTION_MATCH_TABLE_PATH + f"/cd=2023-09-07")\
 #
 # spark.sql(f'select * from {WV_TABLE} where cd = "2023-09-03"').where('content_id="1540024251"').count()
 
-factor = 1.3
-base_date = "2023-08-21"
-load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={base_date}/') \
-    .withColumnRenamed('ds', 'date') \
-    .withColumn('vv', F.expr(f"vv * {factor}")) \
-    .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
-    .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
-    .where('date >= "2023-08-30"')\
-    .orderBy('date')\
-    .show()
+# factor = 1.3
+# base_date = "2023-08-21"
+# load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={base_date}/') \
+#     .withColumnRenamed('ds', 'date') \
+#     .withColumn('vv', F.expr(f"vv * {factor}")) \
+#     .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
+#     .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
+#     .where('date >= "2023-08-30"')\
+#     .orderBy('date')\
+#     .show()
+#
+#
+# import pyspark.sql.functions as F
+# from pyspark.sql.types import *
+# import pandas as pd
+# from functools import reduce
+#
+# from path import *
+# from util import *
+#
+#
+# # calculate free/sub reach and avg_wt
+# def calculate_reach_and_wt_from_wv_table(spark, dates):
+#     match_sub_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+#         .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+#         .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
+#         .groupBy('dw_p_id', 'content_id') \
+#         .agg(F.sum('watch_time').alias('watch_time')) for date in dates]) \
+#         .groupBy('content_id') \
+#         .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
+#              F.sum('watch_time').alias('total_watch_time')) \
+#         .withColumn('watch_time_per_subscriber_per_match', F.expr('total_watch_time/match_active_sub_num')) \
+#         .select('content_id', 'match_active_sub_num', 'watch_time_per_subscriber_per_match') \
+#         .cache()
+#     match_free_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+#         .where(f'upper(subscription_status) not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+#         .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
+#         .groupBy('dw_p_id', 'content_id') \
+#         .agg(F.sum('watch_time').alias('watch_time')) for date in dates]) \
+#         .groupBy('content_id') \
+#         .agg(F.countDistinct('dw_p_id').alias('match_active_free_num'),
+#              F.sum('watch_time').alias('total_free_watch_time')) \
+#         .withColumn('watch_time_per_free_per_match', F.expr('total_free_watch_time/match_active_free_num')) \
+#         .select('content_id', 'match_active_free_num', 'watch_time_per_free_per_match') \
+#         .cache()
+#     return match_sub_df, match_free_df
+#
+#
+# # get break list with break_start_time, break_end_time
+# def break_info_processing(playout_df, date):
+#     cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
+#     playout_df = playout_df \
+#         .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int, break_end_time_int)')) \
+#         .withColumn('rank_next', F.expr('rank+1'))
+#     res_df = playout_df \
+#         .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'break_end_time_int as break_end_time_int_next'),
+#               ['content_id', 'rank']) \
+#         .withColumn('bias', F.expr('break_start_time_int - break_end_time_int_next')) \
+#         .where('bias >= 0') \
+#         .orderBy('break_start_time_int')
+#     res_df = playout_df \
+#         .where('rank = 1') \
+#         .select(*cols) \
+#         .union(res_df.select(*cols))
+#     # save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+#     # res_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
+#     return res_df
+#
+#
+# # reformat playout logs
+# def reformat_playout_df(playout_df):
+#     return playout_df\
+#         .withColumnRenamed(CONTENT_ID_COL2, 'content_id')\
+#         .withColumnRenamed(START_TIME_COL2, 'start_time')\
+#         .withColumnRenamed(END_TIME_COL2, 'end_time')\
+#         .withColumnRenamed(PLATFORM_COL2, 'platform')\
+#         .withColumnRenamed(TENANT_COL2, 'tenant')\
+#         .withColumnRenamed(CONTENT_LANGUAGE_COL2, 'content_language')\
+#         .withColumnRenamed(CREATIVE_ID_COL2, 'creative_id')\
+#         .withColumnRenamed(BREAK_ID_COL2, 'break_id')\
+#         .withColumnRenamed(PLAYOUT_ID_COL2, 'playout_id')\
+#         .withColumnRenamed(CREATIVE_PATH_COL2, 'creative_path')\
+#         .withColumnRenamed(CONTENT_ID_COL, 'content_id')\
+#         .withColumnRenamed(START_TIME_COL, 'start_time')\
+#         .withColumnRenamed(END_TIME_COL, 'end_time')\
+#         .withColumnRenamed(PLATFORM_COL, 'platform')\
+#         .withColumnRenamed(TENANT_COL, 'tenant')\
+#         .withColumnRenamed(CONTENT_LANGUAGE_COL, 'content_language')\
+#         .withColumnRenamed(CREATIVE_ID_COL, 'creative_id')\
+#         .withColumnRenamed(BREAK_ID_COL, 'break_id')\
+#         .withColumnRenamed(PLAYOUT_ID_COL, 'playout_id')\
+#         .withColumnRenamed(CREATIVE_PATH_COL, 'creative_path') \
+#         .withColumn('content_id', F.trim(F.col('content_id')))
+#
+#
+# @F.udf(returnType=TimestampType())
+# def parse_timestamp(date: str, ts: str):
+#     try:
+#         return pd.Timestamp(date + ' ' + ts)
+#     except:
+#         return None
+#
+#
+# # playout data processing
+# def playout_data_processing(spark, date):
+#     bucket_name = "hotstar-ads-data-external-us-east-1-prod"
+#     folder_path = f'run_log/blaze/prod/test/{date}/'
+#     file_list = get_s3_paths(bucket_name, folder_path)
+#     playout_df = load_multiple_csv_file(spark, file_list)\
+#         .withColumn('date', F.lit(date)) \
+#         .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
+#         .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
+#         .where('break_start is not null and break_end is not null') \
+#         .withColumn('break_start_time_int', F.expr('cast(break_start as long)')) \
+#         .withColumn('break_end_time_int', F.expr('cast(break_end as long)'))\
+#         .selectExpr('date', '`Content ID` as content_id', 'break_start_time_int', 'break_end_time_int', '`Creative Path` as creative_path') \
+#         .withColumn('duration', F.expr('break_end_time_int-break_start_time_int')) \
+#         .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)'))\
+#         .where('duration > 0 and duration < 3600 and creative_path != "aston"')
+#     print(playout_df.count())
+#     return playout_df
+#
+#
+# def load_break_info_from_playout_logs(spark, dates):
+#     playout_df = playout_data_processing(spark, dates)
+#     break_info_df = break_info_processing(playout_df, dates)
+#     return break_info_df
+#
+#
+# def load_wv_data(spark, date):
+#     data_source = "watched_video"
+#     timestamp_col = "ts_occurred_ms"
+#     if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
+#         watch_video_df = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
+#             .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp'))\
+#             .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id') \
+#             .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
+#             .withColumn('wv_end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
+#             .withColumn('wv_end_timestamp', F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
+#             .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
+#             .withColumn('wv_start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
+#             .withColumn('wv_start_timestamp', F.from_utc_timestamp(F.col('wv_start_timestamp'), "IST")) \
+#             .withColumn('wv_end_timestamp', F.from_utc_timestamp(F.col('wv_end_timestamp'), "IST")) \
+#             .withColumn('wv_start_time_int',
+#                         F.expr('cast(unix_timestamp(wv_start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+#             .withColumn('wv_end_time_int',
+#                         F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
+#             .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp') \
+#             .cache()
+#         save_data_frame(watch_video_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
+#     watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
+#         .cache()
+#     return watch_video_df
+#
+#
+# # calculate midroll inventory and reach ground truth
+# def calculate_midroll_inventory_and_reach_gt(spark, dates):
+#     break_info_df = reduce(lambda x, y: x.union(y), [load_break_info_from_playout_logs(spark, date) for date in dates])
+#     watch_video_df = reduce(lambda x, y: x.union(y), [load_wv_data(spark, date) for date in dates])
+#     # calculate inventory and reach, need to extract the common intervals for each users
+#     total_inventory_df = watch_video_df\
+#         .join(F.broadcast(break_info_df), ['content_id'])\
+#         .withColumn('valid_duration', F.expr('least(wv_end_time_int, break_end_time_int) - greatest(wv_start_time_int, break_start_time_int)'))\
+#         .where('valid_duration > 0')\
+#         .groupBy('content_id')\
+#         .agg(F.sum('valid_duration').alias('total_duration'),
+#              F.countDistinct("dw_d_id").alias('total_reach'))\
+#         .withColumn('total_inventory', F.expr(f'cast((total_duration / 10) as bigint)')) \
+#         .withColumn('total_reach', F.expr(f'cast(total_reach as bigint)'))\
+#         .cache()
+#     return total_inventory_df
+#
+#
+# strip_udf = F.udf(lambda x: x.strip(), StringType())
+#
+# spark.stop()
+# spark = hive_spark("dataset_update")
+# match_sub_df, match_free_df = calculate_reach_and_wt_from_wv_table(spark, dates=["2023-09-10", "2023-09-11"])
+# df = calculate_midroll_inventory_and_reach_gt(spark, dates=["2023-09-10", "2023-09-11"]).where('content_id="1540024269"').cache()
+# df.\
+#     join(match_sub_df, 'content_id')\
+#     .join(match_free_df, 'content_id')\
+#     .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num')) \
+#     .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
+#     .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
+#     .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+#     .withColumn('avod_reach',
+#                 F.expr('total_reach*(match_active_free_num/(match_active_free_num+match_active_sub_num))')) \
+#     .withColumn('svod_reach',
+#                 F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))')) \
+#     .selectExpr('content_id',
+#                     'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv', 'match_active_free_num/match_active_sub_num as vv_rate',
+#                     'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
+#                     'total_reach', 'avod_reach', 'svod_reach')\
+#     .show(10, False)
+#
+#
+# import pyspark.sql.functions as F
+#
+# spark.stop()
+# spark = hive_spark("dau_update")
+# base = spark.sql(f'select cd as ds, dw_p_id, subscription_status from {DAU_TABLE} where cd > "2023-09-09" and cd < "2023-09-12"')\
+#     .withColumn('tag', F.lit('date')).cache()
+#
+# base.groupby('tag').agg(F.countDistinct('dw_p_id').alias('vv')).show()
+# base.where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
+#         .groupby('tag').agg(F.countDistinct('dw_p_id').alias('sub_vv')).show()
 
-
-import pyspark.sql.functions as F
-from pyspark.sql.types import *
-import pandas as pd
-from functools import reduce
-
-from path import *
-from util import *
-
-
-# calculate free/sub reach and avg_wt
-def calculate_reach_and_wt_from_wv_table(spark, dates):
-    match_sub_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
-        .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
-        .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
-        .groupBy('dw_p_id', 'content_id') \
-        .agg(F.sum('watch_time').alias('watch_time')) for date in dates]) \
-        .groupBy('content_id') \
-        .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
-             F.sum('watch_time').alias('total_watch_time')) \
-        .withColumn('watch_time_per_subscriber_per_match', F.expr('total_watch_time/match_active_sub_num')) \
-        .select('content_id', 'match_active_sub_num', 'watch_time_per_subscriber_per_match') \
-        .cache()
-    match_free_df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
-        .where(f'upper(subscription_status) not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
-        .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
-        .groupBy('dw_p_id', 'content_id') \
-        .agg(F.sum('watch_time').alias('watch_time')) for date in dates]) \
-        .groupBy('content_id') \
-        .agg(F.countDistinct('dw_p_id').alias('match_active_free_num'),
-             F.sum('watch_time').alias('total_free_watch_time')) \
-        .withColumn('watch_time_per_free_per_match', F.expr('total_free_watch_time/match_active_free_num')) \
-        .select('content_id', 'match_active_free_num', 'watch_time_per_free_per_match') \
-        .cache()
-    return match_sub_df, match_free_df
-
-
-# get break list with break_start_time, break_end_time
-def break_info_processing(playout_df, date):
-    cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
-    playout_df = playout_df \
-        .withColumn('rank', F.expr('row_number() over (partition by content_id order by break_start_time_int, break_end_time_int)')) \
-        .withColumn('rank_next', F.expr('rank+1'))
-    res_df = playout_df \
-        .join(playout_df.selectExpr('content_id', 'rank_next as rank', 'break_end_time_int as break_end_time_int_next'),
-              ['content_id', 'rank']) \
-        .withColumn('bias', F.expr('break_start_time_int - break_end_time_int_next')) \
-        .where('bias >= 0') \
-        .orderBy('break_start_time_int')
-    res_df = playout_df \
-        .where('rank = 1') \
-        .select(*cols) \
-        .union(res_df.select(*cols))
-    # save_data_frame(res_df, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
-    # res_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/break_info/cd={date}")
-    return res_df
-
-
-# reformat playout logs
-def reformat_playout_df(playout_df):
-    return playout_df\
-        .withColumnRenamed(CONTENT_ID_COL2, 'content_id')\
-        .withColumnRenamed(START_TIME_COL2, 'start_time')\
-        .withColumnRenamed(END_TIME_COL2, 'end_time')\
-        .withColumnRenamed(PLATFORM_COL2, 'platform')\
-        .withColumnRenamed(TENANT_COL2, 'tenant')\
-        .withColumnRenamed(CONTENT_LANGUAGE_COL2, 'content_language')\
-        .withColumnRenamed(CREATIVE_ID_COL2, 'creative_id')\
-        .withColumnRenamed(BREAK_ID_COL2, 'break_id')\
-        .withColumnRenamed(PLAYOUT_ID_COL2, 'playout_id')\
-        .withColumnRenamed(CREATIVE_PATH_COL2, 'creative_path')\
-        .withColumnRenamed(CONTENT_ID_COL, 'content_id')\
-        .withColumnRenamed(START_TIME_COL, 'start_time')\
-        .withColumnRenamed(END_TIME_COL, 'end_time')\
-        .withColumnRenamed(PLATFORM_COL, 'platform')\
-        .withColumnRenamed(TENANT_COL, 'tenant')\
-        .withColumnRenamed(CONTENT_LANGUAGE_COL, 'content_language')\
-        .withColumnRenamed(CREATIVE_ID_COL, 'creative_id')\
-        .withColumnRenamed(BREAK_ID_COL, 'break_id')\
-        .withColumnRenamed(PLAYOUT_ID_COL, 'playout_id')\
-        .withColumnRenamed(CREATIVE_PATH_COL, 'creative_path') \
-        .withColumn('content_id', F.trim(F.col('content_id')))
-
-
-@F.udf(returnType=TimestampType())
-def parse_timestamp(date: str, ts: str):
-    try:
-        return pd.Timestamp(date + ' ' + ts)
-    except:
-        return None
-
-
-# playout data processing
-def playout_data_processing(spark, date):
-    bucket_name = "hotstar-ads-data-external-us-east-1-prod"
-    folder_path = f'run_log/blaze/prod/test/{date}/'
-    file_list = get_s3_paths(bucket_name, folder_path)
-    playout_df = load_multiple_csv_file(spark, file_list)\
-        .withColumn('date', F.lit(date)) \
-        .withColumn('break_start', parse_timestamp('Start Date', 'Start Time')) \
-        .withColumn('break_end', parse_timestamp('End Date', 'End Time')) \
-        .where('break_start is not null and break_end is not null') \
-        .withColumn('break_start_time_int', F.expr('cast(break_start as long)')) \
-        .withColumn('break_end_time_int', F.expr('cast(break_end as long)'))\
-        .selectExpr('date', '`Content ID` as content_id', 'break_start_time_int', 'break_end_time_int', '`Creative Path` as creative_path') \
-        .withColumn('duration', F.expr('break_end_time_int-break_start_time_int')) \
-        .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)'))\
-        .where('duration > 0 and duration < 3600 and creative_path != "aston"')
-    print(playout_df.count())
-    return playout_df
-
-
-def load_break_info_from_playout_logs(spark, dates):
-    playout_df = playout_data_processing(spark, dates)
-    break_info_df = break_info_processing(playout_df, dates)
-    return break_info_df
-
-
-def load_wv_data(spark, date):
-    data_source = "watched_video"
-    timestamp_col = "ts_occurred_ms"
-    if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
-        watch_video_df = spark.sql(f'select * from {WV_TABLE} where cd = "{date}"') \
-            .withColumn('timestamp', F.expr('coalesce(cast(from_unixtime(CAST(ts_occurred_ms/1000 as BIGINT)) as timestamp), timestamp) as timestamp'))\
-            .select("timestamp", 'received_at', 'watch_time', 'content_id', 'dw_p_id', 'dw_d_id') \
-            .withColumn('content_id', F.expr('if(content_id="1540025325", "1540024269", content_id)')) \
-            .withColumn('wv_end_timestamp', F.substring(F.col('timestamp'), 1, 19)) \
-            .withColumn('wv_end_timestamp', F.expr('if(wv_end_timestamp <= received_at, wv_end_timestamp, received_at)')) \
-            .withColumn('watch_time', F.expr('cast(watch_time as int)')) \
-            .withColumn('wv_start_timestamp', F.from_unixtime(F.unix_timestamp(F.col('wv_end_timestamp'), 'yyyy-MM-dd HH:mm:ss') - F.col('watch_time'))) \
-            .withColumn('wv_start_timestamp', F.from_utc_timestamp(F.col('wv_start_timestamp'), "IST")) \
-            .withColumn('wv_end_timestamp', F.from_utc_timestamp(F.col('wv_end_timestamp'), "IST")) \
-            .withColumn('wv_start_time_int',
-                        F.expr('cast(unix_timestamp(wv_start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
-            .withColumn('wv_end_time_int',
-                        F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
-            .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp') \
-            .cache()
-        save_data_frame(watch_video_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
-    watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
-        .cache()
-    return watch_video_df
-
-
-# calculate midroll inventory and reach ground truth
-def calculate_midroll_inventory_and_reach_gt(spark, dates):
-    break_info_df = reduce(lambda x, y: x.union(y), [load_break_info_from_playout_logs(spark, date) for date in dates])
-    watch_video_df = reduce(lambda x, y: x.union(y), [load_wv_data(spark, date) for date in dates])
-    # calculate inventory and reach, need to extract the common intervals for each users
-    total_inventory_df = watch_video_df\
-        .join(F.broadcast(break_info_df), ['content_id'])\
-        .withColumn('valid_duration', F.expr('least(wv_end_time_int, break_end_time_int) - greatest(wv_start_time_int, break_start_time_int)'))\
-        .where('valid_duration > 0')\
-        .groupBy('content_id')\
-        .agg(F.sum('valid_duration').alias('total_duration'),
-             F.countDistinct("dw_d_id").alias('total_reach'))\
-        .withColumn('total_inventory', F.expr(f'cast((total_duration / 10) as bigint)')) \
-        .withColumn('total_reach', F.expr(f'cast(total_reach as bigint)'))\
-        .cache()
-    return total_inventory_df
-
-
-strip_udf = F.udf(lambda x: x.strip(), StringType())
-
-spark.stop()
-spark = hive_spark("dataset_update")
-match_sub_df, match_free_df = calculate_reach_and_wt_from_wv_table(spark, dates=["2023-09-10", "2023-09-11"])
-df = calculate_midroll_inventory_and_reach_gt(spark, dates=["2023-09-10", "2023-09-11"]).where('content_id="1540024269"').cache()
-df.\
-    join(match_sub_df, 'content_id')\
-    .join(match_free_df, 'content_id')\
-    .withColumn('overall_vv', F.expr('match_active_free_num+match_active_sub_num')) \
-    .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
-    .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
-    .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
-    .withColumn('avod_reach',
-                F.expr('total_reach*(match_active_free_num/(match_active_free_num+match_active_sub_num))')) \
-    .withColumn('svod_reach',
-                F.expr('total_reach*(match_active_sub_num/(match_active_free_num+match_active_sub_num))')) \
-    .selectExpr('content_id',
-                    'overall_vv', 'match_active_free_num as avod_vv', 'match_active_sub_num as svod_vv', 'match_active_free_num/match_active_sub_num as vv_rate',
-                    'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
-                    'total_reach', 'avod_reach', 'svod_reach')\
-    .show(10, False)
-
+# import pyspark.sql.functions as F
+# from pyspark.sql.types import *
+# import pandas as pd
+# from functools import reduce
+#
+# from path import *
+# from util import *
+#
+#
+# cd = "2023-09-14"
+# all = []
+# all_female = []
+# all_random_female = []
+# matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % cd).where(f'sportsseasonname = "Asia Cup 2023" and startdate < "{cd}"').toPandas()
+# for dt in matches.startdate.drop_duplicates():
+#     print(dt)
+#     content_ids = matches[matches.startdate == dt].content_id.tolist()
+#     preroll = load_data_frame(spark, PREROLL_INVENTORY_PATH + f'cd={dt}/')\
+#         .where(F.col('content_id').isin(content_ids) & F.expr("lower(ad_placement) = 'preroll'"))\
+#         .withColumn('gender', F.expr('lower(split(demo_gender, ",")[0])'))\
+#         .withColumn('source', F.expr('lower(split(demo_source, ",")[0])'))\
+#         .withColumn('date', F.lit(dt))\
+#         .select('date', 'content_id', 'gender', 'source', 'dw_d_id')\
+#         .cache()
+#     all.append(preroll.groupby('date').agg(F.expr('count(distinct dw_d_id) as reach')))
+#     all_female.append(preroll.where('gender = "female"').groupby('date').agg(F.expr('count(distinct dw_d_id) as female_reach')))
+#     all_random_female.append(preroll.where('gender="female" and source="random"').groupby('date').agg(F.expr('count(distinct dw_d_id) as random_female_reach')))
+#
+# reduce(lambda x, y: x.union(y), all)\
+#     .join(reduce(lambda x, y: x.union(y), all_female), 'date')\
+#     .join(reduce(lambda x, y: x.union(y), all_random_female), 'date')\
+#     .orderBy('date')\
+#     .show(200, False)
+#
