@@ -1,5 +1,6 @@
 import pandas as pd
 import sys
+import time
 from functools import reduce
 from pyspark.sql.window import Window
 import pyspark.sql.functions as F
@@ -78,15 +79,21 @@ def load_inventory(cd, n=15):
     return reduce(lambda x, y: x.union(y), lst).fillna('', cohort_cols)
 
 
-def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, lambda_=0.8):
-    df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
-    df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
+def moving_avg_factor_calculation_of_regular_cohorts(df, group_cols, lambda_=0.8):
     group_cols = [F.col(x).desc() for x in group_cols]
-    df4 = df3.withColumn(target, F.col(target) * F.lit(lambda_) * F.pow(
+    print(group_cols)
+    df4 = df.withColumn('factor', F.lit(lambda_) * F.pow(
             F.lit(1-lambda_),
             F.row_number().over(Window.partitionBy(*cohort_cols).orderBy(*group_cols))-F.lit(1)
         )
     )
+    return df4.cache()
+
+
+def moving_avg_calculation_of_regular_cohorts(df, group_cols, target):
+    df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
+    df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
+    df4 = df3.withColumn(target, F.col(target) * F.col('factor'))
     return df4.groupby(cohort_cols).agg(F.sum(target).alias(target))
 
 
@@ -95,22 +102,27 @@ def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
     ch = ch[~(ch.is_cricket==False)]
     ch.segments.fillna('', inplace=True)
     ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
-    df2 = df.crossJoin(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c"))\
+    df2 = df.crossJoin(F.broadcast(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c")))\
         .withColumn(dst_col, F.expr(f'{dst_col} * {dst_col}_c'))\
         .drop(dst_col+"_c")
     return df2
 
 
 def main(cd):
+    print(time.ctime())
     regular_cohorts_df = load_inventory(cd)
     regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd'], cd)
     # inventory distribution prediction
-    regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='ad_time')
+    regular_cohorts_df_with_factor = moving_avg_factor_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'])
+    print(time.ctime())
+    regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df_with_factor, ['cd'], target='ad_time')
     save_data_frame(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}')
+    print(time.ctime())
     print("inventory sampling done")
     # reach distribution prediction
-    regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'], target='reach')
+    regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df_with_factor, ['cd'], target='reach')
     save_data_frame(combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach'), f'{PREROLL_REACH_RATIO_RESULT_PATH}cd={cd}')
+    print(time.ctime())
     print("reach sampling done")
 
 
