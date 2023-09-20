@@ -189,7 +189,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
             .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
             .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
             .cache()
-    new_train_df = new_train_df.where('date not in ("2023-09-10")')
+    new_train_df = new_train_df.where('date not in ("2023-09-02", "2023-09-10")')
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
     new_train_df.groupby('tournament').count().show(200, False)
 
