@@ -1382,45 +1382,67 @@ print(set(df1['ds'])-set(df0['ds']))
 #     .drop(dst_col+"_c")
 
 
-# run_date = "2023-09-20"
-# true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
-# if not s3.isfile(true_vv_path + '_SUCCESS'):
-#     truth(run_date, true_vv_path)
-#
-# forecast(run_date, true_vv_path)
-# combine(run_date)
-# spark.read.parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
-#         .where(f'ds >= "2023-10-05"').orderBy('ds').show(30)
-#
-# import sys
-#
-# import pandas as pd
-# from prophet import Prophet
-# import pyspark.sql.functions as F
-#
-# from util import *
-# from path import *
-#
-# gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-18/') \
-#         .orderBy('date').cache()
-#
-# simgle_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-11/') \
-#     .where(f'date ="2023-09-02"')\
-#     .withColumn('', F.lit())\
-#     .withColumn('', F.lit())\
-#     .cache()
-#
-# gt_inv_df.where(f'date>="2023-08-30"').show(20, False)
-# simgle_df.show(20, False)
-#
-# cols = ['date', 'tournament', 'content_id', 'vod_type',
-#         'match_stage', 'tournament_name', 'match_type',
-#         'if_contain_india_team', 'if_holiday', 'match_time',
-#         'if_weekend', 'tournament_type', 'teams', 'continents',
-#         'teams_tier', 'free_timer', 'frees_watching_match_rate',
-#         'watch_time_per_free_per_match', 'subscribers_watching_match_rate',
-#         'watch_time_per_subscriber_per_match', 'reach_rate', 'total_reach',
-#         'total_inventory', 'total_frees_number', 'match_active_free_num',
-#         'total_subscribers_number', 'match_active_sub_num', 'preroll_sub_sessions',
-#         'preroll_free_sessions', 'preroll_sub_inventory', 'preroll_free_inventory']
-#
+run_date = "2023-09-20"
+true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
+if not s3.isfile(true_vv_path + '_SUCCESS'):
+    truth(run_date, true_vv_path)
+
+forecast(run_date, true_vv_path)
+combine(run_date)
+spark.read.parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
+        .where(f'ds >= "2023-10-05"').orderBy('ds').show(30)
+
+update_dashboards()
+
+
+
+import sys
+
+import pandas as pd
+from prophet import Prophet
+import pyspark.sql.functions as F
+
+from util import *
+from path import *
+
+gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-16/').cache()
+cols = gt_inv_df.columns
+
+million = 1000000
+simple_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-11/') \
+    .where(f'date ="2023-09-02"')\
+    .withColumn('date', F.lit('2023-09-10'))\
+    .withColumn('content_id', F.lit('1540024269'))\
+    .withColumn('total_reach', F.lit(int(66.9*million)))\
+    .withColumn('total_inventory', F.lit(7796*million))\
+    .withColumn('total_frees_number', F.lit(34786899.5))\
+    .withColumn('match_active_free_num', F.lit(56.0*million))\
+    .withColumn('total_subscribers_number', F.lit(12591464.11))\
+    .withColumn('match_active_sub_num', F.lit(13.5*million))\
+    .withColumn('preroll_sub_sessions', F.lit(-1.0))\
+    .withColumn('preroll_free_sessions', F.lit(-1.0))\
+    .withColumn('preroll_sub_inventory', F.lit(-1.0))\
+    .withColumn('preroll_free_inventory', F.lit(-1.0))\
+    .withColumn('watch_time_per_free_per_match', F.lit(4859/56))\
+    .withColumn('watch_time_per_subscriber_per_match', F.lit(1899/13.5))\
+    .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
+    .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number'))\
+    .select(cols)\
+    .cache()
+
+save_data_frame(gt_inv_df.union(simple_df), f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-17/')
+
+gt_inv_df.union(simple_df).orderBy('date').where('date >= "2023-08-30"').show()
+simple_df.show(20, False)
+
+cols = ['date', 'tournament', 'content_id', 'vod_type',
+        'match_stage', 'tournament_name', 'match_type',
+        'if_contain_india_team', 'if_holiday', 'match_time',
+        'if_weekend', 'tournament_type', 'teams', 'continents',
+        'teams_tier', 'free_timer', 'frees_watching_match_rate',
+        'watch_time_per_free_per_match', 'subscribers_watching_match_rate',
+        'watch_time_per_subscriber_per_match', 'reach_rate', 'total_reach',
+        'total_inventory', 'total_frees_number', 'match_active_free_num',
+        'total_subscribers_number', 'match_active_sub_num', 'preroll_sub_sessions',
+        'preroll_free_sessions', 'preroll_sub_inventory', 'preroll_free_inventory']
+
