@@ -127,7 +127,6 @@ def feature_processing(df, run_date):
 # calculate and save avg dau at tournament level
 def save_avg_dau_for_each_tournament(dates_for_each_tournament_df, run_date):
     dau_df = load_data_frame(spark, f'{DVV_COMBINE_PATH}cd={run_date}/') \
-        .withColumn('free_vv', F.expr('vv - sub_vv')) \
         .selectExpr('ds as date', 'free_vv', 'sub_vv') \
         .cache()
     res_df = dates_for_each_tournament_df\

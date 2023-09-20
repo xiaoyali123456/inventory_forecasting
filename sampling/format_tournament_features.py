@@ -1333,52 +1333,94 @@ print(set(df1['ds'])-set(df0['ds']))
 #
 
 
-import pandas as pd
-import sys
-from functools import reduce
-from pyspark.sql.window import Window
-import pyspark.sql.functions as F
-from pyspark.sql.types import *
+# import pandas as pd
+# import sys
+# from functools import reduce
+# from pyspark.sql.window import Window
+# import pyspark.sql.functions as F
+# from pyspark.sql.types import *
+#
+# from util import *
+# from path import *
+# import time
+#
+# inventory_distribution = {}
+# reach_distribution = {}
+# cohort_cols = ['gender', 'age_bucket', 'city', 'language', 'state', 'location_cluster', 'pincode', 'interest', 'device_brand', 'device_model',
+#     'primary_sim', 'data_sim', 'platform', 'os', 'app_version', 'subscription_type', 'content_type', 'content_genre']
+#
+#
+# # df = load_data_frame(spark, f'{AD_TIME_SAMPLING_PATH}cd=2023-09-14').cache()
+# # df.groupby('city').sum('ad_time').where('city="bangalore"').orderBy('city').show(100,False)
+#
+# DATE = "2023-09-18"
+# df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
+# group_cols = ['cd']
+# target='ad_time'
+# lambda_=0.8
+# df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
+# df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
+# group_cols = [F.col(x).desc() for x in group_cols]
+# print(group_cols)
+# print(time.ctime())
+# df4 = df3.withColumn(target, F.col(target) * F.lit(lambda_) * F.pow(
+#         F.lit(1-lambda_),
+#         F.row_number().over(Window.partitionBy(*cohort_cols).orderBy(*group_cols))-F.lit(1)
+#     )
+# )
+# print(df4.groupby(cohort_cols).agg(F.sum(target).alias(target)).count())
+# print(time.ctime())
+#
+# src_col='watch_time'
+# dst_col='ad_time'
+# ch = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={DATE}/')
+# ch = ch[~(ch.is_cricket==False)]
+# ch.segments.fillna('', inplace=True)
+# ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
+# df2 = df4.crossJoin(F.broadcast(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c")))\
+#     .withColumn(dst_col, F.expr(f'{dst_col} * {dst_col}_c'))\
+#     .drop(dst_col+"_c")
 
-from util import *
-from path import *
-import time
 
-inventory_distribution = {}
-reach_distribution = {}
-cohort_cols = ['gender', 'age_bucket', 'city', 'language', 'state', 'location_cluster', 'pincode', 'interest', 'device_brand', 'device_model',
-    'primary_sim', 'data_sim', 'platform', 'os', 'app_version', 'subscription_type', 'content_type', 'content_genre']
-
-
-# df = load_data_frame(spark, f'{AD_TIME_SAMPLING_PATH}cd=2023-09-14').cache()
-# df.groupby('city').sum('ad_time').where('city="bangalore"').orderBy('city').show(100,False)
-
-DATE = "2023-09-18"
-df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
-group_cols = ['cd']
-target='ad_time'
-lambda_=0.8
-df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
-df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
-group_cols = [F.col(x).desc() for x in group_cols]
-print(group_cols)
-print(time.ctime())
-df4 = df3.withColumn(target, F.col(target) * F.lit(lambda_) * F.pow(
-        F.lit(1-lambda_),
-        F.row_number().over(Window.partitionBy(*cohort_cols).orderBy(*group_cols))-F.lit(1)
-    )
-)
-print(df4.groupby(cohort_cols).agg(F.sum(target).alias(target)).count())
-print(time.ctime())
-
-src_col='watch_time'
-dst_col='ad_time'
-ch = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={DATE}/')
-ch = ch[~(ch.is_cricket==False)]
-ch.segments.fillna('', inplace=True)
-ch2 = (ch.groupby('segments')[src_col].sum().rename(dst_col).rename_axis('custom_cohorts') / ch[src_col].sum()).reset_index()
-df2 = df4.crossJoin(F.broadcast(spark.createDataFrame(ch2).withColumnRenamed(dst_col, dst_col+"_c")))\
-    .withColumn(dst_col, F.expr(f'{dst_col} * {dst_col}_c'))\
-    .drop(dst_col+"_c")
-
-
+# run_date = "2023-09-20"
+# true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
+# if not s3.isfile(true_vv_path + '_SUCCESS'):
+#     truth(run_date, true_vv_path)
+#
+# forecast(run_date, true_vv_path)
+# combine(run_date)
+# spark.read.parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
+#         .where(f'ds >= "2023-10-05"').orderBy('ds').show(30)
+#
+# import sys
+#
+# import pandas as pd
+# from prophet import Prophet
+# import pyspark.sql.functions as F
+#
+# from util import *
+# from path import *
+#
+# gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-18/') \
+#         .orderBy('date').cache()
+#
+# simgle_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-09-11/') \
+#     .where(f'date ="2023-09-02"')\
+#     .withColumn('', F.lit())\
+#     .withColumn('', F.lit())\
+#     .cache()
+#
+# gt_inv_df.where(f'date>="2023-08-30"').show(20, False)
+# simgle_df.show(20, False)
+#
+# cols = ['date', 'tournament', 'content_id', 'vod_type',
+#         'match_stage', 'tournament_name', 'match_type',
+#         'if_contain_india_team', 'if_holiday', 'match_time',
+#         'if_weekend', 'tournament_type', 'teams', 'continents',
+#         'teams_tier', 'free_timer', 'frees_watching_match_rate',
+#         'watch_time_per_free_per_match', 'subscribers_watching_match_rate',
+#         'watch_time_per_subscriber_per_match', 'reach_rate', 'total_reach',
+#         'total_inventory', 'total_frees_number', 'match_active_free_num',
+#         'total_subscribers_number', 'match_active_sub_num', 'preroll_sub_sessions',
+#         'preroll_free_sessions', 'preroll_sub_inventory', 'preroll_free_inventory']
+#

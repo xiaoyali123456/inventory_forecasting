@@ -111,7 +111,7 @@ def output_metrics_of_finished_matches(run_date):
         .withColumnRenamed('ds', 'date') \
         .withColumn('vv', F.expr(f"vv * {factor}")) \
         .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
-        .withColumn('sub_vv', F.expr(f"vv - free_vv")) \
+        .withColumn('sub_vv', F.expr(f"sub_vv * {factor}")) \
         .cache()
     predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/') \
         .where(f'date="{the_day_before_run_date}"') \

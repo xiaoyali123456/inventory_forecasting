@@ -38,10 +38,11 @@ def predict(df, holidays):
 def forecast(end, true_vv_path):
     # df = pd.read_parquet(new_path) # pandas read has problem
     df = spark.read.parquet(true_vv_path).toPandas()
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
-    _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
-    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
-    _, f3 = predict(df.rename(columns={'free_vv': 'y'}), holidays)
+    sub_holidays = pd.read_csv(SUB_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
+    free_holidays = pd.read_csv(FREE_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
+    _, f = predict(df.rename(columns={'vv': 'y'}), free_holidays)
+    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), sub_holidays)
+    _, f3 = predict(df.rename(columns={'free_vv': 'y'}), free_holidays)
     forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv'), f3.yhat.rename('free_vv')], axis=1)
     # print(forecast_df.ds)
     forecast_df.to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')
@@ -51,17 +52,17 @@ def forecast(end, true_vv_path):
 def combine(run_date):
     truth_df = spark.read.parquet(f'{DAU_TRUTH_PATH}cd={run_date}/')
     cols = truth_df.columns
-    forecast_df = spark\
-        .read\
-        .parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
+    forecast_df = spark.read.parquet(f'{DAU_FORECAST_PATH}cd={run_date}/')\
         .where(f'ds >= "{run_date}"')\
         .select(cols)
     truth_df.union(forecast_df).repartition(1).write.mode('overwrite').parquet(f'{DAU_COMBINE_PATH}cd={run_date}/')
 
 
 if __name__ == '__main__':
+    # spark.stop()
     spark = hive_spark("dau_update")
     run_date = sys.argv[1]
+    # run_date = "2023-09-20"
     true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
     if not s3.isfile(true_vv_path + '_SUCCESS'):
         truth(run_date, true_vv_path)
