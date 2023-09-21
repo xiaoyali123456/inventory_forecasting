@@ -11,6 +11,7 @@ import new_match
 
 holiday_list = []
 cid_mapping = {}
+valid_teams = {UNKNOWN_TOKEN: 1}
 
 
 @F.udf(returnType=IntegerType())
@@ -51,6 +52,65 @@ def get_cms_content_id(date, team1, team2, raw_content_id):
     return raw_content_id
 
 
+@F.udf(returnType=StringType())
+def check_valid_team(team):
+    global valid_teams
+    if team in valid_teams:
+        return team
+    else:
+        dis = 100000
+        res = ""
+        for valid_team in valid_teams:
+            print(valid_team)
+            print(team)
+            new_dis = levenshtein_distance(valid_team, team)
+            if new_dis < dis:
+                dis = new_dis
+                res = valid_team
+        if dis <= 1:
+            return team + "_invalid_team"
+        else:
+            return team
+
+
+def levenshtein_distance(str1, str2):
+    if len(str1) < len(str2):
+        return levenshtein_distance(str2, str1)
+    if len(str2) == 0:
+        return len(str1)
+    previous_row = range(len(str2) + 1)
+    for i, c1 in enumerate(str1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(str2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+@F.udf(returnType=StringType())
+def correct_team(team):
+    global valid_teams
+    if team in valid_teams:
+        return team
+    else:
+        dis = 100000
+        res = ""
+        for valid_team in valid_teams:
+            print(valid_team)
+            print(team)
+            new_dis = levenshtein_distance(valid_team, team)
+            if new_dis < dis:
+                dis = new_dis
+                res = valid_team
+        if dis <= 1:
+            return res
+        else:
+            return team
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
@@ -78,8 +138,10 @@ def feature_processing(df, run_date):
         .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team1)')) \
         .withColumn('team2', F.expr('lower(team2)')) \
         .withColumn('team2', F.expr(f'if(team2="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team2)')) \
-        .withColumn('team1', F.expr(f'if(date="2023-09-14" and team1="bangladesh", "pakistan", team1)')) \
-        .withColumn('team2', F.expr(f'if(date="2023-09-14" and team2="bangladesh", "pakistan", team2)')) \
+        .withColumn('team1_check', check_valid_team('team1'))\
+        .withColumn('team2_check', check_valid_team('team2'))\
+        .withColumn('team1', correct_team('team1'))\
+        .withColumn('team2', correct_team('team2'))\
         .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
@@ -120,6 +182,8 @@ def feature_processing(df, run_date):
             .withColumn(col, F.lit(-1))
     print("feature df")
     feature_df.show(2000, False)
+    print("invalid feature df")
+    feature_df.where(F.expr('team1_check like "%invalid_team%" or team2_check like "%invalid_team%"')).select('date', 'team1', 'team2', 'team1_check', 'team2_check').show(2000, False)
     save_data_frame(feature_df, ALL_MATCH_TABLE_PATH + f"/cd={run_date}")
     return feature_df
 
@@ -193,12 +257,24 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     new_train_df.groupby('tournament').count().show(200, False)
 
 
+def generate_valid_teams(previous_train_df):
+    train = previous_train_df \
+        .withColumn('team1', F.element_at(F.col('teams'), 1)) \
+        .withColumn('team2', F.element_at(F.col('teams'), 2))
+    global valid_teams
+    for t in train.select('team1').collect():
+        valid_teams[t[0]] = 1
+    for t in train.select('team2').collect():
+        valid_teams[t[0]] = 1
+
+
 # update train dataset and prediction dataset from request data
 def update_dataset(run_date):
     # load request data and previous train dataset
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, end=run_date, invalid_cd=run_date)
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
+    generate_valid_teams(previous_train_df)
     # feature processing
     request_df = feature_processing(request_df, run_date)
     # calculate avg dau of each tournament
