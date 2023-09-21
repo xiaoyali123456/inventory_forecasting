@@ -143,7 +143,6 @@ def output_metrics_of_finished_matches(run_date):
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
     # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches with multiple 1.3", output_df=predict_inv_df, region=REGION)
     res.append(predict_inv_df.withColumn('tag', F.lit('ml_dynamic_model_with_factor_1.3')))
-    cols = predict_inv_df.columns[2:]
     for col in cols:
         if col != "vv_rate":
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / {factor}, 1)'))
