@@ -134,6 +134,7 @@ def combine_inventory_and_sampling(cd):
 #
 # # git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
 # # pip install pandas==1.3.5 pyarrow==12.0.1 s3fs==2023.1.0 prophet
+# cd live-ads-inventory-forecasting-ml/pipeline/code
 # # df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('MMD00')) | (F.col('user_segments').contains('_MALE_')))\
 # #     .select('dw_d_id', 'content_id', 'country', 'language', 'platform', 'city', 'state', 'user_segments').show(1000, False)
 # # df.where('lower(platform)="androidtv"').where((F.col('user_segments').contains('FMD00')) | (F.col('user_segments').contains('_FEMALE_')))\

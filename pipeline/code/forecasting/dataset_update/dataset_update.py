@@ -142,7 +142,7 @@ def feature_processing(df, run_date):
         .withColumn('team2_check', check_valid_team('team2'))\
         .withColumn('team1', correct_team('team1'))\
         .withColumn('team2', correct_team('team2'))\
-        .withColumn('team1', F.expr('if(date="2023-11-15", "india", team1)'))\
+        .withColumn('team1', F.expr('if(date="2023-11-15" or date="2023-11-19", "india", team1)'))\
         .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
