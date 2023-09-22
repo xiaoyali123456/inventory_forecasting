@@ -1,8 +1,136 @@
-# # for col in ['platform', 'ageBucket', 'city', 'state', 'devicePrice', 'gender', 'language']:
-# #     print(col)
-# #     res = df.where('matchId = "708501"').groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory'))
-# #     res.show(100, False)
-# #     res.toPandas().to_csv(col+'.csv')
+from util import *
+from path import *
+from config import *
+
+
+df = load_data_frame(spark, f'{FINAL_ALL_PREDICTION_PATH}cd=2023-09-18/')
+cols = df.columns[:10]
+for col in ['platform', 'ageBucket', 'city', 'state', 'devicePrice', 'gender', 'language']:
+# for col in ['gender']:
+    print(col)
+    # res = df.where('matchId = "708353"').groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory'))
+    # # res.orderBy(col).withColumn('r', F.expr('`sum(inventory)`/`count(reach)`')).show(100, False)
+    # print(res.count())
+    res = df.where('matchId = "708810"').groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory'))
+    res.orderBy(col).withColumn('r', F.expr('`sum(inventory)`/`count(reach)`')).show(20, False)
+    # print(res.count())
+    res.toPandas().to_csv(col+'.csv')
+
+for date in get_date_list("2023-08-31", 20):
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={date}/"):
+        print(date)
+        df = load_data_frame(spark, f'{FINAL_ALL_PREDICTION_PATH}cd={date}/')
+        for col in ['gender']:
+            print(col)
+            res = df.where('matchId = "708511"').groupby(col).agg(F.count('reach'), F.sum('reach'), F.sum('inventory'))
+            res.orderBy(col).withColumn('r', F.expr('`sum(inventory)`/`count(reach)`')).show(100, False)
+
+old = load_data_frame(spark, f'{FINAL_ALL_PREDICTION_PATH}cd=2023-08-31/').where('matchId = "708511"').cache()
+new = load_data_frame(spark, f'{FINAL_ALL_PREDICTION_PATH}cd=2023-09-16/').where('matchId = "708511"').cache()
+
+cols = old.columns[:10]
+print(old.count(), old.select(*cols).distinct().count())
+print(new.count(), new.select(*cols).distinct().count())
+print(old.select(*cols).distinct().join(new.select(*cols).distinct(), cols).count())
+old.groupby('matchId').sum('inventory').show(200, False)
+old.join(new.select(*cols).distinct(), cols, 'left_anti').groupby('matchId').sum('inventory').show(200, False)
+old.join(old.select('state').distinct().join(new.select('state').distinct(), 'state', 'left_anti'), 'state').groupby('state').count().orderBy('count', ascending=False).show(200, False)
+old.join(old.select('city').distinct().join(new.select('city').distinct(), 'city', 'left_anti'), 'city').groupby('city').count().orderBy('count', ascending=False).show(200, False)
+new.groupby('state').count().orderBy('count', ascending=False).show(200, False)
+for col in cols:
+    print(col)
+    print(old.select(col).distinct().count(), new.select(col).distinct().count())
+
+spark.stop()
+spark = hive_spark("etl")
+# for date in get_last_cd(INVENTORY_SAMPLING_PATH, "2023-08-31", n=30):
+watch_video_sampled_path = "s3://hotstar-ads-ml-us-east-1-prod/data_exploration/data/data_backup/watched_video/"
+spark.sql(f'select * from {WV_TABLE} where cd = "2023-09-10"').where(F.col('dw_p_id').substr(-1, 1).isin(['2', 'a', 'e', '8'])).where(F.expr('lower(city)=="tiruvannamalai"')).count()
+load_data_frame(spark, f"{watch_video_sampled_path}cd=2023-01-15").where(F.expr('lower(city)=="tiruvannamalai"')).count()
+
+
+
+import pandas as pd
+
+from util import *
+from path import *
+
+
+def parse(string):
+    if string is None or string == '':
+        return False
+    lst = [x.lower() for x in json.loads(string)]
+    return lst
+
+
+def combine_inventory_and_sampling(cd):
+    model_predictions = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/')\
+        .withColumn('rank', F.expr('row_number() over (partition by match_id order by estimated_inventory desc)'))\
+        .where('rank = 1')
+    model_predictions = model_predictions.toPandas()
+    reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/')
+    ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
+    print(len(ad_time_ratio))
+    ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
+    processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
+    # sampling match one by one
+    for i, row in model_predictions.iterrows():
+        if row.match_id != "708353":
+            continue
+        print(row.match_id)
+        reach = reach_ratio.copy()
+        inventory = ad_time_ratio.copy()
+        print(len(inventory))
+        # calculate predicted inventory and reach for each cohort
+        reach.reach *= row.estimated_reach
+        inventory.inventory *= row.estimated_inventory
+        common_cols = list(set(reach.columns) & set(inventory.columns))
+        combine = inventory.merge(reach, on=common_cols, how='left')
+        print(len(combine))
+        # add meta data for each match
+        row.request_id = str(row.request_id)
+        row.match_id = int(row.match_id)
+        combine['request_id'] = row.request_id
+        combine['matchId'] = row.match_id
+        # We assume that matchId is unique for all requests
+        # meta_info = processed_input[(processed_input.requestId == row.request_id)&(processed_input.matchId == row.match_id)]
+        meta_info = processed_input[(processed_input.matchId == row.match_id)].iloc[0]
+        combine['tournamentId'] = meta_info['tournamentId']
+        combine['seasonId'] = meta_info['seasonId']
+        combine['adPlacement'] = 'MIDROLL'
+        # process cases when languages of this match are incomplete
+        languages = parse(meta_info.contentLanguages)
+        if languages:
+            combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
+            combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
+            combine = combine[combine.language.isin(languages)].reset_index(drop=True)
+        # process case when platforms of this match are incomplete
+        print(len(combine))
+        platforms = parse(meta_info.platformsSupported)
+        if platforms:
+            combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
+            combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()
+            combine = combine[combine.platform.isin(platforms)].reset_index(drop=True)
+        print(len(combine))
+        combine.inventory = combine.inventory.astype(int)
+        combine.reach = combine.reach.astype(int)
+        combine.replace(
+            {'device': {'15-20K': 'A_15031263', '20-25K': 'A_94523754', '25-35K': 'A_40990869', '35K+': 'A_21231588'}},
+            inplace=True)
+        combine = combine.rename(columns={
+            'age': 'ageBucket',
+            'device': 'devicePrice',
+            'request_id': 'inventoryId',
+            'custom_cohorts': 'customCohort',
+        })
+        combine = combine[(combine.inventory >= 1)
+                          & (combine.reach >= 1)
+                          & (combine.city.map(len) != 1)].reset_index(drop=True)
+        print(len(combine))
+
+
+
+
 #
 # # git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
 # # pip install pandas==1.3.5 pyarrow==12.0.1 s3fs==2023.1.0 prophet

@@ -142,6 +142,7 @@ def feature_processing(df, run_date):
         .withColumn('team2_check', check_valid_team('team2'))\
         .withColumn('team1', correct_team('team1'))\
         .withColumn('team2', correct_team('team2'))\
+        .withColumn('team1', F.expr('if(date="2023-11-15", "india", team1)'))\
         .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
@@ -183,7 +184,7 @@ def feature_processing(df, run_date):
     print("feature df")
     feature_df.show(2000, False)
     print("invalid feature df")
-    feature_df.where(F.expr('team1_check like "%invalid_team%" or team2_check like "%invalid_team%"')).select('date', 'team1', 'team2', 'team1_check', 'team2_check').show(2000, False)
+    feature_df.where(F.expr('team1_check like "%invalid_team%" or team2_check like "%invalid_team%"')).select('date', 'content_id', 'team1', 'team2', 'team1_check', 'team2_check').show(2000, False)
     save_data_frame(feature_df, ALL_MATCH_TABLE_PATH + f"/cd={run_date}")
     return feature_df
 
@@ -233,7 +234,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         .where('matchHaveFinished=true and if_focal_tournament=1') \
         .join(previous_train_df.select('content_id'), 'content_id', 'left_anti') \
         .select(*MATCH_TABLE_COLS) \
-        .where('date not in ("2023-09-02", "2023-09-10")')\
+        .where('date not in ("2023-08-30", "2023-08-31", "2023-09-02", "2023-09-10", "2023-09-17")')\
         .cache()
     print("new_match df")
     new_match_df.show(20, False)
@@ -252,7 +253,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
             .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
             .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
             .cache()
-    new_train_df = new_train_df.where('date not in ("2023-09-02")')
+    new_train_df = new_train_df.where('date not in ("2023-08-30", "2023-08-31", "2023-09-02", "2023-09-17")')
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
     new_train_df.groupby('tournament').count().show(200, False)
 

@@ -3,6 +3,7 @@
     2.need to scale the inventory&reach when the languages or platform of the match is uncompleted
 """
 import sys
+import os
 
 import pandas as pd
 
@@ -18,11 +19,16 @@ def parse(string):
 
 
 def combine_inventory_and_sampling(cd):
-    model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').toPandas()
+    # model_predictions = spark.read.parquet(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/').toPandas()
+    model_predictions = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={cd}/') \
+        .withColumn('rank', F.expr('row_number() over (partition by match_id order by estimated_inventory desc)')) \
+        .where('rank = 1')
+    model_predictions = model_predictions.toPandas()
     reach_ratio = pd.read_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/')
     ad_time_ratio = pd.read_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/')
     ad_time_ratio.rename(columns={'ad_time': 'inventory'}, inplace=True)
     processed_input = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/')
+    os.system(f'aws s3 rm {FINAL_ALL_PREDICTION_PATH}cd={cd}/ --recursive')
     # sampling match one by one
     for i, row in model_predictions.iterrows():
         reach = reach_ratio.copy()
