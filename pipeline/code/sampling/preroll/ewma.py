@@ -79,7 +79,7 @@ def load_inventory(cd, n=15):
     return reduce(lambda x, y: x.union(y), lst).fillna('', cohort_cols)
 
 
-def moving_avg_factor_calculation_of_regular_cohorts(df, group_cols, lambda_=0.8):
+def moving_avg_factor_calculation_of_regular_cohorts(df, group_cols, lambda_=0.2):
     group_cols = [F.col(x).desc() for x in group_cols]
     print(group_cols)
     df4 = df.withColumn('factor', F.lit(lambda_) * F.pow(
