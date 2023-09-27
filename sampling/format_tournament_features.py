@@ -1,6 +1,35 @@
 from util import *
 from path import *
 from config import *
+from functools import reduce
+
+
+def add_new_languages(df, target_col):
+    cols = df.columns
+    # target_col = 'ad_time'
+    new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
+    new_languages_df = [df]
+    # min_language = inv.groupby('language').agg(F.sum('ad_time').alias('ad_time'), F.count('*')).orderBy('ad_time').collect()[0][0]
+    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[1][0]
+    min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[1][1]
+    total_ratio = 1.0
+    print(min_language, min_language_ratio)
+    for new_language in new_languages:
+        if df.where(f'language="{new_language}"').count() == 0:
+            new_languages_df.append(df.where(f'language="{min_language}"').withColumn('language', F.lit(new_language)).select(*cols))
+            total_ratio += min_language_ratio
+    print(total_ratio)
+    res = reduce(lambda x, y: x.union(y), new_languages_df).withColumn(target_col, F.expr(f"{target_col}/{total_ratio}"))
+    res.groupby('language').agg(F.sum(target_col).alias(target_col), F.count('*')).orderBy(target_col).show(20, False)
+
+
+
+cd = "2023-09-27"
+inv = load_data_frame(spark, f'{AD_TIME_SAMPLING_PATH}cd={cd}/').cache()
+add_new_languages(inv, 'ad_time')
+inv = load_data_frame(spark, f'{REACH_SAMPLING_PATH}cd={cd}/').cache()
+add_new_languages(inv, 'reach')
+
 
 
 df = load_data_frame(spark, f'{FINAL_ALL_PREDICTION_PATH}cd=2023-09-18/')

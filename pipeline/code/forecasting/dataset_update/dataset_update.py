@@ -224,7 +224,7 @@ def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     print("prediction df")
     print(prediction_df.count())
-    prediction_df.show(200)
+    prediction_df.show(200, False)
     if prediction_df.count() > 0:
         save_data_frame(prediction_df, PREDICTION_MATCH_TABLE_PATH + f"/cd={run_date}")
 
@@ -274,7 +274,8 @@ def update_dataset(run_date):
     # load request data and previous train dataset
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, end=run_date, invalid_cd=run_date)
-    last_update_date = "2023-09-18"
+    # last_update_date = "2023-09-18"
+    # we can union training dataset of 2023-09-17 and 2023-09-18 to get the full training dataset
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
     generate_valid_teams(previous_train_df)
     # feature processing

@@ -134,6 +134,16 @@ def unify_device(cohort):
     return ''
 
 
+@F.udf(returnType=StringType())
+def unify_language(language):
+    if language is not None:
+        if language.startswith('english'):
+            return 'english'
+        else:
+            return language
+    return ''
+
+
 @F.udf(returnType=MapType(keyType=StringType(), valueType=StringType()))
 def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
     global inventory_distribution, reach_distribution
@@ -159,6 +169,7 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         .withColumn('device', unify_device('cohort'))\
         .withColumn('gender', unify_gender('cohort'))\
         .withColumn('age', unify_age('cohort')) \
+        .withColumn('language', unify_language('language')) \
         .groupby(*group_cols, *regular_cohorts) \
         .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))\
         .cache()
@@ -230,6 +241,24 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
     return combine_df.drop(columns=[dst_col+'_x', dst_col+'_y'])  # schema: country, platform,..., custom_cohorts, target
 
 
+def add_new_languages(df, target_col):
+    cols = df.columns
+    new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
+    new_languages_df = [df]
+    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
+    min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][1]
+    total_ratio = 1.0
+    print(min_language, min_language_ratio)
+    for new_language in new_languages:
+        if df.where(f'language="{new_language}"').count() == 0:
+            new_languages_df.append(df.where(f'language="{min_language}"').withColumn('language', F.lit(new_language)).select(*cols))
+            total_ratio += min_language_ratio
+    print(total_ratio)
+    res = reduce(lambda x, y: x.union(y), new_languages_df).withColumn(target_col, F.expr(f"{target_col}/{total_ratio}"))
+    res.groupby('language').agg(F.sum(target_col).alias(target_col), F.count('*')).orderBy(target_col).show(20, False)
+    return res
+
+
 def main(cd):
     regular_cohorts_df = load_regular_cohorts_data(cd)
     unified_regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd', 'content_id'], cd)
@@ -237,11 +266,11 @@ def main(cd):
     # print(len(unified_regular_cohorts_df))
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
-    combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
+    add_new_languages(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
     print("inventory sampling done")
     # reach distribution prediction
-    regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'],target='reach')
-    combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')
+    regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='reach')
+    add_new_languages(combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach'), 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')
     print("reach sampling done")
 
 
