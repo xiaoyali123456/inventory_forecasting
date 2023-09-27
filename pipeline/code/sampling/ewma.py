@@ -246,7 +246,7 @@ def add_new_languages(df, target_col):
     new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
     new_languages_df = [df]
     print(target_col)
-    min_language = df.groupBy('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
+    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
     min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][1]
     total_ratio = 1.0
     print(min_language, min_language_ratio)
@@ -267,11 +267,15 @@ def main(cd):
     # print(len(unified_regular_cohorts_df))
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
-    add_new_languages(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_PATH}cd={cd}/p0.parquet')
+    combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
+    res = add_new_languages(load_data_frame(spark, f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}'), 'ad_time')
+    save_data_frame(res, f'{AD_TIME_SAMPLING_PATH}cd={cd}')
     print("inventory sampling done")
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='reach')
-    add_new_languages(combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach'), 'reach').to_parquet(f'{REACH_SAMPLING_PATH}cd={cd}/p0.parquet')
+    combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
+    res = add_new_languages(load_data_frame(spark, f'{REACH_SAMPLING_OLD_PATH}cd={cd}'), 'reach')
+    save_data_frame(res, f'{REACH_SAMPLING_PATH}cd={cd}')
     print("reach sampling done")
 
 
