@@ -98,6 +98,8 @@ def output_metrics_of_finished_matches(run_date):
                     'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
                     'total_reach', 'avod_reach', 'svod_reach') \
         .cache()
+    if gt_inv_df.count() == 0:
+        return
     cols = gt_inv_df.columns[2:]
     for col in cols:
         if col != "vv_rate":
@@ -231,7 +233,8 @@ def output_metrics_of_finished_matches(run_date):
 
 
 if __name__ == '__main__':
-    run_date = sys.argv[1]
+    # run_date = sys.argv[1]
+    run_date = "2023-09-27"
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
         output_metrics_of_finished_matches(run_date)
