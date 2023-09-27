@@ -6,12 +6,10 @@ from functools import reduce
 
 def add_new_languages(df, target_col):
     cols = df.columns
-    # target_col = 'ad_time'
     new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
     new_languages_df = [df]
-    # min_language = inv.groupby('language').agg(F.sum('ad_time').alias('ad_time'), F.count('*')).orderBy('ad_time').collect()[0][0]
-    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[1][0]
-    min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[1][1]
+    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
+    min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][1]
     total_ratio = 1.0
     print(min_language, min_language_ratio)
     for new_language in new_languages:
@@ -21,7 +19,7 @@ def add_new_languages(df, target_col):
     print(total_ratio)
     res = reduce(lambda x, y: x.union(y), new_languages_df).withColumn(target_col, F.expr(f"{target_col}/{total_ratio}"))
     res.groupby('language').agg(F.sum(target_col).alias(target_col), F.count('*')).orderBy(target_col).show(20, False)
-
+    return res
 
 
 cd = "2023-09-27"

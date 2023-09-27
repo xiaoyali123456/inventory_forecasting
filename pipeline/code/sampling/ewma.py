@@ -193,8 +193,8 @@ def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
         for key in inventory_distribution[cohort]:
             inventory_distribution[cohort][key] = inventory_distribution[cohort][key] / max(total_inv, 0.00001)
             reach_distribution[cohort][key] = reach_distribution[cohort][key] / max(total_reach, 0.00001)
-    print(inventory_distribution)
-    print(reach_distribution)
+    # print(inventory_distribution)
+    # print(reach_distribution)
     for cohort in regular_cohorts[:-3]:
         print(cohort)
         res_df = unify_df\
@@ -245,7 +245,8 @@ def add_new_languages(df, target_col):
     cols = df.columns
     new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
     new_languages_df = [df]
-    min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
+    print(target_col)
+    min_language = df.groupBy('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
     min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][1]
     total_ratio = 1.0
     print(min_language, min_language_ratio)

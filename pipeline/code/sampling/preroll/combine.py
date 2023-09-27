@@ -26,6 +26,7 @@ def combine_inventory_and_sampling(cd):
     processed_input = spark.read.parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/').cache()
     # sampling match one by one
     for i, row in model_predictions.toPandas().iterrows():
+        print(i)
         reach = reach_ratio.select("*")
         inventory = ad_time_ratio.select("*")
         # calculate predicted inventory and reach for each cohort
@@ -73,14 +74,15 @@ def combine_inventory_and_sampling(cd):
         combine = combine.withColumnRenamed('request_id', 'inventoryId')
         combine = combine.withColumnRenamed('custom_cohorts', 'customCohort')
         combine = combine.filter((combine['inventory'] >= 1) & (combine['reach'] >= 1) & (F.length(combine['city']) != 1))
+        print(combine.count())
         save_data_frame(combine, f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/saved_id={i}')
     df = spark.read.option("mergeSchema", "true").parquet(f'{FINAL_ALL_PREROLL_PREDICTION_PATH}cd={cd}/')
     df.write.mode('overwrite').partitionBy('tournamentId').parquet(f'{FINAL_ALL_PREROLL_PREDICTION_TOURNAMENT_PARTITION_PATH}cd={cd}/')
 
 
 if __name__ == '__main__':
-    DATE = sys.argv[1]
-    # DATE = "2023-08-15"
+    # DATE = sys.argv[1]
+    DATE = "2023-09-27"
     if check_s3_path_exist(f'{TOTAL_INVENTORY_PREDICTION_PATH}cd={DATE}/'):
         combine_inventory_and_sampling(DATE)
     # update_dashboards()
