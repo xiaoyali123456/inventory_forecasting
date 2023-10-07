@@ -67,7 +67,12 @@ SHORT_TEAM_MAPPING = {
     "sri lanka": "sl",
     "bangladesh": "ban",
     "pakistan": "pak",
-    "india": "ind"
+    "india": "ind",
+    "england": "eng",
+    "netherlands": "ned",
+    "new zealand": "nz",
+    "south africa": "sa",
+    "afghanistan": "afg"
 }
 
 UNKNOWN_TOKEN = "<unk>"

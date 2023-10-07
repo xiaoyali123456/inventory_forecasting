@@ -3,6 +3,11 @@ from path import *
 from config import *
 from functools import reduce
 
+run_date = "2023-10-07"
+load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
+        .selectExpr('content_id', 'startdate', 'lower(title)')\
+        .where('startdate >= "2023-10-05"').show(10000, False)
+
 
 def add_new_languages(df, target_col):
     cols = df.columns

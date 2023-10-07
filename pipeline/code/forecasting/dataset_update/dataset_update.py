@@ -274,6 +274,7 @@ def update_dataset(run_date):
     # load request data and previous train dataset
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, end=run_date, invalid_cd=run_date)
+    print(last_update_date)
     # last_update_date = "2023-09-18"
     # we can union training dataset of 2023-09-17 and 2023-09-18 to get the full training dataset
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
