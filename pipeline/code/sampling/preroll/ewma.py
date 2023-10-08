@@ -66,9 +66,9 @@ def unify_regular_cohort_names(unify_df: DataFrame, group_cols, DATE):
             .agg(F.sum('ad_time').alias('ad_time'), F.sum('reach').alias('reach'))
         save_data_frame(res_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
         unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + cohort + f"/cd={DATE}")
-    save_data_frame(unify_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
-    unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}").cache()
-    print(unify_df.count())
+    # save_data_frame(unify_df, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
+    # unify_df = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
+    # print(unify_df.count())
     print("null of sampling filling done")
     return unify_df
 
@@ -87,14 +87,13 @@ def moving_avg_factor_calculation_of_regular_cohorts(df, group_cols, lambda_=0.2
             F.row_number().over(Window.partitionBy(*cohort_cols).orderBy(*group_cols))-F.lit(1)
         )
     )
-    return df4.cache()
+    save_data_frame(df4, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all_with_factor/" + f"/cd={DATE}")
 
 
 def moving_avg_calculation_of_regular_cohorts(df, group_cols, target):
     df2 = df.groupby(group_cols).agg(F.sum(target).alias('gsum'))
-    df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum'))
-    df4 = df3.withColumn(target, F.col(target) * F.col('factor'))
-    return df4.groupby(cohort_cols).agg(F.sum(target).alias(target))
+    df3 = df.join(df2, group_cols).withColumn(target, F.col(target)/F.col('gsum') * F.col('factor'))
+    return df3.groupby(cohort_cols).agg(F.sum(target).alias(target))
 
 
 def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
@@ -109,12 +108,14 @@ def combine_custom_cohort(df, cd, src_col='watch_time', dst_col='ad_time'):
 
 
 def main(cd):
-    print(time.ctime())
-    regular_cohorts_df = load_inventory(cd)
-    regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd'], cd)
-    # inventory distribution prediction
-    regular_cohorts_df_with_factor = moving_avg_factor_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'])
-    print(time.ctime())
+    if not check_s3_path_exist(PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all_with_factor/" + f"/cd={DATE}"):
+        print(time.ctime())
+        regular_cohorts_df = load_inventory(cd)
+        regular_cohorts_df = unify_regular_cohort_names(regular_cohorts_df, ['cd'], cd)
+        # inventory distribution prediction
+        moving_avg_factor_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'])
+        print(time.ctime())
+    regular_cohorts_df_with_factor = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df_with_factor, ['cd'], target='ad_time')
     save_data_frame(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}')
     print(time.ctime())
