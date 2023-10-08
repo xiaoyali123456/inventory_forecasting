@@ -156,14 +156,14 @@ def main(cd):
     print('df_old')
     print(df_old[['seasonId', 'matchId', 'tournamentId', 'matchShouldUpdate']])
     df_uni = pd.concat([df_old, df_new]).drop_duplicates(['tournamentId', 'matchId'], keep='last')
-    print(pd.concat([df_old, df_new])[['seasonId', 'matchId', 'tournamentId']])
+    # print(pd.concat([df_old, df_new])[['seasonId', 'matchId', 'tournamentId']])
     # change list to json string because parquet doesn't support
     df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] = df_uni[['adPlacements', CUSTOM_AUDIENCE_COL, 'contentLanguages', 'platformsSupported']] \
         .applymap(lambda x: dump_to_json_str(x))
     df_uni = set_ids_as_int(df_uni)
     print('df_uni')
     # df_uni = backfill_from_google_sheet(df_uni)
-    print(df_uni[['seasonId', 'matchId', 'tournamentId']])
+    # print(df_uni[['seasonId', 'matchId', 'tournamentId']])
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
 
 

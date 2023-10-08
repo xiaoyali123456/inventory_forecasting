@@ -72,7 +72,8 @@ SHORT_TEAM_MAPPING = {
     "netherlands": "ned",
     "new zealand": "nz",
     "south africa": "sa",
-    "afghanistan": "afg"
+    "afghanistan": "afg",
+    "australia": "aus"
 }
 
 UNKNOWN_TOKEN = "<unk>"
