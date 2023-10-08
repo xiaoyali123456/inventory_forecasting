@@ -35,3 +35,4 @@ if __name__ == '__main__':
     ORDER BY startdate DESC
     ''').distinct()
     matches.repartition(1).write.mode('overwrite').parquet(MATCH_CMS_PATH_TEMPL % cd)
+    matches.where('startdate >= "2023-10-05"').show(100, False)
