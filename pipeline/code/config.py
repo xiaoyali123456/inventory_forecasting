@@ -108,7 +108,8 @@ ARRAY_FEATURE_COLS = ["teams", "continents", "teams_tier"]
 
 # duration_configurations = [(210.0, 55.0, 80.0), (210.0, 85.0, 30.0), (210.0, 45.0, 55.0)]
 MATCH_CONFIGURATION = (210.0, 85.0, 30.0)  # total_match_duration_in_minutes, number_of_ad_breaks, average_length_of_a_break_in_seconds
-RETENTION_RATE = 0.85
+# RETENTION_RATE = 0.85
+RETENTION_RATE = 1.0
 SUB_PID_DID_RATE = 0.94
 FREE_PID_DID_RATE = 1.02
 
