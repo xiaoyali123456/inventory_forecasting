@@ -3,7 +3,14 @@ from path import *
 from config import *
 from functools import reduce
 
-run_date = "2023-10-07"
+run_date = "2023-10-08"
+load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
+    .where(f'date>="2023-08-30"')\
+    .orderBy('date')\
+    .show(1000, False)
+
+
+
 load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
         .selectExpr('content_id', 'startdate', 'lower(title)')\
         .where('startdate >= "2023-10-05"').show(10000, False)

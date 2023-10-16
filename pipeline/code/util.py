@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import os
 import s3fs
 import json
-import boto3
 
 from pyspark.shell import spark
 from pyspark.sql import SparkSession, DataFrame
@@ -56,6 +55,7 @@ def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header
 
 
 def get_s3_paths(bucket_name, folder_path):
+    import boto3
     s3 = boto3.resource('s3')
     my_bucket = s3.Bucket(bucket_name)
     file_list = []
