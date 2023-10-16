@@ -20,7 +20,7 @@ def check_s3_path_exist(s3_path: str) -> bool:
 
 def main(run_date):
     train_dataset = pd.read_parquet(f"{TRAIN_MATCH_TABLE_PATH}/cd={run_date}")
-    train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
+    # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
     for label in LABEL_LIST:
         print(label)
