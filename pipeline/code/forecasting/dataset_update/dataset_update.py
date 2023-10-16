@@ -111,6 +111,14 @@ def correct_team(team):
             return team
 
 
+@F.udf(returnType=StringType())
+def unify_tournament_name(tournament_name):
+    tournament_name = tournament_name.lower()
+    if "world cup" in tournament_name:
+        return "world cup"
+    return tournament_name
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
@@ -132,7 +140,7 @@ def feature_processing(df, run_date):
         .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
-        .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
+        .withColumn('tournament_name', unify_tournament_name('tournamentName')) \
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
         .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team1)')) \
