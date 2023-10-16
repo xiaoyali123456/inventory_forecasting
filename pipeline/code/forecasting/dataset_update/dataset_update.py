@@ -111,25 +111,6 @@ def correct_team(team):
             return team
 
 
-@F.udf(returnType=StringType())
-def unify_tournament_name(tournament_name):
-    tournament_name = tournament_name.lower()
-    if "world cup" in tournament_name:
-        return "world cup"
-    return tournament_name
-
-
-@F.udf(returnType=ArrayType(StringType()))
-def unify_tournament_names(tournament_names):
-    res = []
-    for tournament_name in tournament_names:
-        if "world cup" in tournament_name:
-            res.append("world cup")
-        else:
-            res.append(tournament_name)
-    return res
-
-
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
@@ -151,7 +132,7 @@ def feature_processing(df, run_date):
         .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
-        .withColumn('tournament_name', unify_tournament_name('tournamentName')) \
+        .withColumn('tournament_name', F.expr('lower(tournamentName')) \
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
         .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team1)')) \
@@ -267,7 +248,6 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         print("new_match df")
         new_match_df.show(20, False)
         new_train_df = previous_train_df \
-            .withColumn('tournament_name', unify_tournament_names('tournamentName'))\
             .select(*MATCH_TABLE_COLS)\
             .union(new_match_df.select(*MATCH_TABLE_COLS))\
             .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
