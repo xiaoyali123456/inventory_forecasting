@@ -119,6 +119,17 @@ def unify_tournament_name(tournament_name):
     return tournament_name
 
 
+@F.udf(returnType=ArrayType(StringType()))
+def unify_tournament_names(tournament_names):
+    res = []
+    for tournament_name in tournament_names:
+        if "world cup" in tournament_name:
+            res.append("world cup")
+        else:
+            res.append(tournament_name)
+    return res
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
@@ -255,7 +266,8 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
         new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
         print("new_match df")
         new_match_df.show(20, False)
-        new_train_df = previous_train_df\
+        new_train_df = previous_train_df \
+            .withColumn('tournament_name', unify_tournament_names('tournamentName'))\
             .select(*MATCH_TABLE_COLS)\
             .union(new_match_df.select(*MATCH_TABLE_COLS))\
             .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
