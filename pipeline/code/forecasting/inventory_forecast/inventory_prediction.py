@@ -1,6 +1,7 @@
 import sys
 
 import pyspark.sql.functions as F
+from pyspark.sql.types import *
 
 from path import *
 from util import *
@@ -68,6 +69,19 @@ def main(run_date):
              F.count('content_id').alias('match_num'))\
         .show(1000, False)
     save_data_frame(res_df, TOTAL_INVENTORY_PREDICTION_PATH + f"cd={run_date}/")
+
+
+@F.udf(returnType=StringType())
+def unify_teams(teams):
+    teams = teams.lower().split(" vs ")
+    team1 = teams[0]
+    team2 = teams[1]
+    for key in SHORT_TEAM_MAPPING:
+        if SHORT_TEAM_MAPPING[key] == team1:
+            teams[0] = key
+        if SHORT_TEAM_MAPPING[key] == team2:
+            teams[1] = key
+    return " vs ".join(sorted(teams))
 
 
 def output_metrics_of_finished_matches(run_date):
@@ -219,10 +233,48 @@ def output_metrics_of_finished_matches(run_date):
     res_cols = res_df.columns
     for col in cols:
         res_df = res_df.withColumn(col, F.expr(f'cast({col} as double)'))
-    # res_df = res_df.withColumn('teams', F.expr(f'if(teams!="{teams}", "{teams}", teams)'))
+    res_df = res_df.withColumn('teams', unify_teams('teams'))
     publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="inventory prediction of matches",
                      output_df=res_df.select(res_cols), region=REGION)
     save_data_frame(res_df.select(res_cols), f"{METRICS_PATH}cd={the_day_before_run_date}")
+
+
+def output_metrics(last_update_date):
+    print(last_update_date)
+    factor = 1.0
+    predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={last_update_date}/') \
+        .withColumnRenamed('ds', 'date') \
+        .withColumn('vv', F.expr(f"vv * {factor}")) \
+        .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
+        .withColumn('sub_vv', F.expr(f"sub_vv * {factor}")) \
+        .withColumn('vv', F.expr(f"free_vv + sub_vv")) \
+        .cache()
+    predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/') \
+        .withColumn('avod_vv', F.expr('estimated_free_match_number/1')) \
+        .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
+        .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
+        .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
+        .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
+        .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
+        .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
+        .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+        .join(predict_dau_df, 'date') \
+        .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                    'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
+                    'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
+                    f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
+    cols = predict_inv_df.columns[2:]
+    if last_update_date >= "2023-09-11":
+        for col in cols[3:]:
+            if col != "vv_rate":
+                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} * {factor}, 1)'))
+            else:
+                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
+    for col in cols:
+        if col != "vv_rate":
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
+        else:
+            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
 
 
 # for run_date in get_date_list("2023-08-31", 12):
