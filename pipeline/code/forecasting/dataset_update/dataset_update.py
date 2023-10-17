@@ -132,7 +132,7 @@ def feature_processing(df, run_date):
         .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
-        .withColumn('tournament_name', F.expr('lower(tournamentName')) \
+        .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
         .withColumn('match_type', F.expr('lower(matchCategory)')) \
         .withColumn('team1', F.expr('lower(team1)')) \
         .withColumn('team1', F.expr(f'if(team1="{UNKNOWN_TOKEN2}", "{UNKNOWN_TOKEN}", team1)')) \
