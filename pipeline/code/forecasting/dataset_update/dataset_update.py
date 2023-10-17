@@ -289,6 +289,20 @@ def update_dataset(run_date):
     update_train_dataset(request_df, avg_dau_df, previous_train_df)
 
 
+def check_feature_shot_through(run_date):
+    train_df = load_data_frame(spark, f"{TRAIN_MATCH_TABLE_PATH}/cd={run_date}").cache()
+    prediction_df = load_data_frame(spark, f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}").cache()
+    for fea in DNN_USED_FEATURES:
+        print(fea)
+        df = prediction_df\
+            .select(fea)\
+            .distinct()\
+            .join(train_df.select(fea).distinct(), fea, 'left_anti')
+        if df.count() > 0:
+            slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                               message=f"ALERT: feature {fea} on {run_date} not shot in training dataset!")
+
+
 check_holiday_udf = F.udf(lambda date: 1 if date in holiday_list else 0, IntegerType())
 
 
@@ -296,6 +310,8 @@ if __name__ == '__main__':
     run_date = sys.argv[1]
     # run_date = "2023-06-30"
     update_dataset(run_date)
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+        check_feature_shot_through(run_date)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                        message=f"feature processing on {run_date} is done.")
 

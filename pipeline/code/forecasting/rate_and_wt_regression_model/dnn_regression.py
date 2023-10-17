@@ -19,6 +19,7 @@ class LiveMatchRegression(object):
                                           lr=DNN_CONFIGURATION['lr'], weight_decay=DNN_CONFIGURATION['weight_decay'])
         self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset,
                                            label=label)
+        self.train_loss_list = []
 
     def train(self):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['train_batch_size'], mode='train')
@@ -49,6 +50,7 @@ class LiveMatchRegression(object):
             mae_loss += loss * len(y)
             test_num += len(y)
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
+        self.train_loss_list.append(str(mae_loss))
 
     def prediction_inner(self, data_loader, sample_ids):
         predictions = []

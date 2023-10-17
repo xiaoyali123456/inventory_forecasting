@@ -277,6 +277,21 @@ def output_metrics(last_update_date):
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
 
 
+def check_inventory_changes(run_date):
+    last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
+    old_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/')\
+        .selectExpr('date', 'content_id', 'teams', 'estimated_inventory as old_estimated_inventory')
+    new_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={run_date}/') \
+        .selectExpr('date', 'content_id', 'estimated_inventory as new_estimated_inventory')\
+        .join(old_df, ['date', 'content_id'])\
+        .withColumn('rate', F.expr('new_estimated_inventory/old_estimated_inventory'))\
+        .where('rate > 2 or rate < 0.5')
+    new_df.show(100, False)
+    if new_df.count() > 0:
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"ALERT: inventory change largely on {run_date}!")
+
+
 # for run_date in get_date_list("2023-08-31", 12):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
 #         print(run_date)
@@ -289,6 +304,7 @@ if __name__ == '__main__':
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
         output_metrics_of_finished_matches(run_date)
+        check_inventory_changes(run_date)
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"inventory forecasting on {run_date} is done.")
     else:

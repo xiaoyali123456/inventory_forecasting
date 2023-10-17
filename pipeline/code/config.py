@@ -151,3 +151,20 @@ FOCAL_TOURNAMENTS_FOR_SAMPLING = [
     "australia tour of india",
     "icc world test championship"
 ]
+
+DNN_USED_FEATURES = [
+    'vod_type',
+    'match_stage',
+    'tournament_name',
+    'match_type',
+    'if_contain_india_team',
+    'if_holiday',
+    'match_time',
+    'if_weekend',
+    'tournament_type',
+    'teams',
+    'continents',
+    'teams_tier',
+]
+
+
