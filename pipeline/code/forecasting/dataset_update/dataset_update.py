@@ -299,8 +299,10 @@ def check_feature_shot_through(run_date):
             .distinct()\
             .join(train_df.select(fea).distinct(), fea, 'left_anti')
         if df.count() > 0:
-            slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                               message=f"ALERT: feature {fea} on {run_date} not shot in training dataset!")
+            # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+            #                    message=f"ALERT: feature {fea} on {run_date} not shot in training dataset!")
+            publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title=f"ALERT: feature {fea} on {run_date} not shot in training dataset",
+                             output_df=df, region=REGION)
 
 
 check_holiday_udf = F.udf(lambda date: 1 if date in holiday_list else 0, IntegerType())

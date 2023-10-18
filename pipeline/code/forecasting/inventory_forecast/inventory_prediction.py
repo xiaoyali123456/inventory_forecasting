@@ -288,8 +288,10 @@ def check_inventory_changes(run_date):
         .where('rate > 2 or rate < 0.5')
     new_df.show(100, False)
     if new_df.count() > 0:
-        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                           message=f"ALERT: inventory change largely on {run_date}!")
+        publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ALERT: inventory change largely",
+                         output_df=new_df, region=REGION)
+        # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+        #                    message=f"ALERT: inventory change largely on {run_date}!")
 
 
 # for run_date in get_date_list("2023-08-31", 12):
