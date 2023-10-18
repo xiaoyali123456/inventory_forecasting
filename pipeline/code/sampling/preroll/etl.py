@@ -83,9 +83,10 @@ def process(cd, content_ids):
     if s3.isfile(success_path):
         print('skip')
         return
-    preroll = spark.read.parquet(PREROLL_INVENTORY_PATH + f'cd={cd}/').where(
-        F.col('content_id').isin(content_ids) & F.expr("lower(ad_placement) = 'preroll'")
-    ).groupby(
+    preroll = spark.read.parquet(PREROLL_INVENTORY_PATH + f'cd={cd}/')\
+        .where(F.col('content_id').isin(content_ids) & F.expr("lower(ad_placement) = 'preroll'"))\
+        .where("lower(ad_placement) = 'preroll' and lower(content_type) = 'sport_live'")\
+        .groupby(
         F.expr('lower(split(demo_gender, ",")[0]) as gender'),
         F.expr('lower(split(demo_age_range, ",")[0]) as age_bucket'),
         F.expr('lower(city) as city'),
