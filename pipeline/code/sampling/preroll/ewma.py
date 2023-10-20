@@ -115,7 +115,7 @@ def main(cd):
         # inventory distribution prediction
         moving_avg_factor_calculation_of_regular_cohorts(regular_cohorts_df, ['cd'])
         print(time.ctime())
-    regular_cohorts_df_with_factor = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all/" + f"/cd={DATE}")
+    regular_cohorts_df_with_factor = load_data_frame(spark, PREROLL_SAMPLING_ROOT_PATH + "cohort_tmp/" + "all_with_factor/" + f"/cd={DATE}")
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(regular_cohorts_df_with_factor, ['cd'], target='ad_time')
     save_data_frame(combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time'), f'{PREROLL_INVENTORY_RATIO_RESULT_PATH}cd={cd}')
     print(time.ctime())
