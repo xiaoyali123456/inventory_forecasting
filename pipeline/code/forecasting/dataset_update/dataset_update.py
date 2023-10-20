@@ -295,9 +295,9 @@ def check_feature_shot_through(run_date):
     for fea in DNN_USED_FEATURES:
         print(fea)
         df = prediction_df\
-            .select(fea)\
+            .select(F.explode(F.col(fea)).alias(fea))\
             .distinct()\
-            .join(train_df.select(fea).distinct(), fea, 'left_anti')
+            .join(train_df.select(F.explode(F.col(fea)).alias(fea)).distinct(), fea, 'left_anti')
         if df.count() > 0:
             # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
             #                    message=f"ALERT: feature {fea} on {run_date} not shot in training dataset!")
