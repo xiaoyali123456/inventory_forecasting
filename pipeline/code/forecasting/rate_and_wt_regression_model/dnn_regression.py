@@ -3,10 +3,21 @@ import torch
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_absolute_error
+from datetime import datetime, timedelta
 
 from data_loader import LiveMatchDataLoader
 from network import DeepEmbMLP
 from dnn_configuration import *
+
+
+def get_date_list(date: str, days: int) -> list:
+    dt = datetime.strptime(date, '%Y-%m-%d')
+    if -1 <= days <= 1:
+        return [date]
+    elif days > 1:
+        return [(dt + timedelta(days=n)).strftime('%Y-%m-%d') for n in range(0, days)]
+    else:
+        return [(dt + timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
 
 
 # dnn regression model for live matches prediction
@@ -21,11 +32,24 @@ class LiveMatchRegression(object):
         self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset,
                                            label=label)
         self.train_loss_list = []
-        self.model_version = ""
+        self.model_version = "_incremental"
+        self.epoch = DNN_CONFIGURATION['epoch_num']
+        if self.model_version != "":
+            self.restore_model()
+            self.epoch = 10
+
+    def restore_model(self):
+        last_cd = get_date_list(self.run_date, -2)[0]
+        while not os.system(f"aws s3 ls {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/model_{self.label}.pth") == 0:
+            last_cd = get_date_list(last_cd, -2)[0]
+        print(last_cd)
+        os.system(f"aws s3 cp {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/model_{self.label}.pth old_model_{self.label}.pth")
+        old_model_state_dict = torch.load(f'old_model_{self.label}.pth')
+        self.model.load_state_dict(old_model_state_dict)
 
     def train(self):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['train_batch_size'], mode='train')
-        for epoch in range(DNN_CONFIGURATION['epoch_num']):
+        for epoch in range(self.epoch):
             for i, (x, y) in enumerate(data_loader):
                 p = self.model(x)
                 loss = self.loss_fn(p, y.float())

@@ -2,6 +2,7 @@ import sys
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
+from functools import reduce
 
 from path import *
 from util import *
@@ -26,7 +27,7 @@ def load_prediction_dataset(run_date):
 
 # load dnn prediction results
 def load_dnn_predictions(df, run_date):
-    label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions/cd={run_date}"
+    label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={run_date}"
     common_cols = ['content_id']
     # load parameters predicted by dnn models
     return df \
@@ -236,7 +237,7 @@ def output_metrics_of_finished_matches(run_date):
     res_df = res_df.withColumn('teams', unify_teams('teams'))
     publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="inventory prediction of matches",
                      output_df=res_df.select(res_cols), region=REGION)
-    save_data_frame(res_df.select(res_cols), f"{METRICS_PATH}cd={the_day_before_run_date}")
+    save_data_frame(res_df.select(res_cols), f"{METRICS_PATH}/cd={the_day_before_run_date}")
 
 
 def output_metrics(last_update_date):
@@ -292,6 +293,15 @@ def check_inventory_changes(run_date):
                          output_df=new_df, region=REGION)
         # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
         #                    message=f"ALERT: inventory change largely on {run_date}!")
+
+
+def output_metrics_of_tournament(date_list, prediction_path):
+    df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{prediction_path}/cd={date}") for date in date_list])\
+        .where('tag in ("ml_dynamic_model", "gt")')\
+        .withColumn('if_contain_india_team', F.expr(f"if(locate('india', teams)=0, 0, 1)"))
+    df.groupby('tag').agg(F.sum('overall_wt').alias('overall_wt')).show()
+    df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).show()
+
 
 
 # for run_date in get_date_list("2023-08-31", 12):

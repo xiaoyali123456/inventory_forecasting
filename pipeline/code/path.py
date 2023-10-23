@@ -70,7 +70,8 @@ PREROLL_INVENTORY_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1
 PREROLL_REACH_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/ratio/reach/'
 
 # total inventory
-TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction/future_tournaments/'
+MODEL_VERSION = ""
+TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction{MODEL_VERSION}/future_tournaments/'
 FINAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/inventory/'
 FINAL_REACH_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/reach/'
 FINAL_ALL_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/all/'
@@ -80,7 +81,7 @@ FINAL_ALL_PREROLL_PREDICTION_TOURNAMENT_PARTITION_PATH = 's3://adtech-ml-perf-ad
 GROWTH_PREDICITON_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/growth_prediction/"
 ML_STATIC_MODEL_PREDICITON_FOR_AC2023_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/ml_static_model_prediction/"
 ML_STATIC_MODEL_PREDICITON_FOR_CWC2023_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/ml_static_model_prediction_for_cwc2023/"
-METRICS_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/"
+METRICS_PATH = f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics{MODEL_VERSION}"
 
 CONTENT_ID_COL = "Content ID"
 START_TIME_COL = "Start Time"
