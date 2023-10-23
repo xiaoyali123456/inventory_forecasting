@@ -44,7 +44,7 @@ class LiveMatchRegression(object):
         while not os.system(f"aws s3 ls {PIPELINE_BASE_PATH}/dnn_models/cd={last_cd}/model_{self.label}.pth") == 0:
             last_cd = get_date_list(last_cd, -2)[0]
         print(last_cd)
-        os.system(f"aws s3 cp {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/model_{self.label}.pth old_model_{self.label}.pth")
+        os.system(f"aws s3 cp {PIPELINE_BASE_PATH}/dnn_models/cd={last_cd}/model_{self.label}.pth old_model_{self.label}.pth")
         old_model_state_dict = torch.load(f'old_model_{self.label}.pth')
         self.model.load_state_dict(old_model_state_dict)
 
