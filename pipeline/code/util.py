@@ -14,7 +14,7 @@ import pyspark.sql.functions as F
 
 storageLevel = StorageLevel.DISK_ONLY
 spark.sparkContext.setLogLevel('WARN')
-s3 = s3fs.S3FileSystem(use_cache=False)
+s3 = s3fs.S3FileSystem()
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
