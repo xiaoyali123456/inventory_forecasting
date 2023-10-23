@@ -94,7 +94,8 @@ class LiveMatchRegression(object):
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
         print(df[f"estimated_{self.label}"].mean())
-        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
+        # df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
+        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)
