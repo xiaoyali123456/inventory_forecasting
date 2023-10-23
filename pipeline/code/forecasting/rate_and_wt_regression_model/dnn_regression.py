@@ -41,7 +41,7 @@ class LiveMatchRegression(object):
 
     def restore_model(self):
         last_cd = get_date_list(self.run_date, -2)[0]
-        while not os.system(f"aws s3 ls {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/model_{self.label}.pth") == 0:
+        while not os.system(f"aws s3 ls {PIPELINE_BASE_PATH}/dnn_models/cd={last_cd}/model_{self.label}.pth") == 0:
             last_cd = get_date_list(last_cd, -2)[0]
         print(last_cd)
         os.system(f"aws s3 cp {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/model_{self.label}.pth old_model_{self.label}.pth")
