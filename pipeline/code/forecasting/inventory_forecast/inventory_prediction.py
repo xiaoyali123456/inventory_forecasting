@@ -296,12 +296,29 @@ def check_inventory_changes(run_date):
 
 
 def output_metrics_of_tournament(date_list, prediction_path):
-    df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{prediction_path}/cd={date}") for date in date_list])\
-        .where('tag in ("ml_dynamic_model", "gt")')\
+    df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{prediction_path}/cd={date}") for date in date_list]) \
+        .where('tag in ("ml_dynamic_model", "gt")') \
         .withColumn('if_contain_india_team', F.expr(f"if(locate('india', teams)=0, 0, 1)"))
-    df.groupby('tag').agg(F.sum('overall_wt').alias('overall_wt')).show()
-    df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).show()
+    res = df.groupby('tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy('tag')
+    print(res.collect()[1][1], res.collect()[0][1], res.collect()[1][1] / res.collect()[0][1] - 1)
+    res = df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy(
+        'if_contain_india_team', 'tag').cache()
+    print("non india")
+    print(res.collect()[1][2], res.collect()[0][2], res.collect()[1][2] / res.collect()[0][2] - 1)
+    print("india")
+    print(res.collect()[3][2], res.collect()[2][2], res.collect()[3][2] / res.collect()[2][2] - 1)
 
+
+for run_date in get_date_list("2023-10-05", 19):
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+        main(run_date)
+        output_metrics_of_finished_matches(run_date)
+        check_inventory_changes(run_date)
+    else:
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"inventory forecasting on {run_date} nothing update.")
+
+# output_metrics_of_tournament(get_date_list("2023-10-05", 15), METRICS_PATH)
 
 # for run_date in get_date_list("2023-08-31", 12):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
