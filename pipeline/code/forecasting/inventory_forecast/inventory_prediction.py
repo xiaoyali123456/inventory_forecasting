@@ -303,7 +303,6 @@ def output_metrics_of_tournament(date_list, prediction_path):
     df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).show()
 
 
-
 # for run_date in get_date_list("2023-08-31", 12):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
 #         print(run_date)
