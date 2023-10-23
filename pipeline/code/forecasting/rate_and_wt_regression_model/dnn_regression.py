@@ -32,8 +32,8 @@ class LiveMatchRegression(object):
         self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset,
                                            label=label)
         self.train_loss_list = []
-        # self.model_version = "_incremental"
-        self.model_version = ""
+        self.model_version = "_incremental"
+        # self.model_version = ""
         self.epoch = DNN_CONFIGURATION['epoch_num']
         if self.model_version != "":
             self.restore_model()
@@ -58,6 +58,7 @@ class LiveMatchRegression(object):
                 loss.backward()
                 self.optimizer.step()
             if epoch % 3 == 0:
+                print(epoch)
                 self.eval()
         torch.save(self.model.state_dict(), f'model_{self.label}.pth')
         os.system(f"aws s3 cp model_{self.label}.pth {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/")
@@ -94,8 +95,9 @@ class LiveMatchRegression(object):
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
         print(df[f"estimated_{self.label}"].mean())
-        # df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
-        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
+        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
+        if self.run_date == "2023-09-30":
+            df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)
