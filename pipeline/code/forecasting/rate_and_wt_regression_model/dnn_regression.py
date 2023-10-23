@@ -32,8 +32,8 @@ class LiveMatchRegression(object):
         self.dataset = LiveMatchDataLoader(train_dataset=train_dataset, prediction_dataset=prediction_dataset,
                                            label=label)
         self.train_loss_list = []
-        self.model_version = "_incremental"
-        # self.model_version = ""
+        # self.model_version = "_incremental"
+        self.model_version = ""
         self.epoch = DNN_CONFIGURATION['epoch_num']
         if self.model_version != "":
             self.restore_model()

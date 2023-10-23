@@ -70,8 +70,8 @@ PREROLL_INVENTORY_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1
 PREROLL_REACH_RATIO_RESULT_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_preroll/ratio/reach/'
 
 # total inventory
-# MODEL_VERSION = ""
-MODEL_VERSION = "_incremental"
+MODEL_VERSION = ""
+# MODEL_VERSION = "_incremental"
 TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction{MODEL_VERSION}/future_tournaments/'
 FINAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/inventory/'
 FINAL_REACH_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/reach/'

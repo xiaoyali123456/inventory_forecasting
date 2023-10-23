@@ -309,15 +309,15 @@ def output_metrics_of_tournament(date_list, prediction_path):
     print(res.collect()[3][2], res.collect()[2][2], res.collect()[3][2] / res.collect()[2][2] - 1)
 
 
-for run_date in get_date_list("2023-10-05", 19):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        print(run_date)
-        main(run_date)
-        output_metrics_of_finished_matches(run_date)
-        check_inventory_changes(run_date)
-    else:
-        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                           message=f"inventory forecasting on {run_date} nothing update.")
+# for run_date in get_date_list("2023-10-05", 19):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         print(run_date)
+#         main(run_date)
+#         output_metrics_of_finished_matches(run_date)
+#         check_inventory_changes(run_date)
+#     else:
+#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+#                            message=f"inventory forecasting on {run_date} nothing update.")
 
 # output_metrics_of_tournament(get_date_list("2023-10-05", 15), METRICS_PATH)
 

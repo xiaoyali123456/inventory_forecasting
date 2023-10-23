@@ -51,7 +51,18 @@ def main(run_date):
         model.prediction()
 
 
-for run_date in get_date_list("2023-10-06", 18):
+# for run_date in get_date_list("2023-10-06", 18):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         main(run_date)
+#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+#                            message=f"rate and wt predictions on {run_date} are done.")
+#     else:
+#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+#                            message=f"rate and wt predictions on {run_date} nothing update.")
+
+
+if __name__ == '__main__':
+    run_date = sys.argv[1]
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
@@ -59,14 +70,3 @@ for run_date in get_date_list("2023-10-06", 18):
     else:
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"rate and wt predictions on {run_date} nothing update.")
-
-
-if __name__ == '__main__':
-    run_date = sys.argv[1]
-    # if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-    #     main(run_date)
-    #     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-    #                        message=f"rate and wt predictions on {run_date} are done.")
-    # else:
-    #     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-    #                        message=f"rate and wt predictions on {run_date} nothing update.")
