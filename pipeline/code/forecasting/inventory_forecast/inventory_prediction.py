@@ -323,6 +323,12 @@ def output_metrics_of_tournament(date_list, prediction_path):
 
 # output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
 
+# df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{METRICS_PATH}/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
+#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt')
+# df2 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
+#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt as overall_wt_raw')
+# df.join(df2, ['date', 'teams']).orderBy('date').show(1000,False)
+
 # epoch = 20
 # 41775.00000000001 58311.200000000004 -0.2835853146565325
 # india
