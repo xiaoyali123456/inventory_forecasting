@@ -299,7 +299,7 @@ def output_metrics_of_tournament(date_list, prediction_path):
     df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{prediction_path}/cd={date}") for date in date_list]) \
         .where('tag in ("ml_dynamic_model", "gt")') \
         .withColumn('if_contain_india_team', F.expr(f"if(locate('india', teams)=0, 0, 1)")).cache()
-    df.where('tag in ("ml_dynamic_model")').orderBy('date').show(200, False)
+    # df.where('tag in ("ml_dynamic_model")').orderBy('date').show(200, False)
     res = df.groupby('tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy('tag')
     print(res.collect()[1][1], res.collect()[0][1], res.collect()[1][1] / res.collect()[0][1] - 1)
     res = df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy(
