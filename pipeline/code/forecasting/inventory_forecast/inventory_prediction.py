@@ -321,7 +321,7 @@ def output_metrics_of_tournament(date_list, prediction_path):
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"inventory forecasting on {run_date} nothing update.")
 
-# output_metrics_of_tournament(get_date_list("2023-10-05", 15), METRICS_PATH)
+# output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
 
 # epoch = 20
 # 41775.00000000001 58311.200000000004 -0.2835853146565325
