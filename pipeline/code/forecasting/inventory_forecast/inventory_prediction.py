@@ -304,10 +304,10 @@ def output_metrics_of_tournament(date_list, prediction_path):
     print(res.collect()[1][1], res.collect()[0][1], res.collect()[1][1] / res.collect()[0][1] - 1)
     res = df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy(
         'if_contain_india_team', 'tag').cache()
-    print("non india")
-    print(res.collect()[1][2], res.collect()[0][2], res.collect()[1][2] / res.collect()[0][2] - 1)
     print("india")
     print(res.collect()[3][2], res.collect()[2][2], res.collect()[3][2] / res.collect()[2][2] - 1)
+    print("non india")
+    print(res.collect()[1][2], res.collect()[0][2], res.collect()[1][2] / res.collect()[0][2] - 1)
 
 
 # main("2023-09-30")
@@ -322,6 +322,18 @@ def output_metrics_of_tournament(date_list, prediction_path):
 #                            message=f"inventory forecasting on {run_date} nothing update.")
 
 # output_metrics_of_tournament(get_date_list("2023-10-05", 15), METRICS_PATH)
+
+# epoch = 20
+# 41775.00000000001 58311.200000000004 -0.2835853146565325
+# india
+# 25877.7 36132.7 -0.2838149377156979
+# non india
+# 15897.3 22178.5 -0.2832112180715558
+
+
+# epoch = 30
+#
+
 
 # for run_date in get_date_list("2023-08-31", 12):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
