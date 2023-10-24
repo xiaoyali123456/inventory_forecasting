@@ -332,7 +332,11 @@ def output_metrics_of_tournament(date_list, prediction_path):
 
 
 # epoch = 30
-#
+# 42968.799999999996 58311.200000000004 -0.2631124037920676
+# india
+# 27196.899999999998 36132.7 -0.24730507269038848
+# non india
+# 15771.900000000001 22178.5 -0.28886534256148966
 
 
 # for run_date in get_date_list("2023-08-31", 12):
