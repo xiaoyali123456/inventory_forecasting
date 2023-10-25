@@ -321,13 +321,53 @@ def output_metrics_of_tournament(date_list, prediction_path):
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"inventory forecasting on {run_date} nothing update.")
 
-# output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
-
 # df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{METRICS_PATH}/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
 #         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt')
 # df2 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
-#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt as overall_wt_raw')
-# df.join(df2, ['date', 'teams']).orderBy('date').show(1000,False)
+#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt as overall_wt_base')
+# df3 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
+#         .where('tag in ("gt")').selectExpr('date', 'teams', 'overall_wt as overall_wt_gt')
+# res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
+# .withColumn('new_abs_error', F.expr('abs(overall_wt/overall_wt_gt-1)'))\
+# .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
+# res.orderBy('date').show(1000,False)
+# res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
+# print(METRICS_PATH)
+# output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
+
+# load dnn prediction results
+def load_dnn_predictions_one_date(run_date, MODEL_VERSION, content_id_df):
+    last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
+    label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={last_update_date}"
+    common_cols = ['content_id']
+    # load parameters predicted by dnn models
+    return load_data_frame(spark, f"{label_path}/label={FREE_RATE_LABEL}").join(content_id_df, 'content_id').where(f'date="{run_date}"') \
+        .join(load_data_frame(spark, f"{label_path}/label={FREE_WT_LABEL}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={SUB_RATE_LABEL}"), common_cols) \
+        .join(load_data_frame(spark, f"{label_path}/label={SUB_WT_LABEL}"), common_cols)
+
+
+content_id_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/').select('date', 'content_id').distinct().cache()
+old_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, "", content_id_df) for date in get_date_list("2023-10-05", 18)])
+new_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, MODEL_VERSION, content_id_df) for date in get_date_list("2023-10-05", 18)])
+load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
+    .join(old_prediction_df, ['date', 'content_id'])\
+    .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
+    .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
+    .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
+    .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
+    .groupBy('tournament')\
+    .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
+    .show(100, False)
+load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
+    .join(new_prediction_df, ['date', 'content_id'])\
+    .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
+    .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
+    .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
+    .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
+    .groupBy('tournament')\
+    .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
+    .show(100, False)
 
 # epoch = 20
 # 41775.00000000001 58311.200000000004 -0.2835853146565325
