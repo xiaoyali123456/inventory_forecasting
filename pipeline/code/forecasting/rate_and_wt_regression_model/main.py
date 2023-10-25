@@ -34,14 +34,15 @@ def main(run_date):
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
-    train_dataset["tournament_name"] = train_dataset['tournament_name'].apply(lambda x:
-                                      ["world cup" if "world cup" in a
-                                       else a
-                                       for a in x])
-    prediction_dataset["tournament_name"] = prediction_dataset['tournament_name'].apply(lambda x:
-                                                                              ["world cup" if "world cup" in a
-                                                                               else a
-                                                                               for a in x])
+    if run_date >= "2023-10-16":
+        train_dataset["tournament_name"] = train_dataset['tournament_name'].apply(lambda x:
+                                          ["world cup" if "world cup" in a
+                                           else a
+                                           for a in x])
+        prediction_dataset["tournament_name"] = prediction_dataset['tournament_name'].apply(lambda x:
+                                                                                  ["world cup" if "world cup" in a
+                                                                                   else a
+                                                                                   for a in x])
     for label in LABEL_LIST:
         print(label)
         model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
