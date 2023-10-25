@@ -12,7 +12,8 @@ class DeepEmbMLP(nn.Module):
         super().__init__()
         emb_size = DNN_CONFIGURATION['embedding_table_size']
         emb_dim = DNN_CONFIGURATION['embedding_dim']
-        self.pooling_way = "average"
+        # self.pooling_way = "average"
+        self.pooling_way = "concat"
         if self.pooling_way == "average":
             self.mlp = nn.Sequential(
                 nn.Linear(column_num*emb_dim, DNN_CONFIGURATION['mlp_layer_sizes'][0]),  # there are 3 two-hots vectors
