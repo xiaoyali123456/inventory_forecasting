@@ -51,7 +51,7 @@ def main(run_date):
         model.prediction()
 
 
-main("2023-10-23")
+# main("2023-10-23")
 # for run_date in get_date_list("2023-10-06", 19):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
 #         main(run_date)
