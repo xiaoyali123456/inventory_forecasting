@@ -10,7 +10,7 @@ from dnn_configuration import *
 
 def slack_notification(topic, region, message):
     cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
-    # os.system(cmd)
+    os.system(cmd)
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
@@ -43,13 +43,13 @@ def main(run_date):
                                                                                   ["world cup" if "world cup" in a
                                                                                    else a
                                                                                    for a in x])
-    for key in DNN_CONFIGURATION['used_features']:
-        train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
-        # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
-    train_dataset_copy = train_dataset.copy()
-    for key in DNN_CONFIGURATION['used_features']:
-        train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
-    train_dataset = pd.concat([train_dataset, train_dataset_copy])
+    # for key in DNN_CONFIGURATION['used_features']:
+    #     train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
+    #     # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
+    # train_dataset_copy = train_dataset.copy()
+    # for key in DNN_CONFIGURATION['used_features']:
+    #     train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
+    # train_dataset = pd.concat([train_dataset, train_dataset_copy])
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
     for label in LABEL_LIST:
@@ -61,10 +61,10 @@ def main(run_date):
         model.prediction()
 
 
-main("2023-09-30")
-for run_date in get_date_list("2023-10-06", 19):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        main(run_date)
+# main("2023-09-30")
+# for run_date in get_date_list("2023-10-06", 19):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         main(run_date)
 
 
 if __name__ == '__main__':

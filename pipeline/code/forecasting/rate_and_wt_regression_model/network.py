@@ -13,7 +13,7 @@ class DeepEmbMLP(nn.Module):
         emb_size = DNN_CONFIGURATION['embedding_table_size']
         emb_dim = DNN_CONFIGURATION['embedding_dim']
         emb_dim_extends = [0 for _ in range(column_num)]
-        emb_dim_extends[-3] = 4
+        # emb_dim_extends[-3] = 4
         self.encoder = [nn.Embedding(emb_size, emb_dim+emb_dim_extends[i]) for i in range(column_num)]
         # self.pooling_way = "average"
         self.pooling_way = "concat"
