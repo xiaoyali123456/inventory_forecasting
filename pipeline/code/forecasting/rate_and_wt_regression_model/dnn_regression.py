@@ -84,7 +84,7 @@ class LiveMatchRegression(object):
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
         self.train_loss_list.append(str(mae_loss))
 
-    def prediction_inner(self, data_loader, sample_ids, filtered_df):
+    def prediction_inner(self, data_loader, sample_ids, filtered_df=None):
         predictions = []
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
@@ -97,12 +97,12 @@ class LiveMatchRegression(object):
         df = pd.DataFrame(prediction_results, columns=cols)
         # print(df)
         print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
-        entire_tournament_df = pd.concat([filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]], df])
-        t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
-        t_std = entire_tournament_df[f"estimated_{self.label}"].std()
-        lower_bound = t_mean - t_std
-        print(t_mean, t_std, lower_bound)
-        df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
+        # entire_tournament_df = pd.concat([filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]], df])
+        # t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
+        # t_std = entire_tournament_df[f"estimated_{self.label}"].std()
+        # lower_bound = t_mean - t_std
+        # print(t_mean, t_std, lower_bound)
+        # df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
         # if self.run_date == "2023-09-30":
         #     df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")

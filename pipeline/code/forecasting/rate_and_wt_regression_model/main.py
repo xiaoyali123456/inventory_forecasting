@@ -34,7 +34,6 @@ def main(run_date):
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
-    filtered_df = train_dataset[train_dataset['tournament_name'].apply(lambda x: x[0] == 'icc cricket world cup')]
     if run_date >= "2023-10-16":
         train_dataset["tournament_name"] = train_dataset['tournament_name'].apply(lambda x:
                                           ["world cup" if "world cup" in a
@@ -51,7 +50,7 @@ def main(run_date):
     for key in DNN_CONFIGURATION['used_features']:
         train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
     train_dataset = pd.concat([train_dataset, train_dataset_copy])
-    # for key in [FREE_WT_LABEL, SUB_WT_LABEL]
+    # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
     for label in LABEL_LIST:
         print(label)
@@ -59,13 +58,18 @@ def main(run_date):
         model.train()
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
-        model.prediction(filtered_df)
+        model.prediction()
 
 
-main("2023-09-30")
+# main("2023-09-30")
 # for run_date in get_date_list("2023-10-06", 19):
 #     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
 #         main(run_date)
+#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+#                            message=f"rate and wt predictions on {run_date} are done.")
+#     else:
+#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+#                            message=f"rate and wt predictions on {run_date} nothing update.")
 
 
 if __name__ == '__main__':
