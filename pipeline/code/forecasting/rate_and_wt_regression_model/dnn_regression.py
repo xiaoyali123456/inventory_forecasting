@@ -98,10 +98,12 @@ class LiveMatchRegression(object):
         print(df[f"estimated_{self.label}"].mean())
 
         print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
-
-        entire_tournament_df = pd.concat(
-            [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
-             pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]])
+        if len(filtered_df) > 0:
+            entire_tournament_df = pd.concat(
+                [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
+                 pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]])
+        else:
+            entire_tournament_df = pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]
         t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
         t_std = entire_tournament_df[f"estimated_{self.label}"].std()
         lower_bound = t_mean - t_std
