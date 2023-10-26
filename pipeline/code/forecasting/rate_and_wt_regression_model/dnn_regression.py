@@ -68,9 +68,9 @@ class LiveMatchRegression(object):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='train')
         self.eval_inner(data_loader)
 
-    def prediction(self, filtered_df):
+    def prediction(self, filtered_df, predict_filtered_df):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='prediction')
-        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'), filtered_df)
+        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'), filtered_df, predict_filtered_df)
 
     def eval_inner(self, data_loader):
         mae_loss = 0.0
@@ -83,7 +83,7 @@ class LiveMatchRegression(object):
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
         self.train_loss_list.append(str(mae_loss))
 
-    def prediction_inner(self, data_loader, sample_ids, filtered_df):
+    def prediction_inner(self, data_loader, sample_ids, filtered_df, predict_filtered_df):
         predictions = []
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
@@ -101,7 +101,7 @@ class LiveMatchRegression(object):
 
         entire_tournament_df = pd.concat(
             [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
-             df])
+             pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]])
         t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
         t_std = entire_tournament_df[f"estimated_{self.label}"].std()
         lower_bound = t_mean - t_std

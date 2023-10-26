@@ -8,7 +8,7 @@ from path import *
 from util import *
 from config import *
 
-MODEL_VERSION = "_enhance_teams_emb"
+MODEL_VERSION = "_post_process"
 TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction{MODEL_VERSION}/future_tournaments/'
 FINAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/inventory/'
 FINAL_REACH_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/reach/'
@@ -66,21 +66,14 @@ def main(run_date):
         .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {RETENTION_RATE} * (break_duration / 10.0)')) \
         .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number + estimated_sub_match_number)  * {RETENTION_RATE}")) \
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
-        .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)')) \
-        .withColumn('estimated_preroll_free_inventory', F.expr(f'if(array_contains(vod_type, "avod"), '
-                                                       f'estimated_free_match_number * estimated_{PREROLL_SUB_SESSIONS}, '
-                                                       f'estimated_free_match_number * estimated_{PREROLL_FREE_SESSIONS})')) \
-        .withColumn('estimated_preroll_sub_inventory', F.expr(f'estimated_sub_match_number * estimated_{PREROLL_SUB_SESSIONS}')) \
-        .withColumn('estimated_preroll_inventory', F.expr('estimated_preroll_free_inventory + estimated_preroll_sub_inventory')) \
-        .withColumn('estimated_preroll_inventory', F.expr('cast(estimated_preroll_inventory as bigint)')) \
-        .cache()
-    res_df\
-        .groupBy('tournament')\
-        .agg(F.sum('estimated_inventory').alias('estimated_inventory'),
-             F.sum('estimated_reach').alias('estimated_reach'),
-             F.sum('estimated_preroll_inventory').alias('estimated_preroll_inventory'),
-             F.count('content_id').alias('match_num'))\
-        .show(1000, False)
+        .withColumn('estimated_reach', F.expr('cast(estimated_reach as bigint)'))
+    # res_df\
+    #     .groupBy('tournament')\
+    #     .agg(F.sum('estimated_inventory').alias('estimated_inventory'),
+    #          F.sum('estimated_reach').alias('estimated_reach'),
+    #          F.sum('estimated_preroll_inventory').alias('estimated_preroll_inventory'),
+    #          F.count('content_id').alias('match_num'))\
+    #     .show(1000, False)
     save_data_frame(res_df, TOTAL_INVENTORY_PREDICTION_PATH + f"cd={run_date}/")
 
 
@@ -327,11 +320,11 @@ for run_date in get_date_list("2023-10-06", 19):
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         print(run_date)
         main(run_date)
+
+for run_date in get_date_list("2023-10-06", 19):
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+        print(run_date)
         output_metrics_of_finished_matches(run_date)
-        check_inventory_changes(run_date)
-    else:
-        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                           message=f"inventory forecasting on {run_date} nothing update.")
 
 df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{METRICS_PATH}/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt')
