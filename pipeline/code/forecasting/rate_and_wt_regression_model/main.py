@@ -49,8 +49,8 @@ def main(run_date):
                                                                                   ["world cup" if "world cup" in a
                                                                                    else a
                                                                                    for a in x])
-    train_dataset['tier_combination'] = train_dataset['teams_tier'].apply(lambda x: " ".join(sorted(x)))
-    prediction_dataset['tier_combination'] = prediction_dataset['teams_tier'].apply(lambda x: " ".join(sorted(x)))
+    train_dataset['tier_combination'] = train_dataset['teams_tier'].apply(lambda x: [" ".join(sorted(x))])
+    prediction_dataset['tier_combination'] = prediction_dataset['teams_tier'].apply(lambda x: [" ".join(sorted(x))])
     for key in DNN_CONFIGURATION['used_features']:
         train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
         # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
