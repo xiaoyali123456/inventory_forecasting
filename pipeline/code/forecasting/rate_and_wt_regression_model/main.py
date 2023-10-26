@@ -10,7 +10,7 @@ from dnn_configuration import *
 
 def slack_notification(topic, region, message):
     cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
-    # os.system(cmd)
+    os.system(cmd)
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
@@ -58,8 +58,9 @@ def main(run_date):
     train_dataset = pd.concat([train_dataset, train_dataset_copy])
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:.
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
-    for epoch_num in range(20, 61, 10):
-        for label in LABEL_LIST[:4]:
+    # for epoch_num in range(20, 61, 10):
+    for epoch_num in [40]:
+        for label in LABEL_LIST:
             print(label)
             model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label, epoch_num)
             model.train()
@@ -69,9 +70,9 @@ def main(run_date):
 
 
 # main("2023-09-30")
-for run_date in get_date_list("2023-10-06", 20):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        main(run_date)
+# for run_date in get_date_list("2023-10-06", 20):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         main(run_date)
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"rate and wt predictions on {run_date} are done.")
 #     else:

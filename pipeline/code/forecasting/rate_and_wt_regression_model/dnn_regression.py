@@ -35,12 +35,10 @@ class LiveMatchRegression(object):
         # self.model_version = "_incremental"
         # self.model_version = "_epoch_40"
         # self.model_version = "_post_process"
-        self.model_version = f"_post_process_{epoch_num}"
+        # self.model_version = f"_post_process_{epoch_num}"
+        self.model_version = f""
         # self.epoch = DNN_CONFIGURATION['epoch_num']
         self.epoch = epoch_num
-        # if self.model_version != "":
-        #     # self.restore_model()
-        #     self.epoch = int(self.model_version[-2:])
 
     def restore_model(self):
         last_cd = get_date_list(self.run_date, -2)[0]
