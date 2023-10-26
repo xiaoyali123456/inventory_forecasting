@@ -31,6 +31,7 @@ def get_date_list(date: str, days: int) -> list:
 
 def main(run_date):
     train_dataset = pd.read_parquet(f"{TRAIN_MATCH_TABLE_PATH}/cd={run_date}")
+    filtered_df = train_dataset[train_dataset['tournament_name'].apply(lambda x: x[0] == 'icc cricket world cup')]
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     # train_dataset = train_dataset[train_dataset['content_id'] != '1540025169']
     prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
@@ -58,7 +59,7 @@ def main(run_date):
         model.train()
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                            message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
-        model.prediction()
+        model.prediction(filtered_df)
 
 
 # main("2023-09-30")

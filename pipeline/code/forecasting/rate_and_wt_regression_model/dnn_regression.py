@@ -68,9 +68,9 @@ class LiveMatchRegression(object):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='train')
         self.eval_inner(data_loader)
 
-    def prediction(self):
+    def prediction(self, filtered_df):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='prediction')
-        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'))
+        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'), filtered_df)
 
     def eval_inner(self, data_loader):
         mae_loss = 0.0
@@ -83,7 +83,7 @@ class LiveMatchRegression(object):
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
         self.train_loss_list.append(str(mae_loss))
 
-    def prediction_inner(self, data_loader, sample_ids):
+    def prediction_inner(self, data_loader, sample_ids, filtered_df):
         predictions = []
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
