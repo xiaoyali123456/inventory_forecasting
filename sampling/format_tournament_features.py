@@ -316,12 +316,12 @@ def output_metrics_of_tournament(date_list, prediction_path):
 
 
 main("2023-09-30")
-for run_date in get_date_list("2023-10-06", 19):
+for run_date in get_date_list("2023-10-06", 20):
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         print(run_date)
         main(run_date)
 
-for run_date in get_date_list("2023-10-06", 19):
+for run_date in get_date_list("2023-10-06", 20):
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         print(run_date)
         output_metrics_of_finished_matches(run_date)
@@ -337,7 +337,7 @@ res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
     .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
 res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
 print(METRICS_PATH)
-output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
+output_metrics_of_tournament(get_date_list("2023-10-05", 21), METRICS_PATH)
 
 
 # load dnn prediction results

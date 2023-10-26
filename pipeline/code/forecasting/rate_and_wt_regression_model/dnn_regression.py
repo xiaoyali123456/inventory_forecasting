@@ -22,7 +22,7 @@ def get_date_list(date: str, days: int) -> list:
 
 # dnn regression model for live matches prediction
 class LiveMatchRegression(object):
-    def __init__(self, run_date, train_dataset, prediction_dataset, label):
+    def __init__(self, run_date, train_dataset, prediction_dataset, label, epoch_num):
         self.run_date = run_date
         self.label = label
         self.model = DeepEmbMLP(column_num=len(DNN_CONFIGURATION['used_features']))
@@ -35,8 +35,9 @@ class LiveMatchRegression(object):
         # self.model_version = "_incremental"
         # self.model_version = "_epoch_40"
         # self.model_version = "_post_process"
-        self.model_version = "_tier_combination"
-        self.epoch = DNN_CONFIGURATION['epoch_num']
+        self.model_version = f"_post_process_{epoch_num}"
+        # self.epoch = DNN_CONFIGURATION['epoch_num']
+        self.epoch = epoch_num
         # if self.model_version != "":
         #     # self.restore_model()
         #     self.epoch = int(self.model_version[-2:])
@@ -95,23 +96,23 @@ class LiveMatchRegression(object):
 
         cols = ["content_id", f"estimated_{self.label}"]
         df = pd.DataFrame(prediction_results, columns=cols)
-        print(df)
-        print(df[f"estimated_{self.label}"].mean())
-
-        print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
-        if len(filtered_df) > 0:
-            entire_tournament_df = pd.concat(
-                [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
-                 pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]])
-        else:
-            entire_tournament_df = pd.merge(df, predict_filtered_df[["content_id", self.label]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]
-        # print(entire_tournament_df)
-        t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
-        t_std = entire_tournament_df[f"estimated_{self.label}"].std()
-        lower_bound = t_mean - t_std
-        print(t_mean, t_std, lower_bound)
-        df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
-        print(df)
+        # print(df)
+        # print(df[f"estimated_{self.label}"].mean())
+        #
+        # print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
+        # if len(filtered_df) > 0:
+        #     entire_tournament_df = pd.concat(
+        #         [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
+        #          pd.merge(df, predict_filtered_df[["content_id"]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]])
+        # else:
+        #     entire_tournament_df = pd.merge(df, predict_filtered_df[["content_id", self.label]], on='content_id', how='inner')[["content_id", f"estimated_{self.label}"]]
+        # # print(entire_tournament_df)
+        # t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
+        # t_std = entire_tournament_df[f"estimated_{self.label}"].std()
+        # lower_bound = t_mean - t_std
+        # print(t_mean, t_std, lower_bound)
+        # df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
+        # print(df)
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
         # if self.run_date == "2023-09-30":
         #     df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")

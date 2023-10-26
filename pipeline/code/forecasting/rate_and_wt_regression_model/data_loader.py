@@ -16,7 +16,6 @@ def generate_vocabulary(df):
                                                                     specials=['<unk>']).get_stoi()
     print(vocabulary['teams'])
     print(vocabulary['tournament_name'])
-    print(vocabulary['tier_combination'])
     return vocabulary
 
 

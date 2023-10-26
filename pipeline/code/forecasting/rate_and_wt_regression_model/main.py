@@ -49,8 +49,6 @@ def main(run_date):
                                                                                   ["world cup" if "world cup" in a
                                                                                    else a
                                                                                    for a in x])
-    train_dataset['tier_combination'] = train_dataset['teams_tier'].apply(lambda x: [" ".join(sorted(x))])
-    prediction_dataset['tier_combination'] = prediction_dataset['teams_tier'].apply(lambda x: [" ".join(sorted(x))])
     for key in DNN_CONFIGURATION['used_features']:
         train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
         # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
@@ -60,17 +58,18 @@ def main(run_date):
     train_dataset = pd.concat([train_dataset, train_dataset_copy])
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:.
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
-    for label in LABEL_LIST[:4]:
-        print(label)
-        model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
-        model.train()
-        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                           message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
-        model.prediction(filtered_df, predict_filtered_df)
+    for epoch_num in range(20, 61, 10):
+        for label in LABEL_LIST[:4]:
+            print(label)
+            model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label, epoch_num)
+            model.train()
+            slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                               message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
+            model.prediction(filtered_df, predict_filtered_df)
 
 
 # main("2023-09-30")
-for run_date in get_date_list("2023-10-06", 19):
+for run_date in get_date_list("2023-10-06", 20):
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         main(run_date)
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
