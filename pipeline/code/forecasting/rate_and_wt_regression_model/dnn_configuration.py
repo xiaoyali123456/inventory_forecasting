@@ -38,6 +38,7 @@ DNN_CONFIGURATION = {
         'teams',
         'continents',
         'teams_tier',
+        'tier_combination'
     ],
     'train_batch_size': 16,
     'test_batch_size': 64,

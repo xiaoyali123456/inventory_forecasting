@@ -333,8 +333,8 @@ df2 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-p
 df3 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
         .where('tag in ("gt")').selectExpr('date', 'teams', 'overall_wt as overall_wt_gt')
 res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
-.withColumn('new_abs_error', F.expr('abs(overall_wt/overall_wt_gt-1)'))\
-.withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
+    .withColumn('new_abs_error', F.expr('abs(overall_wt/overall_wt_gt-1)'))\
+    .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
 res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
 print(METRICS_PATH)
 output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
