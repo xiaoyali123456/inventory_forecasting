@@ -96,6 +96,17 @@ class LiveMatchRegression(object):
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
         print(df[f"estimated_{self.label}"].mean())
+
+        print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
+
+        entire_tournament_df = pd.concat(
+            [filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]],
+             df])
+        t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
+        t_std = entire_tournament_df[f"estimated_{self.label}"].std()
+        lower_bound = t_mean - t_std
+        print(t_mean, t_std, lower_bound)
+        # df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
         # if self.run_date == "2023-09-30":
         #     df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
