@@ -49,6 +49,8 @@ def main(run_date):
                                                                                   ["world cup" if "world cup" in a
                                                                                    else a
                                                                                    for a in x])
+    train_dataset['tier_combination'] = train_dataset['teams_tier'].apply(lambda x: " ".join(sorted(x)))
+    prediction_dataset['tier_combination'] = prediction_dataset['teams_tier'].apply(lambda x: " ".join(sorted(x)))
     for key in DNN_CONFIGURATION['used_features']:
         train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
         # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
@@ -56,8 +58,6 @@ def main(run_date):
     for key in DNN_CONFIGURATION['used_features']:
         train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
     train_dataset = pd.concat([train_dataset, train_dataset_copy])
-    train_dataset['tier_combination'] = train_dataset['teams_tier'].apply(lambda x: " ".join(x))
-    prediction_dataset['tier_combination'] = prediction_dataset['teams_tier'].apply(lambda x: " ".join(x))
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:.
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
     for label in LABEL_LIST[:4]:
