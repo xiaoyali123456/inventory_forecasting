@@ -44,7 +44,7 @@ class DeepEmbMLP(nn.Module):
                 input_layer.append(torch.mean(torch.stack(xembs), dim=0))
             else:
                 input_layer.extend(xembs)
-        print(len(input_layer))
+        # print(len(input_layer))
         return input_layer
 
     def forward(self, x):
