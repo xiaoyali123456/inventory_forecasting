@@ -43,14 +43,14 @@ def main(run_date):
                                                                                   ["world cup" if "world cup" in a
                                                                                    else a
                                                                                    for a in x])
-    # for key in DNN_CONFIGURATION['used_features']:
-    #     train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
-    #     # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
-    # train_dataset_copy = train_dataset.copy()
-    # for key in DNN_CONFIGURATION['used_features']:
-    #     train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
-    # train_dataset = pd.concat([train_dataset, train_dataset_copy])
-    # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:
+    for key in DNN_CONFIGURATION['used_features']:
+        train_dataset[key] = train_dataset[key].apply(lambda x: sorted(x))
+        # prediction_dataset[key] = prediction_dataset[key].apply(lambda x: sorted(x))
+    train_dataset_copy = train_dataset.copy()
+    for key in DNN_CONFIGURATION['used_features']:
+        train_dataset_copy[key] = train_dataset_copy[key].apply(lambda x: sorted(x, reverse=True))
+    train_dataset = pd.concat([train_dataset, train_dataset_copy])
+    # for key in [FREE_WT_LABEL, SUB_WT_LABE
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
     for label in LABEL_LIST:
         print(label)

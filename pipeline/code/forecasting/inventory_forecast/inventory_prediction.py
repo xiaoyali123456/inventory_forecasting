@@ -330,7 +330,6 @@ def output_metrics_of_tournament(date_list, prediction_path):
 # res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
 # .withColumn('new_abs_error', F.expr('abs(overall_wt/overall_wt_gt-1)'))\
 # .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
-# res.orderBy('date').show(1000,False)
 # res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
 # print(METRICS_PATH)
 # output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
@@ -347,48 +346,27 @@ def load_dnn_predictions_one_date(run_date, MODEL_VERSION, content_id_df):
         .join(load_data_frame(spark, f"{label_path}/label={SUB_WT_LABEL}"), common_cols)
 
 
-content_id_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/').select('date', 'content_id').distinct().cache()
-old_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, "", content_id_df) for date in get_date_list("2023-10-05", 18)])
-new_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, MODEL_VERSION, content_id_df) for date in get_date_list("2023-10-05", 18)])
-load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
-    .join(old_prediction_df, ['date', 'content_id'])\
-    .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
-    .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
-    .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
-    .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
-    .groupBy('tournament')\
-    .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
-    .show(100, False)
-load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
-    .join(new_prediction_df, ['date', 'content_id'])\
-    .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
-    .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
-    .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
-    .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
-    .groupBy('tournament')\
-    .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
-    .show(100, False)
-
-# epoch = 20
-# 41775.00000000001 58311.200000000004 -0.2835853146565325
-# india
-# 25877.7 36132.7 -0.2838149377156979
-# non india
-# 15897.3 22178.5 -0.2832112180715558
-
-
-# epoch = 30
-# 42968.799999999996 58311.200000000004 -0.2631124037920676
-# india
-# 27196.899999999998 36132.7 -0.24730507269038848
-# non india
-# 15771.900000000001 22178.5 -0.28886534256148966
-
-
-# for run_date in get_date_list("2023-08-31", 12):
-#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-#         print(run_date)
-#         output_metrics_of_finished_matches(run_date)
+# content_id_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/').select('date', 'content_id').distinct().cache()
+# old_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, "", content_id_df) for date in get_date_list("2023-10-05", 18)])
+# new_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, MODEL_VERSION, content_id_df) for date in get_date_list("2023-10-05", 18)])
+# load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
+#     .join(old_prediction_df, ['date', 'content_id'])\
+#     .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
+#     .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
+#     .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
+#     .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
+#     .groupBy('tournament')\
+#     .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
+#     .show(100, False)
+# load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
+#     .join(new_prediction_df, ['date', 'content_id'])\
+#     .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
+#     .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
+#     .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
+#     .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
+#     .groupBy('tournament')\
+#     .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
+#     .show(100, False)
 
 
 if __name__ == '__main__':
