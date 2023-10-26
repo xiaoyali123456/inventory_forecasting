@@ -34,7 +34,6 @@ class LiveMatchRegression(object):
         self.train_loss_list = []
         # self.model_version = "_incremental"
         # self.model_version = "_epoch_40"
-        # self.model_version = ""
         self.model_version = "_post_process"
         self.epoch = DNN_CONFIGURATION['epoch_num']
         # if self.model_version != "":
@@ -59,7 +58,7 @@ class LiveMatchRegression(object):
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-            if epoch % 10 == 0:
+            if epoch % 3 == 0:
                 print(epoch)
                 self.eval()
         torch.save(self.model.state_dict(), f'model_{self.label}.pth')
@@ -69,9 +68,9 @@ class LiveMatchRegression(object):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='train')
         self.eval_inner(data_loader)
 
-    def prediction(self, filtered_df=None):
+    def prediction(self):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='prediction')
-        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'), filtered_df)
+        self.prediction_inner(data_loader, self.dataset.get_sample_ids('prediction'))
 
     def eval_inner(self, data_loader):
         mae_loss = 0.0
@@ -84,7 +83,7 @@ class LiveMatchRegression(object):
         print(f'Test mae error of {self.label}: {mae_loss}, {mae_loss / test_num}')
         self.train_loss_list.append(str(mae_loss))
 
-    def prediction_inner(self, data_loader, sample_ids, filtered_df):
+    def prediction_inner(self, data_loader, sample_ids):
         predictions = []
         for i, (x, y) in enumerate(data_loader):
             p = self.model(x).detach().numpy()
@@ -95,14 +94,8 @@ class LiveMatchRegression(object):
 
         cols = ["content_id", f"estimated_{self.label}"]
         df = pd.DataFrame(prediction_results, columns=cols)
-        # print(df)
-        print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
-        # entire_tournament_df = pd.concat([filtered_df.rename(columns={self.label: f"estimated_{self.label}"})[["content_id", f"estimated_{self.label}"]], df])
-        # t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
-        # t_std = entire_tournament_df[f"estimated_{self.label}"].std()
-        # lower_bound = t_mean - t_std
-        # print(t_mean, t_std, lower_bound)
-        # df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
+        print(df)
+        print(df[f"estimated_{self.label}"].mean())
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
         # if self.run_date == "2023-09-30":
         #     df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
