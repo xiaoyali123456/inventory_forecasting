@@ -8,7 +8,7 @@ from path import *
 from util import *
 from config import *
 
-MODEL_VERSION = "_post_process"
+MODEL_VERSION = "_post_process_60"
 TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction{MODEL_VERSION}/future_tournaments/'
 FINAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/inventory/'
 FINAL_REACH_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/reach/'
@@ -47,9 +47,7 @@ def load_dnn_predictions(df, run_date):
         .join(load_data_frame(spark, f"{label_path}/label={FREE_RATE_LABEL}"), common_cols) \
         .join(load_data_frame(spark, f"{label_path}/label={FREE_WT_LABEL}"), common_cols) \
         .join(load_data_frame(spark, f"{label_path}/label={SUB_RATE_LABEL}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={SUB_WT_LABEL}"), common_cols)\
-        .join(load_data_frame(spark, f"{label_path}/label={PREROLL_SUB_SESSIONS}"), common_cols)\
-        .join(load_data_frame(spark, f"{label_path}/label={PREROLL_FREE_SESSIONS}"), common_cols)
+        .join(load_data_frame(spark, f"{label_path}/label={SUB_WT_LABEL}"), common_cols)
 
 
 # Forecast inventory at match level
@@ -315,16 +313,18 @@ def output_metrics_of_tournament(date_list, prediction_path):
     print(res.collect()[1][2], res.collect()[0][2], res.collect()[1][2] / res.collect()[0][2] - 1)
 
 
-main("2023-09-30")
-for run_date in get_date_list("2023-10-06", 20):
-    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        print(run_date)
-        main(run_date)
+# main("2023-09-30")
+# for run_date in get_date_list("2023-10-06", 20):
+#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+#         print(run_date)
+#         main(run_date)
 
-for run_date in get_date_list("2023-10-06", 20):
+
+for run_date in get_date_list("2023-10-06", 21):
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
         print(run_date)
         output_metrics_of_finished_matches(run_date)
+
 
 df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{METRICS_PATH}/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt')
@@ -337,6 +337,7 @@ res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
     .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
 res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
 print(METRICS_PATH)
+output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
 output_metrics_of_tournament(get_date_list("2023-10-05", 21), METRICS_PATH)
 
 
