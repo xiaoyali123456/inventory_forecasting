@@ -35,8 +35,8 @@ class LiveMatchRegression(object):
         # self.model_version = "_incremental"
         # self.model_version = "_epoch_40"
         # self.model_version = "_post_process"
-        self.model_version = f"_post_process_{epoch_num}"
-        # self.model_version = ""
+        # self.model_version = f"_post_process_{epoch_num}"
+        self.model_version = ""
         # self.epoch = DNN_CONFIGURATION['epoch_num']
         self.epoch = epoch_num
 
