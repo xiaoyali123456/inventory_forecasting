@@ -8,6 +8,26 @@ from path import *
 from util import *
 from config import *
 
+
+for date in get_date_list("2023-10-06", 25):
+    print(date)
+    truth_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={date}/')\
+        .where(f'ds >= "2023-10-05" and ds < {date}')\
+        .withColumn('tag', F.lit('vv'))\
+        .groupBy('tag')\
+        .agg(F.avg('vv').alias('truth_vv'), F.avg('sub_vv').alias('truth_sub_vv'), F.avg('free_vv').alias('truth_free_vv'))
+    pre_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={date}/') \
+        .where(f'ds >= "2023-10-05" and ds < {date}') \
+        .withColumn('tag', F.lit('vv')) \
+        .groupBy('tag') \
+        .agg(F.avg('vv').alias('predict_vv'), F.avg('sub_vv').alias('predict_sub_vv'), F.avg('free_vv').alias('predict_free_vv'))
+    truth_df.join(pre_df, 'tag')\
+        .withColumn('vv_error', F.expr('predict_vv/truth_vv-1'))\
+        .withColumn('sub_vv_error', F.expr('predict_sub_vv/truth_sub_vv-1'))\
+        .withColumn('free_vv_error', F.expr('predict_free_vv/truth_free_vv-1'))\
+        .show()
+
+
 MODEL_VERSION = "_post_process_60"
 TOTAL_INVENTORY_PREDICTION_PATH = f'{PIPELINE_BASE_PATH}/inventory_prediction{MODEL_VERSION}/future_tournaments/'
 FINAL_INVENTORY_PREDICTION_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/final/inventory/'

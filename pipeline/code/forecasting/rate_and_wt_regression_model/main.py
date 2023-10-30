@@ -10,7 +10,7 @@ from dnn_configuration import *
 
 def slack_notification(topic, region, message):
     cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
-    os.system(cmd)
+    # os.system(cmd)
 
 
 def check_s3_path_exist(s3_path: str) -> bool:
@@ -58,8 +58,8 @@ def main(run_date):
     train_dataset = pd.concat([train_dataset, train_dataset_copy])
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:.
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
-    # for epoch_num in range(20, 61, 10):
-    for epoch_num in [40]:
+    for epoch_num in range(20, 61, 10):
+    # for epoch_num in [40]:
         for label in LABEL_LIST:
             print(label)
             model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label, epoch_num)
