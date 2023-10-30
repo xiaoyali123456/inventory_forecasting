@@ -69,16 +69,17 @@ def main(run_date):
             model.prediction(filtered_df, predict_filtered_df)
 
 
-# main("2023-09-30")
-# for run_date in get_date_list("2023-10-06", 20):
-#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-#         main(run_date)
+main("2023-09-30")
+for run_date in get_date_list("2023-10-06", 20):
+    if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
+        main(run_date)
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"rate and wt predictions on {run_date} are done.")
 #     else:
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"rate and wt predictions on {run_date} nothing update.")
 
+os.system("aws ec2 stop-instances --instance-ids i-0b60c6cd316c59304 --region us-east-1")
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
