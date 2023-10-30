@@ -39,6 +39,8 @@ def main(run_date):
     prediction_dataset = pd.read_parquet(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/")
     predict_filtered_df = prediction_dataset[prediction_dataset['tournament_name'].apply(lambda x: x[0] == 'icc cricket world cup')]
     predict_filtered_df = predict_filtered_df[predict_filtered_df['if_contain_india_team'].apply(lambda x: x[0] == '0')]
+    train_dataset['tournament'] = train_dataset['tournament'].apply(lambda x: [x])
+    prediction_dataset['tournament'] = prediction_dataset['tournament'].apply(lambda x: [x])
     print(len(predict_filtered_df))
     if run_date >= "2023-10-16":
         train_dataset["tournament_name"] = train_dataset['tournament_name'].apply(lambda x:
