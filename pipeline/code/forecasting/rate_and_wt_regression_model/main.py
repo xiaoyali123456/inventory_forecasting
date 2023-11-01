@@ -81,7 +81,7 @@ def main(run_date):
 #         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
 #                            message=f"rate and wt predictions on {run_date} nothing update.")
 
-os.system("aws ec2 stop-instances --instance-ids i-0b60c6cd316c59304 --region us-east-1")
+# os.system("aws ec2 stop-instances --instance-ids i-0b60c6cd316c59304 --region us-east-1")
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
