@@ -22,7 +22,7 @@ def get_date_list(date: str, days: int) -> list:
 
 # dnn regression model for live matches prediction
 class LiveMatchRegression(object):
-    def __init__(self, run_date, train_dataset, prediction_dataset, label, epoch_num):
+    def __init__(self, run_date, train_dataset, prediction_dataset, label):
         self.run_date = run_date
         self.label = label
         self.model = DeepEmbMLP(column_num=len(DNN_CONFIGURATION['used_features']))
@@ -37,8 +37,8 @@ class LiveMatchRegression(object):
         # self.model_version = "_post_process"
         # self.model_version = f"_post_process_{epoch_num}"
         self.model_version = ""
-        # self.epoch = DNN_CONFIGURATION['epoch_num']
-        self.epoch = epoch_num
+        self.epoch = DNN_CONFIGURATION['epoch_num']
+        # self.epoch = epoch_num
 
     def restore_model(self):
         last_cd = get_date_list(self.run_date, -2)[0]

@@ -61,14 +61,13 @@ def main(run_date):
     # for key in [FREE_WT_LABEL, SUB_WT_LABEL]:.
     #     train_dataset[key] = train_dataset[key].apply(lambda x: 15.0 if x < 15.0 else x)
     # for epoch_num in range(20, 61, 10):
-    for epoch_num in [40]:
-        for label in LABEL_LIST:
-            print(label)
-            model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label, epoch_num)
-            model.train()
-            slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                               message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
-            model.prediction(filtered_df, predict_filtered_df)
+    for label in LABEL_LIST:
+        print(label)
+        model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
+        model.train()
+        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+                           message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
+        model.prediction(filtered_df, predict_filtered_df)
 
 
 # main("2023-09-30")
