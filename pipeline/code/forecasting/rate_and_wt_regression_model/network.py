@@ -15,22 +15,17 @@ class DeepEmbMLP(nn.Module):
         # self.pooling_way = "average"
         self.pooling_way = "concat"
         if self.pooling_way == "average":
-            self.mlp = nn.Sequential(
-                nn.Linear(column_num*emb_dim, DNN_CONFIGURATION['mlp_layer_sizes'][0]),  # there are 3 two-hots vectors
-                nn.ReLU(),
-                nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][0], DNN_CONFIGURATION['mlp_layer_sizes'][1]),
-                nn.ReLU(),
-                nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][1], 1),
-            )
+            input_size = column_num * emb_dim
         else:
-            self.mlp = nn.Sequential(
-                nn.Linear((column_num + 3) * emb_dim, DNN_CONFIGURATION['mlp_layer_sizes'][0]),
-                # there are 3 two-hots vectors
-                nn.ReLU(),
-                nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][0], DNN_CONFIGURATION['mlp_layer_sizes'][1]),
-                nn.ReLU(),
-                nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][1], 1),
-            )
+            input_size = (column_num + 3) * emb_dim
+        self.mlp = nn.Sequential(
+            nn.Linear(input_size, DNN_CONFIGURATION['mlp_layer_sizes'][0]),
+            # there are 3 two-hots vectors
+            nn.ReLU(),
+            nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][0], DNN_CONFIGURATION['mlp_layer_sizes'][1]),
+            nn.ReLU(),
+            nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][1], 1),
+        )
         self.encoder = nn.ModuleList([nn.Embedding(emb_size, emb_dim) for i in range(column_num)])
         # self.encoder = [nn.Embedding(emb_size, emb_dim) for i in range(column_num)]
         for emb in self.encoder:

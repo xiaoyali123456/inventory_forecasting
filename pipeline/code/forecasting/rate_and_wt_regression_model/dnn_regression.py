@@ -86,7 +86,6 @@ class LiveMatchRegression(object):
         cols = ["content_id", f"estimated_{self.label}"]
         df = pd.DataFrame(prediction_results, columns=cols)
         print(df)
-        print(df[f"estimated_{self.label}"].mean())
 
         print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
         if len(filtered_df) > 0:
