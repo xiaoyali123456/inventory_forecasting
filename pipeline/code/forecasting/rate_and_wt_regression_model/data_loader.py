@@ -23,14 +23,19 @@ def generate_vocabulary(df):
 class LiveMatchDataLoader(object):
     def __init__(self, train_dataset, prediction_dataset, label):
         vocabulary = generate_vocabulary(train_dataset)
-        self.train_dataset = LiveMatchDataset(train_dataset, label, vocabulary, "train")
-        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, vocabulary, "prediction")
+        self.train_dataset = LiveMatchDataset(train_dataset, label, vocabulary)
+        self.train_dataset_for_prediction = LiveMatchDataset(train_dataset, label, vocabulary, add_mask=False)
+        self.prediction_dataset = LiveMatchDataset(prediction_dataset, label, vocabulary, add_mask=False)
 
     def get_dataset(self, batch_size, mode='train'):
         if mode == 'train':
             return torch.utils.data.DataLoader(dataset=self.train_dataset,
                                                batch_size=batch_size,
                                                shuffle=True)
+        elif mode == "train_for_prediction":
+            return torch.utils.data.DataLoader(dataset=self.train_dataset_for_prediction,
+                                               batch_size=batch_size,
+                                               shuffle=False)
         else:
             return torch.utils.data.DataLoader(dataset=self.prediction_dataset,
                                                batch_size=batch_size,
@@ -39,16 +44,18 @@ class LiveMatchDataLoader(object):
     def get_sample_ids(self, mode):
         if mode == 'train':
             return self.train_dataset.get_sample_ids()
+        elif mode == "train_for_prediction":
+            return self.train_dataset_for_prediction.get_sample_ids()
         else:
             return self.prediction_dataset.get_sample_ids()
 
 
 # processing match dataset
 class LiveMatchDataset(Dataset):
-    def __init__(self, df, label, vocabulary, dataset_type):
+    def __init__(self, df, label, vocabulary, add_mask=True):
         self.label = label
         self.vocabulary = vocabulary
-        if dataset_type == "train":
+        if add_mask:
             df = self.add_masked_data(df)
             df = df.loc[df[self.label] >= 0]
         self.features, self.labels, self.sample_ids = self._parse(df)

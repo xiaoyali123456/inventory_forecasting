@@ -40,15 +40,6 @@ class LiveMatchRegression(object):
         self.epoch = DNN_CONFIGURATION['epoch_num']
         # self.epoch = epoch_num
 
-    def restore_model(self):
-        last_cd = get_date_list(self.run_date, -2)[0]
-        while not os.system(f"aws s3 ls {PIPELINE_BASE_PATH}/dnn_models/cd={last_cd}/model_{self.label}.pth") == 0:
-            last_cd = get_date_list(last_cd, -2)[0]
-        print(last_cd)
-        os.system(f"aws s3 cp {PIPELINE_BASE_PATH}/dnn_models/cd={last_cd}/model_{self.label}.pth old_model_{self.label}.pth")
-        old_model_state_dict = torch.load(f'old_model_{self.label}.pth')
-        self.model.load_state_dict(old_model_state_dict)
-
     def train(self):
         data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['train_batch_size'], mode='train')
         for epoch in range(self.epoch):
@@ -114,6 +105,42 @@ class LiveMatchRegression(object):
         df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
         # if self.run_date == "2023-09-30":
         #     df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_predictions_incremental/cd={self.run_date}/label={self.label}")
+
+    def prediction_on_training_dataset(self, filtered_df):
+        data_loader = self.dataset.get_dataset(batch_size=DNN_CONFIGURATION['test_batch_size'], mode='train_for_prediction')
+        self.prediction_on_training_dataset_inner(data_loader, self.dataset.get_sample_ids('train_for_prediction'), filtered_df)
+
+    def prediction_on_training_dataset_inner(self, data_loader, sample_ids, filtered_df):
+        predictions = []
+        for i, (x, y) in enumerate(data_loader):
+            p = self.model(x).detach().numpy()
+            predictions.extend([v for v in np.atleast_1d(p)])  # use np.atleast_1d in case there is only one sample
+        prediction_results = []
+        for idx in range(len(sample_ids)):
+            prediction_results.append([sample_ids[idx], predictions[idx]])
+
+        cols = ["content_id", f"estimated_{self.label}"]
+        df = pd.DataFrame(prediction_results, columns=cols) \
+            .groupby('content_id').agg({f"estimated_{self.label}": 'mean'})
+        # print('eval_inner')
+        # print('len(df)')
+        # print(len(df))
+        print(df)
+        # print(df[f"estimated_{self.label}"].mean())
+        #
+        # print(df[f"estimated_{self.label}"].mean(), df[f"estimated_{self.label}"].std())
+        if len(filtered_df) > 0:
+            # print(len(filtered_df))
+            entire_tournament_df = pd.merge(df, filtered_df[["content_id"]], on='content_id', how='inner')[
+                ["content_id", f"estimated_{self.label}"]]
+            print(len(entire_tournament_df))
+            t_mean = entire_tournament_df[f"estimated_{self.label}"].mean()
+            t_std = entire_tournament_df[f"estimated_{self.label}"].std()
+            lower_bound = t_mean - t_std
+            print(t_mean, t_std, lower_bound)
+            df[f"estimated_{self.label}"] = df[f"estimated_{self.label}"].apply(lambda x: lower_bound if x < lower_bound else x)
+        # print(len(df))
+        df.to_parquet(f"{PIPELINE_BASE_PATH}/dnn_train_predictions{self.model_version}/cd={self.run_date}/label={self.label}")
 
     def save(self, path):
         torch.save(self.model.state_dict(), path)

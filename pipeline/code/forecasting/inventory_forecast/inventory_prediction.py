@@ -26,8 +26,8 @@ def load_prediction_dataset(run_date):
 
 
 # load dnn prediction results
-def load_dnn_predictions(df, run_date):
-    label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={run_date}"
+def load_dnn_predictions(df, label_path):
+    # label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={run_date}"
     common_cols = ['content_id']
     # load parameters predicted by dnn models
     return df \
@@ -40,16 +40,39 @@ def load_dnn_predictions(df, run_date):
 
 
 # Forecast inventory at match level
-def main(run_date):
+def main(run_date, bias=True):
+    if bias:
+        prediction_feature_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
+            .where(f'date >= "2023-10-05"') \
+            .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
+            .withColumn('svod_wt', F.expr('match_active_sub_num*watch_time_per_subscriber_per_match')) \
+            .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+            .select('tournament', 'content_id', 'avod_wt', 'svod_wt', 'total_frees_number', 'total_subscribers_number')
+        # print(prediction_feature_df.count())
+        train_prediction_feature_df = load_dnn_predictions(prediction_feature_df, f"{PIPELINE_BASE_PATH}/dnn_train_predictions{MODEL_VERSION}/cd={run_date}") \
+            .withColumn('estimate_avod_wt', F.expr(f'total_frees_number * estimated_frees_watching_match_rate * estimated_watch_time_per_free_per_match')) \
+            .withColumn('estimate_svod_wt', F.expr(f'total_subscribers_number * estimated_subscribers_watching_match_rate * estimated_watch_time_per_subscriber_per_match')) \
+            .withColumn('avod_wt_bias', F.expr('avod_wt - estimate_avod_wt')) \
+            .withColumn('svod_wt_bias', F.expr('svod_wt - estimate_svod_wt'))
+        # print(train_prediction_feature_df.count())
+        avod_beta = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][1]
+        svod_beta = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][2]
+    else:
+        avod_beta = 0.0
+        svod_beta = 0.0
+    print(avod_beta, svod_beta)
     prediction_feature_df = load_prediction_dataset(run_date)
     partition_col = "request_id"
     # load parameters predicted by dnn models
-    prediction_feature_df = load_dnn_predictions(prediction_feature_df, run_date)
+    prediction_feature_df = load_dnn_predictions(prediction_feature_df, f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={run_date}")
     res_df = prediction_feature_df \
         .withColumn('estimated_free_match_number', F.expr('total_frees_number * estimated_frees_watching_match_rate')) \
         .withColumn('estimated_sub_match_number', F.expr('total_subscribers_number * estimated_subscribers_watching_match_rate')) \
-        .withColumn('estimated_avg_concurrency', F.expr('(estimated_free_match_number * estimated_watch_time_per_free_per_match '
-        f'+ estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match)/match_duration')) \
+        .withColumn('avod_wt',
+                    F.expr(f'estimated_free_match_number * estimated_watch_time_per_free_per_match + {avod_beta}')) \
+        .withColumn('svod_wt',
+                    F.expr(f'estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match + {svod_beta}')) \
+        .withColumn('estimated_avg_concurrency', F.expr('(avod_wt + svod_wt)/match_duration')) \
         .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {RETENTION_RATE} * (break_duration / 10.0)')) \
         .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number + estimated_sub_match_number)  * {RETENTION_RATE}")) \
         .withColumn('estimated_inventory', F.expr('cast(estimated_inventory as bigint)')) \
@@ -137,15 +160,25 @@ def output_metrics_of_finished_matches(run_date):
         .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
         .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
         .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
-        .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
-        .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
-        .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
-        .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
-        .join(predict_dau_df, 'date') \
-        .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
-                    'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
-                    'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
-                    f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
+        .withColumn('overall_vv', F.expr('avod_vv+svod_vv'))
+    if "avod_wt" in predict_inv_df.columns:
+        predict_inv_df = predict_inv_df \
+            .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+            .join(predict_dau_df, 'date') \
+            .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                        'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
+                        'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
+                        f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
+    else:
+        predict_inv_df = predict_inv_df \
+            .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
+            .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
+            .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
+            .join(predict_dau_df, 'date') \
+            .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
+                        'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
+                        'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
+                        f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
     teams = predict_inv_df.select('teams').collect()[0][0]
     cols = predict_inv_df.columns[2:]
     if last_update_date >= "2023-09-11":

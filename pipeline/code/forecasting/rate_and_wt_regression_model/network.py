@@ -31,8 +31,8 @@ class DeepEmbMLP(nn.Module):
                 nn.ReLU(),
                 nn.Linear(DNN_CONFIGURATION['mlp_layer_sizes'][1], 1),
             )
-        # self.encoder = nn.ModuleList([nn.Embedding(emb_size, emb_dim) for i in range(column_num)])
-        self.encoder = [nn.Embedding(emb_size, emb_dim) for i in range(column_num)]
+        self.encoder = nn.ModuleList([nn.Embedding(emb_size, emb_dim) for i in range(column_num)])
+        # self.encoder = [nn.Embedding(emb_size, emb_dim) for i in range(column_num)]
         for emb in self.encoder:
             nn.init.trunc_normal_(emb.weight.data)
 

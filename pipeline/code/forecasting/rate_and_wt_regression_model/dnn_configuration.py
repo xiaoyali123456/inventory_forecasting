@@ -39,9 +39,11 @@ DNN_CONFIGURATION = {
         'continents',
         'teams_tier'
     ],
-    'train_batch_size': 16,
+    # 'train_batch_size': 16,
+    'train_batch_size': 32,
     'test_batch_size': 64,
-    'epoch_num': 40,
+    # 'epoch_num': 40,
+    'epoch_num': 20,
     'lr': 5e-3,
     'weight_decay': 1e-3,
     'embedding_table_size': 100,
@@ -51,7 +53,8 @@ DNN_CONFIGURATION = {
     # 'lr': 0.01,
     # 'weight_decay': 0,
     # 'embedding_table_size': 32,
-    'embedding_dim': 6,
+    # 'embedding_dim': 6,
+    'embedding_dim': 10,
     'mlp_layer_sizes': [64, 64]
 }
 
