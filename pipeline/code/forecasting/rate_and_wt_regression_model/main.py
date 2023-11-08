@@ -62,8 +62,8 @@ def main(run_date):
         print(label)
         model = LiveMatchRegression(run_date, train_dataset, prediction_dataset, label)
         model.train()
-        slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                           message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
+        # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
+        #                    message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
         model.prediction(filtered_df, predict_filtered_df)
         model.prediction_on_training_dataset(filtered_df)
 

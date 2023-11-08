@@ -49,9 +49,9 @@ class LiveMatchRegression(object):
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-            if epoch % 3 == 0:
-                print(epoch)
-                self.eval()
+            # if epoch % 3 == 0:
+            #     print(epoch)
+            #     self.eval()
         torch.save(self.model.state_dict(), f'model_{self.label}.pth')
         os.system(f"aws s3 cp model_{self.label}.pth {PIPELINE_BASE_PATH}/dnn_models/cd={self.run_date}/")
 
