@@ -18,6 +18,7 @@ def truth(end, true_vv_path):
         actual_last = str(actual_last.date())
     base = spark.sql(f'select cd as ds, dw_p_id, subscription_status from {DAU_TABLE} where cd > "{actual_last}" and cd < "{end}"')
     new_vv = base.groupby('ds').agg(F.countDistinct('dw_p_id').alias('vv'))
+    new_vv.orderBy('ds', ascending=False).show()
     new_sub_vv = base.where('lower(subscription_status) in ("active", "cancelled", "graceperiod")') \
         .groupby('ds').agg(F.countDistinct('dw_p_id').alias('sub_vv'))
     new = new_vv.join(new_sub_vv, on='ds').withColumn('free_vv', F.expr('vv - sub_vv'))
