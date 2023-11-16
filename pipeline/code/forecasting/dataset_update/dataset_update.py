@@ -118,8 +118,7 @@ def feature_processing(df, run_date):
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
     print("df")
     df.groupby('seasonName').count().show(20, False)
-    run_date_tmp = "2023-11-15"
-    cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date_tmp)\
+    cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
         .selectExpr('content_id', 'startdate', 'lower(title)').collect()
     for row in cms_df:
         if row[1] not in cid_mapping:
