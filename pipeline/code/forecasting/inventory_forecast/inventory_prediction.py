@@ -96,16 +96,19 @@ def main(run_date, bias=True):
 
 
 @F.udf(returnType=StringType())
-def unify_teams(teams):
-    teams = teams.lower().split(" vs ")
-    team1 = teams[0]
-    team2 = teams[1]
-    for key in SHORT_TEAM_MAPPING:
-        if SHORT_TEAM_MAPPING[key] == team1:
-            teams[0] = key
-        if SHORT_TEAM_MAPPING[key] == team2:
-            teams[1] = key
-    return " vs ".join(sorted(teams))
+def unify_teams(teams, default_teams):
+    if teams.find(" vs ") > -1:
+        teams = teams.lower().split(" vs ")
+        team1 = teams[0]
+        team2 = teams[1]
+        for key in SHORT_TEAM_MAPPING:
+            if SHORT_TEAM_MAPPING[key] == team1:
+                teams[0] = key
+            if SHORT_TEAM_MAPPING[key] == team2:
+                teams[1] = key
+        return " vs ".join(sorted(teams))
+    else:
+        return default_teams
 
 
 def output_metrics_of_finished_matches(run_date):
@@ -269,7 +272,7 @@ def output_metrics_of_finished_matches(run_date):
     res_cols = res_df.columns
     for col in cols:
         res_df = res_df.withColumn(col, F.expr(f'cast({col} as double)'))
-    res_df = res_df.withColumn('teams', unify_teams('teams'))
+    res_df = res_df.withColumn('teams', unify_teams('teams', F.lit(teams)))
     publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="inventory prediction of matches",
                      output_df=res_df.select(res_cols), region=REGION)
     save_data_frame(res_df.select(res_cols), f"{METRICS_PATH}/cd={the_day_before_run_date}")
