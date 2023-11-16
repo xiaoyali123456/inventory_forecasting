@@ -118,6 +118,7 @@ def output_metrics_of_finished_matches(run_date):
         .withColumnRenamed('ds', 'date')\
         .where(f'date="{the_day_before_run_date}"')\
         .cache()
+    print(gt_dau_df.count())
     gt_inv_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
         .where(f'date="{the_day_before_run_date}"') \
         .selectExpr('date', 'teams', *LABEL_COLS) \
@@ -136,6 +137,7 @@ def output_metrics_of_finished_matches(run_date):
                     'overall_wt', 'avod_wt', 'svod_wt', 'total_inventory',
                     'total_reach', 'avod_reach', 'svod_reach') \
         .cache()
+    print(gt_inv_df.count())
     if gt_inv_df.count() == 0:
         return
     cols = gt_inv_df.columns[2:]
