@@ -144,6 +144,7 @@ def feature_processing(df, run_date):
         .withColumn('team2', correct_team('team2'))\
         .withColumn('team1', F.expr('if(date="2023-11-15" or date="2023-11-19", "india", team1)'))\
         .withColumn('team1', F.expr('if(date="2023-11-16", "south africa", team1)'))\
+        .withColumn('team2', F.expr('if(date="2023-11-19", "australia", team2)'))\
         .withColumn('team2', F.expr('if(date="2023-11-16", "australia", team2)'))\
         .withColumn('team2', F.expr('if(date="2023-11-15", "new zealand", team2)'))\
         .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
