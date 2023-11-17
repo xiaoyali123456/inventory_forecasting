@@ -8,25 +8,33 @@ from util import *
 
 # calculate free/sub reach and avg_wt
 def calculate_reach_and_wt_from_wv_table(spark, date):
-    match_sub_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
-        .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
-        .groupBy('dw_p_id', 'content_id') \
-        .agg(F.sum('watch_time').alias('watch_time')) \
-        .groupBy('content_id') \
-        .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
-             F.sum('watch_time').alias('total_watch_time')) \
-        .withColumn('watch_time_per_subscriber_per_match', F.expr('total_watch_time/match_active_sub_num')) \
-        .select('content_id', 'match_active_sub_num', 'watch_time_per_subscriber_per_match') \
+    data_source = "watched_video_aggr_sub"
+    if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
+        match_sub_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+            .where(f'upper(subscription_status) in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+            .groupBy('dw_p_id', 'content_id') \
+            .agg(F.sum('watch_time').alias('watch_time')) \
+            .groupBy('content_id') \
+            .agg(F.countDistinct('dw_p_id').alias('match_active_sub_num'),
+                 F.sum('watch_time').alias('total_watch_time')) \
+            .withColumn('watch_time_per_subscriber_per_match', F.expr('total_watch_time/match_active_sub_num')) \
+            .select('content_id', 'match_active_sub_num', 'watch_time_per_subscriber_per_match')
+        save_data_frame(match_sub_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
+    match_sub_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
         .cache()
-    match_free_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
-        .where(f'upper(subscription_status) not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
-        .groupBy('dw_p_id', 'content_id') \
-        .agg(F.sum('watch_time').alias('watch_time')) \
-        .groupBy('content_id') \
-        .agg(F.countDistinct('dw_p_id').alias('match_active_free_num'),
-             F.sum('watch_time').alias('total_free_watch_time')) \
-        .withColumn('watch_time_per_free_per_match', F.expr('total_free_watch_time/match_active_free_num')) \
-        .select('content_id', 'match_active_free_num', 'watch_time_per_free_per_match') \
+    data_source = "watched_video_aggr_free"
+    if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
+        match_free_df = load_data_frame(spark, f'{WATCH_AGGREGATED_INPUT_PATH}/cd={date}', fmt="orc") \
+            .where(f'upper(subscription_status) not in ("ACTIVE", "CANCELLED", "GRACEPERIOD")') \
+            .groupBy('dw_p_id', 'content_id') \
+            .agg(F.sum('watch_time').alias('watch_time')) \
+            .groupBy('content_id') \
+            .agg(F.countDistinct('dw_p_id').alias('match_active_free_num'),
+                 F.sum('watch_time').alias('total_free_watch_time')) \
+            .withColumn('watch_time_per_free_per_match', F.expr('total_free_watch_time/match_active_free_num')) \
+            .select('content_id', 'match_active_free_num', 'watch_time_per_free_per_match')
+        save_data_frame(match_free_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
+    match_free_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
         .cache()
     return match_sub_df, match_free_df
 
@@ -130,8 +138,7 @@ def load_wv_data(spark, date):
                         F.expr('cast(unix_timestamp(wv_start_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
             .withColumn('wv_end_time_int',
                         F.expr('cast(unix_timestamp(wv_end_timestamp, "yyyy-MM-dd HH:mm:ss") as long)')) \
-            .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp') \
-            .cache()
+            .drop('received_at', 'timestamp', 'wv_start_timestamp', 'wv_end_timestamp')
         save_data_frame(watch_video_df, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}")
     watch_video_df = load_data_frame(spark, PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}") \
         .cache()
