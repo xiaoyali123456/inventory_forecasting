@@ -5,9 +5,13 @@ import gspread
 import pandas as pd
 import s3fs
 
+# inventory forecast result
 input_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/sampling_v2/inventory/'
+# ads sdk input
 config_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adtech-segment-management/prod/ssai_configuration/ssai_configuration.json'
+# ads sdk output, overwriten every day
 output_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adtech-segment-management/prod/forecast_information/100/forecast_information.json'
+# save for review
 output2_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/cohort_density/forecast_information/'
 
 s3 = s3fs.S3FileSystem()
