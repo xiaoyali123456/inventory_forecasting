@@ -258,6 +258,7 @@ def get_nccs(cohort):
     return ''
 
 
+# load 15 days inventory, group by, sum
 def load_history(cd):
     days = get_last_days(input_path, n=15)
     print(days)
@@ -271,6 +272,7 @@ def load_history(cd):
     return df3
 
 
+# use WC 2022 semi-final as baseline distribution
 def load_baseline():
     df = pd.read_parquet(input_path + 'cd=2022-11-10')
     df2 = df.groupby(['language', 'platform', 'city', 'state', 'cohort']).reach.sum().reset_index()
@@ -292,6 +294,7 @@ def classify(rank, threshold1, threshold2):
 
 
 def transform(df):
+    # map from ads config attribute name to inventory attribute name
     forward = {
         'AgeTag': 'age',
         'AffluenceTag': 'device',
@@ -302,8 +305,10 @@ def transform(df):
         'PlatformTag': 'platform',
         'NCCSAffluenceTag': 'nccs',
     }
+    # map from inventory attribute name to ads config attribute name
     backward = {v: k for k, v in forward.items()}
     config = pd.read_json(config_path)
+    # basic attributes
     config['basic'] = config.tagType.map(lambda x: forward.get(x, x))
     basic = [x for x in config['basic'] if x in df.columns]
     # cohorts that would be delivered, grouped by `key` of config
@@ -325,6 +330,7 @@ def transform(df):
                 df2[i] = df2[i].map(lambda x: x if x in ['f', 'm'] else row.defaultValue)
     df2 = df2.groupby(basic).reach.sum().reset_index()
     # simulate how these cohorts are treated in SSAI, grouped by `value` of config, num(`key`) > num(`value`)
+    # However, this simulation is not always accurate since Ads SDK is a blackbox
     df3 = df2.reset_index()
     for i in basic:
         if backward[i] in config.tagType.tolist():
@@ -347,7 +353,7 @@ def transform(df):
 
 def main(cd):
     '''
-    df: raw input
+    df: raw inventory as input
     df2: segment -> density
     df3: SSAI(after aggregation) -> density
     '''
@@ -358,6 +364,8 @@ def main(cd):
     df3['proportion'] = df3.reach / df3.reach.sum()
     df3.drop(columns='index', inplace=True)
     df2.to_json(output2_path + cd + '.json', orient='records')  # save for future check
+
+    # upload result to google sheet: https://docs.google.com/spreadsheets/d/1SpSU7OEu_ytIG8a_MK-wCq5dbVksp5_hTTvXFrsOncg/edit#gid=2053132069
     os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json my_service_account.json')
     gc = gspread.service_account('my_service_account.json')
     sheet = gc.open('ssai_cohort_density_forecast')
@@ -367,7 +375,7 @@ def main(cd):
     sheet2.clear()
     sheet2.update([df3.columns.values.tolist()] + df3.values.tolist())
 
-    # check performance
+    # check performance comparing to baseline
     bl = load_baseline()
     bl2, _ = transform(bl)
     basic = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
