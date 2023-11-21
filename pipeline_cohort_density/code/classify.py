@@ -323,6 +323,7 @@ def transform(df):
                 if i == 'age':
                     meta2 = {demo_short_to_long[k]: v for k, v in meta.items() if k in demo_short_to_long}
                     meta = {**meta, **meta2}
+                    # both "PHONE_MALE_25-34" and "DP03" are mapped "18T30"
                     df2[i] = df2[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
                 else:
                     df2[i] = df2[i].map(lambda x: x if x in meta else row.defaultValue)
@@ -339,6 +340,7 @@ def transform(df):
             if meta['type'] == 'map':
                 for x in row.acceptableValues:
                     meta[x] = x
+                # for ageTag, there is an identity map, e.g. "18T30" --> "18T30"
                 df3[i] = df3[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
             elif meta['type'] == 'gender':
                 pass
