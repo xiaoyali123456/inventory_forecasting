@@ -113,6 +113,15 @@ def correct_team(team):
             return team
 
 
+@F.udf(returnType=StringType())
+def extract_match_id(match_id):
+    match_id_int = int(match_id)
+    if match_id_int < 0:
+        return match_id[1:-1]
+    else:
+        return match_id
+
+
 # feature processing of request data
 def feature_processing(df, run_date):
     run_year = int(run_date[:4])
@@ -130,7 +139,7 @@ def feature_processing(df, run_date):
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
-        .withColumn('matchId', F.element_at(F.split(F.col('matchId'), '-'), 1)) \
+        .withColumn('matchId', extract_match_id('matchId')) \
         .withColumn('requestId', F.expr('cast(requestId as string)')) \
         .withColumn('content_id', F.concat_ws("#-#", F.col('matchDate'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
