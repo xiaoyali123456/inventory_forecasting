@@ -129,7 +129,7 @@ def feature_processing(df, run_date):
         .withColumn('tournament', F.expr('lower(seasonName)')) \
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
         .withColumn('requestId', F.expr('cast(requestId as string)')) \
-        .withColumn('content_id', F.concat_ws("#-#", F.col('requestId'), F.col('matchId'))) \
+        .withColumn('content_id', F.concat_ws("#-#", F.col('matchDate'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
         .withColumn('match_stage', F.expr('lower(matchType)')) \
         .withColumn('tournament_name', F.expr('lower(tournamentName)')) \
@@ -147,7 +147,6 @@ def feature_processing(df, run_date):
         .withColumn('team2', F.expr('if(date="2023-11-19", "australia", team2)'))\
         .withColumn('team2', F.expr('if(date="2023-11-16", "australia", team2)'))\
         .withColumn('team2', F.expr('if(date="2023-11-15", "new zealand", team2)'))\
-        .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
                                                     f'else "0" end')) \
