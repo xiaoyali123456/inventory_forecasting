@@ -21,6 +21,8 @@ def check_if_focal_tournament(sport_season_name):
         for t in FOCAL_TOURNAMENTS_FOR_FORECASTING:
             if t in sport_season_name:  # sport_season_name is a super-string of tournament
                 return 1
+        if "india" in sport_season_name and " tour " in sport_season_name:
+            return 1
     return 0
 
 
@@ -146,7 +148,8 @@ def feature_processing(df, run_date):
         .withColumn('team1', F.expr('if(date="2023-11-16", "south africa", team1)'))\
         .withColumn('team2', F.expr('if(date="2023-11-19", "australia", team2)'))\
         .withColumn('team2', F.expr('if(date="2023-11-16", "australia", team2)'))\
-        .withColumn('team2', F.expr('if(date="2023-11-15", "new zealand", team2)'))\
+        .withColumn('team2', F.expr('if(date="2023-11-15", "new zealand", team2)')) \
+        .withColumn('content_id', get_cms_content_id('date', 'team1', 'team2', 'content_id')) \
         .withColumn('if_contain_india_team', F.expr(f'case when team1="india" or team2="india" then "1" '
                                                     f'when team1="{UNKNOWN_TOKEN}" or team2="{UNKNOWN_TOKEN}" then "{UNKNOWN_TOKEN}" '
                                                     f'else "0" end')) \
@@ -281,6 +284,7 @@ def update_dataset(run_date):
     # last_update_date = "2023-09-18"
     # we can union training dataset of 2023-09-17 and 2023-09-18 to get the full training dataset
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
+    # load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd=2023-12-05").where('tournament="england_tour_of_india2021"').show(100, False)
     generate_valid_teams(previous_train_df)
     # feature processing
     request_df = feature_processing(request_df, run_date)
