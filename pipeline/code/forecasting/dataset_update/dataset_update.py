@@ -130,6 +130,7 @@ def feature_processing(df, run_date):
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
         .withColumn('matchId', F.expr('cast(matchId as string)')) \
+        .withColumn('matchId', F.element_at(F.split(F.col('matchId'), '-'), 1)) \
         .withColumn('requestId', F.expr('cast(requestId as string)')) \
         .withColumn('content_id', F.concat_ws("#-#", F.col('matchDate'), F.col('matchId'))) \
         .withColumn('vod_type', F.expr('lower(tournamentType)')) \
