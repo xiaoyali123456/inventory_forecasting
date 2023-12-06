@@ -1,0 +1,479 @@
+[
+  {
+    "tagType": "AgeTag",
+    "enabled": true,
+    "order": 1,
+    "defaultValue": "U",
+    "prefix": "A_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map",
+      "PHONE_MALE_25-34": "18T30",
+      "PHONE_MALE_18-24": "18T30",
+      "FMD009V0051334SRMLDESTADS": "",
+      "FMD009V0051334HIGHSRMLDESTADS": "",
+      "MMD009V0051334SRMLDESTADS": "",
+      "PHONE_FEMALE_25-34": "18T30",
+      "PHONE_FEMALE_18-24": "18T30",
+      "FMD009V0051824SRMLDESTADS": "18T30",
+      "MMD009V0051334HIGHSRMLDESTADS": "",
+      "PHONE_FEMALE_35-44": "30P",
+      "MMD009V0052534SRMLDESTADS": "18T30",
+      "FMD009V0052534SRMLDESTADS": "18T30",
+      "FMD009V0053599SRMLDESTADS": "30P",
+      "MMD009V0051824SRMLDESTADS": "18T30",
+      "PHONE_MALE_45-54": "30P",
+      "MMD009V0053599SRMLDESTADS": "30P",
+      "PHONE_FEMALE_45-54": "30P",
+      "PHONE_MALE_65PLUS": "",
+      "PHONE_MALE_13-17": "",
+      "PHONE_MALE_55-64": "30P",
+      "PHONE_MALE_65+" : "30P",
+      "PHONE_FEMALE_55-64": "30P",
+      "PHONE_FEMALE_65+" : "30P",
+      "MMD009V0051824HIGHSRMLDESTADS": "18T30",
+      "FMD009V0051824HIGHSRMLDESTADS": "18T30",
+      "PHONE_FEMALE_65PLUS": "",
+      "PHONE_FEMALE_13-17": "",
+      "FB_MALE_25-34": "18T30",
+      "MMD009V0052534HIGHSRMLDESTADS": "18T30",
+      "FB_FEMALE_25-34": "18T30",
+      "FB_MALE_18-24": "18T30",
+      "FB_MALE_35-44": "30P",
+      "FMD009V0053599HIGHSRMLDESTADS": "30P",
+      "FMD009V0052534HIGHSRMLDESTADS": "18T30",
+      "MMD009V0053599HIGHSRMLDESTADS": "30P",
+      "FB_FEMALE_18-24": "18T30",
+      "FB_FEMALE_35-44": "30P",
+      "FB_MALE_45-54": "30P",
+      "FB_FEMALE_45-54": "30P",
+      "FMD009V0051317SRMLDESTADS": "",
+      "MMD009V0051317SRMLDESTADS": "",
+      "FB_MALE_55-64": "30P",
+      "FB_FEMALE_55-64": "30P",
+      "FB_MALE_65PLUS": "30P",
+      "FB_MALE_13-17": "",
+      "EMAIL_FEMALE_25-34": "18T30",
+      "FB_FEMALE_65PLUS": "30P",
+      "EMAIL_MALE_25-34": "18T30",
+      "EMAIL_FEMALE_18-24": "18T30",
+      "MMD009V0051317HIGHSRMLDESTADS": "",
+      "EMAIL_FEMALE_35-44": "30P",
+      "EMAIL_MALE_35-44": "30P",
+      "EMAIL_MALE_18-24": "18T30",
+      "FB_FEMALE_13-17": "",
+      "FMD009V0051317HIGHSRMLDESTADS": "",
+      "EMAIL_FEMALE_45-54": "30P",
+      "EMAIL_MALE_45-54": "30P",
+      "EMAIL_FEMALE_55-64": "30P",
+      "EMAIL_MALE_55-64": "30P",
+      "EMAIL_FEMALE_65PLUS": "30P",
+      "EMAIL_MALE_65PLUS": "30P",
+      "EMAIL_MALE_13-17": "",
+      "EMAIL_FEMALE_13-17": "",
+      "PHONE_MALE_35-44" : "30P",
+      "R_F1824" : "18T30",
+      "R_F2534" : "18T30",
+      "R_M1824" : "18T30",
+      "R_M2534" : "18T30",
+      "R_F3599" : "30P",
+      "R_M3599" : "30P",
+      "18T30" : "18T30",
+      "30P" : "30P"
+    }
+  },
+  {
+    "tagType": "AffluenceTag",
+    "enabled": true,
+    "order": 2,
+    "defaultValue": "NA",
+    "prefix": "D_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map",
+      "A_21231588": "15T150",
+      "A_15031263": "15T150",
+      "A_40990869": "15T150",
+      "A_94523754": "15T150"
+    }
+  },
+  {
+    "tagType": "GenderTag",
+    "enabled": true,
+    "order": 3,
+    "defaultValue": "U",
+    "prefix": "G_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "gender",
+      "male" : "m",
+      "female" : "f",
+      "malePrefixList":
+      [
+        "IGNORED_TAG"
+      ],
+      "femalePrefixList":
+      [
+        "IGNORED_TAG"
+      ]
+    }
+  },
+  {
+    "tagType": "StateTags",
+    "enabled": true,
+    "order": 4,
+    "defaultValue": "NA",
+    "prefix": "S_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map",
+      "pb": "PBHRHPJK",
+      "tn": "TN",
+      "ct": "MPCTRJ",
+      "py": "TN",
+      "wb": "WB",
+      "tg": "APTG",
+      "jk": "PBHRHPJK",
+      "jh": "BRJH",
+      "hr": "PBHRHPJK",
+      "gj": "GJDDGA",
+      "ar": "ORNE",
+      "ap": "APTG",
+      "hp": "PBHRHPJK",
+      "mh": "MH",
+      "mz": "ORNE",
+      "nl": "ORNE",
+      "ut": "UPUT",
+      "as": "ORNE",
+      "mn": "ORNE",
+      "tr": "ORNE",
+      "kl": "KL",
+      "mp": "MPCTRJ",
+      "ka": "KA",
+      "dd": "GJDDGA",
+      "sk": "ORNE",
+      "ml": "ORNE",
+      "rj": "MPCTRJ",
+      "ga": "GJDDGA",
+      "br": "BRJH",
+      "or": "ORNE",
+      "up": "UPUT"
+    }
+  },
+  {
+    "tagType": "CityTags",
+    "enabled": true,
+    "order": 5,
+    "defaultValue": "NA",
+    "prefix": "M_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map",
+      "vadapalani": "CHE",
+      "adyar": "CHE",
+      "badarpur": "NCR",
+      "avadi": "CHE",
+      "gachibowli": "HYD",
+      "nandi": "BEN",
+      "chakpanchuria": "KOL",
+      "hyderabad": "HYD",
+      "mahim": "MUM",
+      "hassan": "BEN",
+      "alipur": "NCR",
+      "shahdara": "NCR",
+      "worli": "MUM",
+      "kanchipuram": "CHE",
+      "bangalore": "BEN",
+      "narsapur": "HYD",
+      "tambaram": "CHE",
+      "bally": "KOL",
+      "pune": "1PT",
+      "noida": "NCR",
+      "anekal": "BEN",
+      "alipore": "KOL",
+      "patna": "1PB",
+      "jharoda_kalan": "NCR",
+      "bhopal": "1PT",
+      "begampet": "HYD",
+      "ulhasnagar": "MUM",
+      "mehrauli": "NCR",
+      "chromepet": "CHE",
+      "boisar": "MUM",
+      "ambattur": "CHE",
+      "kilpauk": "CHE",
+      "chandigarh": "1PT",
+      "choolai": "CHE",
+      "konnagar": "KOL",
+      "kodambakkam": "CHE",
+      "bandra_west": "MUM",
+      "tardeo": "MUM",
+      "kurla": "MUM",
+      "belapur": "MUM",
+      "kolkata": "KOL",
+      "kamarhati": "KOL",
+      "bhiwandi": "MUM",
+      "delhi": "NCR",
+      "madipakkam": "CHE",
+      "jaipur": "1PB",
+      "chattarpur": "NCR",
+      "gangaram": "HYD",
+      "faridabad_city": "NCR",
+      "vikhroli": "MUM",
+      "narela": "NCR",
+      "ahmedabad": "AHM",
+      "goregaon": "MUM",
+      "nelamangala": "BEN",
+      "tiruvottiyur": "CHE",
+      "calcutta": "KOL",
+      "connaught_place": "NCR",
+      "bawana": "NCR",
+      "chetput": "CHE",
+      "ghaziabad": "NCR",
+      "perambur": "CHE",
+      "porur": "CHE",
+      "palghar": "MUM",
+      "patancheru": "HYD",
+      "new_delhi": "NCR",
+      "darya_ganj": "NCR",
+      "lucknow": "1PB",
+      "howrah": "KOL",
+      "belgharia": "KOL",
+      "bagalur": "BEN",
+      "kanpur": "1PT",
+      "kalyan_city": "MUM",
+      "mumbai": "MUM",
+      "trimulgherry": "HYD",
+      "teynampet": "CHE",
+      "trombay": "MUM",
+      "new_town": "KOL",
+      "malad": "MUM",
+      "tollygunge": "KOL",
+      "wadala": "MUM",
+      "uttarpara": "KOL",
+      "nizampet": "HYD",
+      "ernakulam": "1PT",
+      "bankra": "KOL",
+      "thippasandra": "BEN",
+      "samalkha": "NCR",
+      "ludhiana": "1PT",
+      "bidhannagar": "KOL",
+      "gurgaon": "NCR",
+      "ghansoli": "MUM",
+      "karol_bagh": "NCR",
+      "andheri": "MUM",
+      "thane": "MUM",
+      "royapettah": "CHE",
+      "kanakapura": "BEN",
+      "ambernath": "MUM",
+      "baruipur": "KOL",
+      "pudur": "CHE",
+      "sion": "MUM",
+      "barrackpore": "KOL",
+      "sriperumbudur": "CHE",
+      "rajarhat_gopalpur": "KOL",
+      "colaba": "MUM",
+      "mylapore": "CHE",
+      "faridabad": "NCR",
+      "hosur": "BEN",
+      "whitefield": "BEN",
+      "panvel": "MUM",
+      "karjat": "MUM",
+      "agra": "AGR",
+      "sarjapur": "BEN",
+      "kengeri": "BEN",
+      "yelahanka": "BEN",
+      "indore": "1PB",
+      "nungambakkam": "CHE",
+      "medchal": "HYD",
+      "chennai": "CHE",
+      "baranagar": "KOL",
+      "dahanu": "MUM",
+      "parel": "MUM",
+      "surat": "1PT",
+      "behala": "KOL",
+      "kalkaji": "NCR",
+      "gandipet": "HYD",
+      "virar": "MUM",
+      "ranchi": "1PT",
+      "hoskote": "BEN",
+      "bidadi": "BEN",
+      "madh": "MUM",
+      "dharavi": "MUM",
+      "kukatpally": "HYD",
+      "villivakkam": "CHE",
+      "sanpada": "MUM",
+      "secunderabad": "HYD",
+      "najafgarh": "NCR",
+      "hooghly": "KOL",
+      "kalwa": "MUM",
+      "barasat": "KOL",
+      "juhu": "MUM"
+    }
+  },
+  {
+    "tagType": "AsnTag",
+    "enabled": true,
+    "order": 6,
+    "defaultValue": "NA",
+    "prefix": "N_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map"
+    }
+  },
+  {
+    "tagType": "CustomTags",
+    "enabled": true,
+    "order": 7,
+    "defaultValue": "NA",
+    "prefix": "C",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "custom_cohort",
+      "totalCustomCohorts": 15,
+      "cohortGroupEnabledPreferences" :
+      {
+        "14" : [1, 2, 3],
+        "15": []
+      },
+      "cohortGroupEnablingStatus":
+      {
+        "1": false,
+        "2": false,
+        "3": false,
+        "4": false,
+        "5": false,
+        "6": false,
+        "7": false,
+        "8": false,
+        "9": false,
+        "10": false,
+        "11": false,
+        "12": false,
+        "13": false,
+        "14": true,
+        "15": true
+      },
+      "customCohort":
+      {
+        "P2051" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2051",
+          "priority": 1
+        },
+        "P3141" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P3141",
+          "priority": 1
+        },
+        "P3191" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P3191",
+          "priority": 1
+        },
+        "P2053" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2053",
+          "priority": 1
+        },
+        "P2023" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2023",
+          "priority": 1
+        },
+        "P2024" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2024",
+          "priority": 1
+        },
+        "P2025" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2025",
+          "priority": 1
+        },
+        "P3081" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P3081",
+          "priority": 1
+        },
+        "A_66646054" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "P2025",
+          "priority": 2
+        },
+        "A_72173043" :
+        {
+          "enabled": true,
+          "groupNumber": 14,
+          "tag": "A_72173043",
+          "priority": 3
+        }
+      }
+    }
+  },
+  {
+    "tagType": "PlatformTag",
+    "enabled": true,
+    "order": 8,
+    "defaultValue": "",
+    "prefix": "P_P_",
+    "acceptableValues":
+    [],
+    "metaData":
+    {
+      "type": "map",
+      "android": "AN",
+      "androidtv": "ANT",
+      "firestick": "ANT",
+      "firetv" : "ANT",
+      "ios": "IOS"
+    }
+  },
+  {
+    "tagType": "NCCSAffluenceTag",
+    "enabled": true,
+    "order": 9,
+    "defaultValue": "NCCS_NA",
+    "prefix": "",
+    "acceptableValues":
+    [
+      "NCCS_A"
+    ],
+    "metaData":
+    {
+      "type": "map"
+    }
+  }
+]
