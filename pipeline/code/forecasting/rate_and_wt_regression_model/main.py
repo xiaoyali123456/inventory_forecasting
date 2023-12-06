@@ -65,7 +65,7 @@ def main(run_date):
         # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
         #                    message=f"Train loss of {model.label} on {model.run_date}: {' -> '.join(model.train_loss_list)}")
         model.prediction(filtered_df, predict_filtered_df)
-        model.prediction_on_training_dataset(filtered_df)
+        # model.prediction_on_training_dataset(filtered_df)
 
 
 if __name__ == '__main__':

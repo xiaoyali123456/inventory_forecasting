@@ -411,7 +411,7 @@ if __name__ == '__main__':
     run_date = sys.argv[1]
     # run_date = "2023-10-06"
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        main(run_date)
+        main(run_date, bias=False)
         output_metrics_of_finished_matches(run_date)
         check_inventory_changes(run_date)
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
