@@ -59,7 +59,9 @@ def inventory_prediction(forecast_date):
         future = m.make_future_dataframe(periods=period)
         forecast = m.predict(future)
         d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
-        predictDf = spark.createDataFrame(d.reset_index().drop("cd", axis=1)).replace(float('nan'), None)
+        predictDf = spark.createDataFrame(d.reset_index().drop("cd", axis=1)[['ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
+                         'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
+                         'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
         predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
                          'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/predicted/cd={forecast_date}/ad_placement={ad_placement}")
