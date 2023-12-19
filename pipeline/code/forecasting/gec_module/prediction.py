@@ -101,8 +101,9 @@ merge_ad_placement_udf = F.udf(merge_ad_placement, StringType())
 
 
 if __name__ == '__main__':
-    sample_date = sys.argv[1]
+    sample_date = get_date_list(sys.argv[1], -2)[0]
     get_inventory_number(sample_date)
+    inventory_prediction(sample_date)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                        message=f"gec prophet prediction on {sample_date} is done.")
 

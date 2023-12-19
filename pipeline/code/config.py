@@ -185,3 +185,5 @@ supported_ad_placement = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", 
                           "BTF_HOMELOW", "BTF_MOVIESLOW2", "PREROLL", "MIDROLL"]
 
 
+# git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
+

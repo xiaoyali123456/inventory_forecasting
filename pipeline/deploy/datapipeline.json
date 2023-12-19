@@ -45,6 +45,16 @@
             "releaseLabel": "emr-5.31.0"
         },
         {
+            "id": "EmrBigGEC",
+            "type": "EmrCluster",
+            "applications": "spark",
+            "bootstrapAction": "#{myProjectFolder}/deploy/bootstrap.sh",
+            "coreInstanceCount": "64",
+            "coreInstanceType": "m5.xlarge",
+            "masterInstanceType": "m5.4xlarge",
+            "releaseLabel": "emr-5.31.0"
+        },
+        {
             "id": "EmrBigSampling",
             "type": "EmrCluster",
             "applications": "spark",
@@ -76,6 +86,18 @@
             "type": "Ec2Resource",
             "imageId": "ami-0203a7b2413c553de",
             "instanceType": "c5.xlarge"
+        },
+        {
+            "id": "GecModule",
+            "type": "ShellCommandActivity",
+            "scriptUri": "#{myProjectFolder}/code/gec_module.sh",
+            "scriptArgument": [
+                "#{myRunningDate}",
+                "#{myProjectFolder}/code/"
+            ],
+            "runsOn": {
+                "ref": "EmrBigGEC"
+            }
         },
         {
             "id": "Preprocess",

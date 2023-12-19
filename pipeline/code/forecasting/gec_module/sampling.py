@@ -254,7 +254,7 @@ def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=200):
 
 
 if __name__ == '__main__':
-    sample_date = sys.argv[1]
+    sample_date = get_date_list(sys.argv[1], -2)[0]
     spark = hive_spark("gec_sampling")
     backup_data(spark, sample_date, 0.25)
     cms_data = load_content_cms(spark)
