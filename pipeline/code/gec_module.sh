@@ -10,7 +10,7 @@ SPARK="spark-submit --deploy-mode client \
     --conf spark.driver.maxResultSize=0 \
     --py-files config.py,path.py,util.py"
 
-#$SPARK forecasting/gec_module/sampling.py $DATE
+$SPARK forecasting/gec_module/sampling.py $DATE
 $SPARK forecasting/gec_module/prediction.py $DATE
 
 
