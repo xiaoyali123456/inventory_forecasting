@@ -126,11 +126,12 @@ def backup_data(spark, sample_date, sample_rate):
         save_data_frame(inventory_data, backup_path)
 
 
-def sample_data_daily(spark, sample_date, cms_data, sample_rate=200):
+def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
     if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
         inventory_s3_path = f"{BACKUP_PATH}_0.25/cd={sample_date}"
         inventory_data = load_data_frame(spark, inventory_s3_path) \
             .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(sample_rate)))\
+            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}')\
             .withColumn("ad_placement", merge_ad_placement('ad_placement'))\
             .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")')\
             .withColumn("date", F.lit(sample_date))\
@@ -226,7 +227,7 @@ def extract_3rd_party_cohorts(col, split_str=','):
 # sample rate = 1/200, about 570k rows, about 30MB
 # TODO need to daily join shifu ad_insertion table to get the max_slot_number and max_break_duration for preroll and midroll
 # TODO add premium col in cms, but it can be changed, so we nedd to update daily
-def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=200):
+def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=300):
     res = load_data_frame(spark, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}") \
         .where(f"{filter_str}")
     cols = ['content_id', 'adv_id', 'city', 'state', 'location_cluster', 'gender', 'age_bucket',
