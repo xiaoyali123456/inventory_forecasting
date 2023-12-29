@@ -159,7 +159,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-/sampling/data
+/pipeline/code/forecasting/dataset_update/data
 /data
 .DS_Store
 .vscode

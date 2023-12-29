@@ -1,10 +1,8 @@
 import sys
 from functools import reduce
-import pyspark.sql.functions as F
-from pyspark.sql.types import StringType
 from pyspark.sql.window import Window
 
-from common import *
+from sampling.common import *
 
 def load_inventory(cd, n=30):
     last_cd = get_last_cd(INVENTORY_SAMPLING_PATH, cd, n)

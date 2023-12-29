@@ -44,6 +44,7 @@ sudo python3 -m pip install \
     pydantic==1.10.7 \
     PyMeeus==0.5.12 \
     pyparsing==3.0.9 \
+    pyroaring \
     python-dateutil==2.8.2 \
     pytz==2020.1 \
     PyYAML==5.3.1 \
