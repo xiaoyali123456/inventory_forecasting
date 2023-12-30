@@ -23,7 +23,7 @@ SPARK="spark-submit --deploy-mode client \
     --conf spark.driver.maxResultSize=0 \
     --py-files config.py,path.py,util.py"
 
-$SPARK sampling/combine.py $DATE
+$SPARK postprocess/combine.py $DATE
 
 PYTHONPATH="$PWD" python3 postprocess/postprocess.py $DATE
 
