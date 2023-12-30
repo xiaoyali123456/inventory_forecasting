@@ -259,16 +259,21 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     else:
         spark = hive_spark("dataset_update")
         the_day_before_run_date = get_date_list(run_date, -2)[0]
-        new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
-        new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
-        print("new_match df")
-        new_match_df.show(20, False)
-        new_train_df = previous_train_df \
-            .select(*MATCH_TABLE_COLS)\
-            .union(new_match_df.select(*MATCH_TABLE_COLS))\
-            .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
-            .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
-            .cache()
+        try:
+            new_match_df = new_match.add_labels_to_new_matches(spark, the_day_before_run_date, new_match_df)
+        except Exception as e:
+            print(e)
+            new_train_df = previous_train_df
+        else:
+            new_match_df = update_avg_dau_label(new_match_df, avg_dau_df)
+            print("new_match df")
+            new_match_df.show(20, False)
+            new_train_df = previous_train_df \
+                .select(*MATCH_TABLE_COLS)\
+                .union(new_match_df.select(*MATCH_TABLE_COLS))\
+                .withColumn('frees_watching_match_rate', F.expr('match_active_free_num/total_frees_number')) \
+                .withColumn('subscribers_watching_match_rate', F.expr('match_active_sub_num/total_subscribers_number')) \
+                .cache()
     new_train_df = new_train_df.where('date not in ("2023-08-30", "2023-08-31", "2023-09-02", "2023-09-17")')
     save_data_frame(new_train_df, TRAIN_MATCH_TABLE_PATH + f"/cd={run_date}")
     new_train_df.groupby('tournament').count().show(200, False)
