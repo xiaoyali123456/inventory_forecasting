@@ -82,7 +82,8 @@ def load_multiple_csv_file(spark, file_paths, delimiter: str = ','):
     # Remove duplicate columns
     all_columns = list(set(all_columns))
     # print(all_columns)
-    all_columns.remove('Sr. No.')
+    if 'Sr. No.' in all_columns:
+        all_columns.remove('Sr. No.')
     # Initialize an empty DataFrame with the desired schema
     output_df = spark.read.option("header", "true").option('delimiter', delimiter).csv(file_paths[0])
     # output_df.printSchema()
