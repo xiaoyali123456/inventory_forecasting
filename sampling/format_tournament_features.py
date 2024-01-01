@@ -780,7 +780,7 @@ load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
 # from config import *
 #
 #
-# def make_segment_str(lst):
+# def extract_segments(lst):
 #     filtered = set()
 #     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
 #     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
@@ -812,7 +812,7 @@ load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
 #         return None
 #     if type(lst) == str:
 #         lst = lst.split(",")
-#     return make_segment_str(lst)
+#     return extract_segments(lst)
 #
 #
 # @F.udf(returnType=StringType())
@@ -829,7 +829,7 @@ load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
 #         lst = js.get('data', [])
 #     else:
 #         return None
-#     return make_segment_str(lst)
+#     return extract_segments(lst)
 #
 #
 # @F.udf(returnType=TimestampType())

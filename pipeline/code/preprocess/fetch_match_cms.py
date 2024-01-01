@@ -1,3 +1,6 @@
+"""
+fetch finished cricket matches from cms, extract important cols and save them in s3
+"""
 import sys
 
 from util import *
@@ -6,7 +9,6 @@ from path import *
 # save previous match meta data to s3
 if __name__ == '__main__':
     cd = sys.argv[1]
-    # cd = "2023-08-28"
     spark = hive_spark("fetch_match_cms")
     matches = spark.sql('''
     SELECT
@@ -35,4 +37,4 @@ if __name__ == '__main__':
     ORDER BY startdate DESC
     ''').distinct()
     matches.repartition(1).write.mode('overwrite').parquet(MATCH_CMS_PATH_TEMPL % cd)
-    matches.where('startdate >= "2023-10-05"').show(100, False)
+    # matches.where('startdate >= "2023-10-05"').show(100, False)

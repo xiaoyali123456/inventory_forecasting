@@ -1,6 +1,7 @@
 """
     1.calculate inventory&reach for each cohort of each match
     2.need to scale the inventory&reach when the languages or platform of the match is uncompleted
+    3.update the dashboards
 """
 import sys
 import os
@@ -11,7 +12,7 @@ from util import *
 from path import *
 
 
-def parse(string):
+def parse_json(string):
     if string is None or string == '':
         return False
     lst = [x.lower() for x in json.loads(string)]
@@ -50,13 +51,13 @@ def combine_inventory_and_sampling(cd):
         combine['seasonId'] = meta_info['seasonId']
         combine['adPlacement'] = 'MIDROLL'
         # process cases when languages of this match are incomplete
-        languages = parse(meta_info.contentLanguages)
+        languages = parse_json(meta_info.contentLanguages)
         if languages:
             combine.reach *= combine.reach.sum() / combine[combine.language.isin(languages)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.language.isin(languages)].inventory.sum()
             combine = combine[combine.language.isin(languages)].reset_index(drop=True)
         # process case when platforms of this match are incomplete
-        platforms = parse(meta_info.platformsSupported)
+        platforms = parse_json(meta_info.platformsSupported)
         if platforms:
             combine.reach *= combine.reach.sum() / combine[combine.platform.isin(platforms)].reach.sum()
             combine.inventory *= combine.inventory.sum() / combine[combine.platform.isin(platforms)].inventory.sum()

@@ -1,3 +1,12 @@
+"""
+1. load parsed request data from s3
+2. feature process for ML models
+3. calculate avg sub/free DAU at tournament level from the combination data of gt DAU and predicted DAU
+4. generate prediction dataset for future matches
+5. add finished focal matches to old training dataset
+    5.1 calculate sub/free vv and avg_wt for finished matches using wv_aggr table
+    5.2 calculate inventory for finished matches using playout logs and wv table
+"""
 import holidays
 import sys
 
@@ -61,20 +70,19 @@ def check_valid_team(team):
         return team
     else:
         dis = 100000
-        res = ""
         for valid_team in valid_teams:
             print(valid_team)
             print(team)
             new_dis = levenshtein_distance(valid_team, team)
             if new_dis < dis:
                 dis = new_dis
-                res = valid_team
         if dis <= 1:
             return team + "_invalid_team"
         else:
             return team
 
 
+# calculate edit distance between two strings
 def levenshtein_distance(str1, str2):
     if len(str1) < len(str2):
         return levenshtein_distance(str2, str1)
@@ -113,6 +121,7 @@ def correct_team(team):
             return team
 
 
+# special case processing when match id is a negative number, mainly happened in tour matches
 @F.udf(returnType=StringType())
 def extract_match_id(match_id):
     match_id_int = int(match_id)
@@ -127,7 +136,6 @@ def feature_processing(df, run_date):
     run_year = int(run_date[:4])
     global holiday_list, cid_mapping
     holiday_list = get_holidays("IN", run_year) + get_holidays("IN", run_year+1)
-    print("df")
     df.groupby('seasonName').count().show(20, False)
     cms_df = load_data_frame(spark, MATCH_CMS_PATH_TEMPL % run_date)\
         .selectExpr('content_id', 'startdate', 'lower(title)').collect()
@@ -135,6 +143,7 @@ def feature_processing(df, run_date):
         if row[1] not in cid_mapping:
             cid_mapping[row[1]] = []
         cid_mapping[row[1]].append([row[0], row[2]])
+    # cid_mapping = {date: list of [content_id, title]}
     feature_df = df \
         .withColumn('date', F.col('matchDate')) \
         .withColumn('tournament', F.expr('lower(seasonName)')) \
@@ -200,7 +209,10 @@ def feature_processing(df, run_date):
     print("feature df")
     feature_df.show(2000, False)
     print("invalid feature df")
-    feature_df.where(F.expr('team1_check like "%invalid_team%" or team2_check like "%invalid_team%"')).select('date', 'content_id', 'team1', 'team2', 'team1_check', 'team2_check').show(2000, False)
+    feature_df\
+        .where(F.expr('team1_check like "%invalid_team%" or team2_check like "%invalid_team%"'))\
+        .select('date', 'content_id', 'team1', 'team2', 'team1_check', 'team2_check')\
+        .show(2000, False)
     save_data_frame(feature_df, ALL_MATCH_TABLE_PATH + f"/cd={run_date}")
     return feature_df
 
@@ -236,7 +248,6 @@ def update_avg_dau_label(df, avg_dau_df):
 
 def update_prediction_dataset(request_df, avg_dau_df):
     prediction_df = request_df.where('matchShouldUpdate=true')
-    # prediction_df = request_df  # TODO
     prediction_df = update_avg_dau_label(prediction_df, avg_dau_df)
     print("prediction df")
     print(prediction_df.count())
@@ -279,7 +290,7 @@ def update_train_dataset(request_df, avg_dau_df, previous_train_df):
     new_train_df.groupby('tournament').count().show(200, False)
 
 
-def generate_valid_teams(previous_train_df):
+def get_valid_team_names(previous_train_df):
     train = previous_train_df \
         .withColumn('team1', F.element_at(F.col('teams'), 1)) \
         .withColumn('team2', F.element_at(F.col('teams'), 2))
@@ -296,11 +307,10 @@ def update_dataset(run_date):
     request_df = load_data_frame(spark, f"{PREPROCESSED_INPUT_PATH}cd={run_date}").cache()
     last_update_date = get_last_cd(TRAIN_MATCH_TABLE_PATH, end=run_date, invalid_cd=run_date)
     print(last_update_date)
-    # last_update_date = "2023-09-18"
     # we can union training dataset of 2023-09-17 and 2023-09-18 to get the full training dataset
     previous_train_df = load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd={last_update_date}")
     # load_data_frame(spark, TRAIN_MATCH_TABLE_PATH + f"/cd=2023-12-05").where('tournament="england_tour_of_india2021"').show(100, False)
-    generate_valid_teams(previous_train_df)
+    get_valid_team_names(previous_train_df)
     # feature processing
     request_df = feature_processing(request_df, run_date)
     # calculate avg dau of each tournament
@@ -311,6 +321,7 @@ def update_dataset(run_date):
     update_train_dataset(request_df, avg_dau_df, previous_train_df)
 
 
+# check if any feature appear in prediction dataset but not in training dataset
 def check_feature_shot_through(run_date):
     train_df = load_data_frame(spark, f"{TRAIN_MATCH_TABLE_PATH}/cd={run_date}").cache()
     prediction_df = load_data_frame(spark, f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}").cache()
@@ -321,8 +332,6 @@ def check_feature_shot_through(run_date):
             .distinct()\
             .join(train_df.select(F.explode(F.col(fea)).alias(fea)).distinct(), fea, 'left_anti')
         if df.count() > 0:
-            # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-            #                    message=f"ALERT: feature {fea} on {run_date} not shot in training dataset!")
             publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title=f"ALERT: feature {fea} on {run_date} not shot in training dataset",
                              output_df=df, region=REGION)
 

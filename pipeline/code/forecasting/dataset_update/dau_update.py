@@ -1,3 +1,8 @@
+"""
+1. update daily gt sub/free DAU from wv_aggr table
+2. use Prophet model to predict sub/free DAU
+3. combine the gt DAU with predicted DAU
+"""
 import sys
 
 import pandas as pd
@@ -63,7 +68,6 @@ if __name__ == '__main__':
     # spark.stop()
     spark = hive_spark("dau_update")
     run_date = sys.argv[1]
-    # run_date = "2023-09-20"
     true_vv_path = f'{DAU_TRUTH_PATH}cd={run_date}/'
     truth(run_date, true_vv_path)
     forecast(run_date, true_vv_path)

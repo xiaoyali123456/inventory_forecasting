@@ -144,6 +144,7 @@ def unify_language(language):
     return ''
 
 
+# split the inv/reach of the empty value with the inv/reach distribution of the cohort
 @F.udf(returnType=MapType(keyType=StringType(), valueType=StringType()))
 def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
     global inventory_distribution, reach_distribution
@@ -158,7 +159,7 @@ def cohort_enhance(cohort, ad_time, reach, cohort_col_name):
     return res
 
 
-# unify regular cohort names
+# unify regular cohort names and split the inv/reach of the empty value with the inv/reach distribution of the cohort
 def unify_regular_cohort_names(df: DataFrame, group_cols, DATE):
     valid_matches = spark.read.parquet(MATCH_CMS_PATH_TEMPL % DATE) \
         .selectExpr('startdate as cd', 'content_id').distinct()
@@ -228,7 +229,7 @@ def moving_avg_calculation_of_regular_cohorts(df, group_cols, target, alpha=0.2)
     return res_df.iloc[-1].rename(target).reset_index()  # cols=country, platform,..., target
 
 
-def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
+def combine_regular_cohort_with_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
     custom_cohort_df = pd.read_parquet(f'{CUSTOM_COHORT_PATH}cd={cd}/')
     custom_cohort_df = custom_cohort_df[~(custom_cohort_df.is_cricket==False)]
     custom_cohort_df.segments.fillna('', inplace=True)
@@ -241,10 +242,11 @@ def combine_custom_cohort(regular_cohort_df, cd, src_col, dst_col):
     return combine_df.drop(columns=[dst_col+'_x', dst_col+'_y'])  # schema: country, platform,..., custom_cohorts, target
 
 
-def add_new_languages(df, target_col):
+# add unseen languages to the cohort distribution by copying the language of the minimum ratio
+def add_unseen_languages_to_cohort_distribution(df, target_col):
     cols = df.columns
     new_languages = ['marathi', 'malayalam', 'bengali', 'gujarati']
-    new_languages_df = [df]
+    new_languages_df_list = [df]
     print(target_col)
     min_language = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][0]
     min_language_ratio = df.groupby('language').agg(F.sum(target_col).alias(target_col)).orderBy(target_col).collect()[0][1]
@@ -252,10 +254,10 @@ def add_new_languages(df, target_col):
     print(min_language, min_language_ratio)
     for new_language in new_languages:
         if df.where(f'language="{new_language}"').count() == 0:
-            new_languages_df.append(df.where(f'language="{min_language}"').withColumn('language', F.lit(new_language)).select(*cols))
+            new_languages_df_list.append(df.where(f'language="{min_language}"').withColumn('language', F.lit(new_language)).select(*cols))
             total_ratio += min_language_ratio
     print(total_ratio)
-    res = reduce(lambda x, y: x.union(y), new_languages_df).withColumn(target_col, F.expr(f"{target_col}/{total_ratio}"))
+    res = reduce(lambda x, y: x.union(y), new_languages_df_list).withColumn(target_col, F.expr(f"{target_col}/{total_ratio}"))
     res.groupby('language').agg(F.sum(target_col).alias(target_col), F.count('*')).orderBy(target_col).show(20, False)
     return res
 
@@ -267,14 +269,14 @@ def main(cd):
     # print(len(unified_regular_cohorts_df))
     # inventory distribution prediction
     regular_cohort_inventory_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='ad_time')
-    combine_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
-    res = add_new_languages(load_data_frame(spark, f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}'), 'ad_time')
+    combine_regular_cohort_with_custom_cohort(regular_cohort_inventory_df, cd, 'watch_time', 'ad_time').to_parquet(f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
+    res = add_unseen_languages_to_cohort_distribution(load_data_frame(spark, f'{AD_TIME_SAMPLING_OLD_PATH}cd={cd}'), 'ad_time')
     save_data_frame(res, f'{AD_TIME_SAMPLING_PATH}cd={cd}')
     print("inventory sampling done")
     # reach distribution prediction
     regular_cohort_reach_df = moving_avg_calculation_of_regular_cohorts(unified_regular_cohorts_df, ['cd'], target='reach')
-    combine_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
-    res = add_new_languages(load_data_frame(spark, f'{REACH_SAMPLING_OLD_PATH}cd={cd}'), 'reach')
+    combine_regular_cohort_with_custom_cohort(regular_cohort_reach_df, cd, 'reach', 'reach').to_parquet(f'{REACH_SAMPLING_OLD_PATH}cd={cd}/p0.parquet')
+    res = add_unseen_languages_to_cohort_distribution(load_data_frame(spark, f'{REACH_SAMPLING_OLD_PATH}cd={cd}'), 'reach')
     save_data_frame(res, f'{REACH_SAMPLING_PATH}cd={cd}')
     print("reach sampling done")
 

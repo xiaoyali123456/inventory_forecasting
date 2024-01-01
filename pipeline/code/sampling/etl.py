@@ -25,7 +25,7 @@ from path import *
 from config import *
 
 
-def make_segment_str(lst):
+def extract_segments(lst):
     filtered = set()
     equals = ['A_15031263', 'A_94523754', 'A_40990869', 'A_21231588']  # device price
     prefixs = ['NCCS_', 'CITY_', 'STATE_', 'FMD00', 'MMD00', 'P_', 'R_F', 'R_M']
@@ -52,7 +52,7 @@ def make_segment_str(lst):
     return '|'.join(sorted(filtered))
 
 
-def convert_short_to_log_tag(lst):
+def convert_short_tag_to_log_tag(lst):
     demo_short_to_long = {
         'DF01': 'FB_MALE_13-17',
         'DF02': 'FB_MALE_18-24',
@@ -197,7 +197,7 @@ def parse_preroll_segment(lst):
         return None
     if type(lst) == str:
         lst = lst.split(",")
-    return make_segment_str(convert_short_to_log_tag(lst))
+    return extract_segments(convert_short_tag_to_log_tag(lst))
 
 
 @F.udf(returnType=StringType())
@@ -214,7 +214,7 @@ def parse_wv_segments(segments):
         lst = js.get('data', [])
     else:
         return None
-    return make_segment_str(lst)
+    return extract_segments(lst)
 
 
 @F.udf(returnType=TimestampType())
@@ -427,7 +427,6 @@ def process_regular_cohorts(cd):
                 folder_path = f'run_log/blaze/prod/test/{date}/'
                 file_list = get_s3_paths(bucket_name, folder_path)
                 raw_playout = load_multiple_csv_file(spark, file_list)
-                # raw_playout = spark.read.csv(PLAYOUT_PATH + date, header=True)
                 raw_playout = raw_playout.where(raw_playout['Start Date'].isNotNull() & raw_playout['End Date'].isNotNull())
                 playout = preprocess_playout(raw_playout)\
                     .where(F.col('content_id').isin(content_ids))

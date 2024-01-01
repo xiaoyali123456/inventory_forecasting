@@ -1,3 +1,12 @@
+"""
+1. calculate inventory of matches in prediction dataset using formula
+    total_subs_reach = avg_tour_subs_dau * match_subs_active_percentage
+    total_free_reach = avg_tour_free_dau * match_free_active_percentage
+    ad_load = (break_number * average_break_duration / match_duration)
+    total_reach = total_subs_reach + total_free_reach
+    total_inventory = (total_subs_reach * wt_per_subs_per_match + total_free_reach * wt_per_free_per_match) * retention_ratio * ad_load
+2. output metrics of finished matches to slack channel
+"""
 import sys
 
 import pyspark.sql.functions as F
@@ -39,9 +48,10 @@ def load_dnn_predictions(df, label_path):
         .join(load_data_frame(spark, f"{label_path}/label={PREROLL_FREE_SESSIONS}"), common_cols)
 
 
-# Forecast inventory at match level
-def main(run_date, bias=True):
-    if bias:
+# forecast inventory at match level
+# avod_wt_bias/svod_wt_bias means the avod/svod bias between gt wt and predicted wt
+def main(run_date, compensate_wt_bias=True):
+    if compensate_wt_bias:
         prediction_feature_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd={run_date}/') \
             .where(f'date >= "2023-10-05"') \
             .withColumn('avod_wt', F.expr('match_active_free_num*watch_time_per_free_per_match')) \
@@ -55,12 +65,12 @@ def main(run_date, bias=True):
             .withColumn('avod_wt_bias', F.expr('avod_wt - estimate_avod_wt')) \
             .withColumn('svod_wt_bias', F.expr('svod_wt - estimate_svod_wt'))
         # print(train_prediction_feature_df.count())
-        avod_beta = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][1]
-        svod_beta = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][2]
+        avod_wt_bias = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][1]
+        svod_wt_bias = train_prediction_feature_df.groupby('tournament').agg(F.avg('avod_wt_bias'), F.avg('svod_wt_bias')).collect()[0][2]
     else:
-        avod_beta = 0.0
-        svod_beta = 0.0
-    print(avod_beta, svod_beta)
+        avod_wt_bias = 0.0
+        svod_wt_bias = 0.0
+    print(avod_wt_bias, svod_wt_bias)
     prediction_feature_df = load_prediction_dataset(run_date)
     partition_col = "request_id"
     # load parameters predicted by dnn models
@@ -69,9 +79,9 @@ def main(run_date, bias=True):
         .withColumn('estimated_free_match_number', F.expr('total_frees_number * estimated_frees_watching_match_rate')) \
         .withColumn('estimated_sub_match_number', F.expr('total_subscribers_number * estimated_subscribers_watching_match_rate')) \
         .withColumn('avod_wt',
-                    F.expr(f'estimated_free_match_number * estimated_watch_time_per_free_per_match + {avod_beta}')) \
+                    F.expr(f'estimated_free_match_number * estimated_watch_time_per_free_per_match + {avod_wt_bias}')) \
         .withColumn('svod_wt',
-                    F.expr(f'estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match + {svod_beta}')) \
+                    F.expr(f'estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match + {svod_wt_bias}')) \
         .withColumn('estimated_avg_concurrency', F.expr('(avod_wt + svod_wt)/match_duration')) \
         .withColumn('estimated_inventory', F.expr(f'estimated_avg_concurrency * {RETENTION_RATE} * (break_duration / 10.0)')) \
         .withColumn('estimated_reach', F.expr(f"(estimated_free_match_number + estimated_sub_match_number)  * {RETENTION_RATE}")) \
@@ -111,12 +121,14 @@ def unify_teams(teams, default_teams):
         return default_teams
 
 
+# merge numbers from gt, dynamic model, static model and growth team
 def output_metrics_of_finished_matches(run_date):
     res = []
     the_day_before_run_date = get_date_list(run_date, -2)[0]
     last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
     print(the_day_before_run_date)
     print(last_update_date)
+    # calculate gt numbers
     gt_dau_df = load_data_frame(spark, f'{DAU_TRUTH_PATH}cd={run_date}/')\
         .withColumnRenamed('ds', 'date')\
         .where(f'date="{the_day_before_run_date}"')\
@@ -151,6 +163,8 @@ def output_metrics_of_finished_matches(run_date):
             gt_inv_df = gt_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
     # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ground truth of matches", output_df=gt_inv_df, region=REGION)
     res.append(gt_inv_df.withColumn('tag', F.lit('gt')))
+
+    # calculate dynamic model numbers
     factor = 1.3
     predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={last_update_date}/') \
         .withColumnRenamed('ds', 'date') \
@@ -206,6 +220,8 @@ def output_metrics_of_finished_matches(run_date):
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
     # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3", output_df=predict_inv_df, region=REGION)
     res.append(predict_inv_df.withColumn('tag', F.lit('ml_dynamic_model')))
+
+    # calculate growth team numbers
     growth_df = load_data_frame(spark, GROWTH_PREDICITON_PATH, "csv", True).where(f"date='{the_day_before_run_date}'").cache()
     growth_cols = growth_df.columns
     for col in cols:
@@ -218,6 +234,8 @@ def output_metrics_of_finished_matches(run_date):
             else:
                 growth_df = growth_df.withColumn(col, F.lit(None))
     res.append(growth_df.select(predict_inv_df.columns).withColumn('tag', F.lit('growth_team_method')))
+
+    # calculate static model numbers
     if "2023-09-05" < the_day_before_run_date:
         predict_inv_df = load_data_frame(spark, ML_STATIC_MODEL_PREDICITON_FOR_CWC2023_PATH, "csv", True).where(f"date='{the_day_before_run_date}'").cache()
         # predict_inv_df.printSchema()
@@ -266,8 +284,9 @@ def output_metrics_of_finished_matches(run_date):
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} * {factor}, 1)'))
         else:
             predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
-    # publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="prediction of matches without multiple 1.3", output_df=predict_inv_df, region=REGION)
     res.append(predict_inv_df.withColumn('tag', F.lit('ml_static_model_with_factor_1.3')))
+
+    # merge numbers from gt, dynamic model, static model and growth team
     res_df = res[0].union(res[2]).union(res[1]).union(res[4]).union(res[5]).union(res[3])
     res_cols = res_df.columns
     for col in cols:
@@ -278,44 +297,7 @@ def output_metrics_of_finished_matches(run_date):
     save_data_frame(res_df.select(res_cols), f"{METRICS_PATH}/cd={the_day_before_run_date}")
 
 
-def output_metrics(last_update_date):
-    print(last_update_date)
-    factor = 1.0
-    predict_dau_df = load_data_frame(spark, f'{DAU_FORECAST_PATH}cd={last_update_date}/') \
-        .withColumnRenamed('ds', 'date') \
-        .withColumn('vv', F.expr(f"vv * {factor}")) \
-        .withColumn('free_vv', F.expr(f"free_vv * {factor}")) \
-        .withColumn('sub_vv', F.expr(f"sub_vv * {factor}")) \
-        .withColumn('vv', F.expr(f"free_vv + sub_vv")) \
-        .cache()
-    predict_inv_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/') \
-        .withColumn('avod_vv', F.expr('estimated_free_match_number/1')) \
-        .withColumn('avod_reach', F.expr(f'estimated_free_match_number * {RETENTION_RATE}')) \
-        .withColumn('svod_vv', F.expr('estimated_sub_match_number/1')) \
-        .withColumn('svod_reach', F.expr(f'estimated_sub_match_number  * {RETENTION_RATE}')) \
-        .withColumn('overall_vv', F.expr('avod_vv+svod_vv')) \
-        .withColumn('avod_wt', F.expr('estimated_free_match_number * estimated_watch_time_per_free_per_match')) \
-        .withColumn('svod_wt', F.expr('estimated_sub_match_number * estimated_watch_time_per_subscriber_per_match')) \
-        .withColumn('overall_wt', F.expr('avod_wt+svod_wt')) \
-        .join(predict_dau_df, 'date') \
-        .selectExpr('date', 'teams', 'vv as overall_dau', 'free_vv as avod_dau', 'sub_vv as svod_dau',
-                    'overall_vv', 'avod_vv', 'svod_vv', 'avod_vv/svod_vv as vv_rate',
-                    'overall_wt', 'avod_wt', 'svod_wt', 'estimated_inventory as total_inventory',
-                    f'estimated_reach as total_reach', 'avod_reach', 'svod_reach')
-    cols = predict_inv_df.columns[2:]
-    if last_update_date >= "2023-09-11":
-        for col in cols[3:]:
-            if col != "vv_rate":
-                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} * {factor}, 1)'))
-            else:
-                predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
-    for col in cols:
-        if col != "vv_rate":
-            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col} / 1000000.0, 1)'))
-        else:
-            predict_inv_df = predict_inv_df.withColumn(col, F.expr(f'round({col}, 1)'))
-
-
+# check if any inventory prediction change largely
 def check_inventory_changes(run_date):
     last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
     old_df = load_data_frame(spark, f'{TOTAL_INVENTORY_PREDICTION_PATH}/cd={last_update_date}/')\
@@ -329,89 +311,12 @@ def check_inventory_changes(run_date):
     if new_df.count() > 0:
         publish_to_slack(topic=SLACK_NOTIFICATION_TOPIC, title="ALERT: inventory change largely",
                          output_df=new_df, region=REGION)
-        # slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-        #                    message=f"ALERT: inventory change largely on {run_date}!")
-
-
-def output_metrics_of_tournament(date_list, prediction_path):
-    df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{prediction_path}/cd={date}") for date in date_list]) \
-        .where('tag in ("ml_dynamic_model", "gt")') \
-        .withColumn('if_contain_india_team', F.expr(f"if(locate('india', teams)=0, 0, 1)")).cache()
-    # df.where('tag in ("ml_dynamic_model")').orderBy('date').show(200, False)
-    res = df.groupby('tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy('tag')
-    print(res.collect()[1][1], res.collect()[0][1], res.collect()[1][1] / res.collect()[0][1] - 1)
-    res = df.groupby('if_contain_india_team', 'tag').agg(F.sum('overall_wt').alias('overall_wt')).orderBy(
-        'if_contain_india_team', 'tag').cache()
-    print("india")
-    print(res.collect()[3][2], res.collect()[2][2], res.collect()[3][2] / res.collect()[2][2] - 1)
-    print("non india")
-    print(res.collect()[1][2], res.collect()[0][2], res.collect()[1][2] / res.collect()[0][2] - 1)
-
-
-# main("2023-09-30")
-# for run_date in get_date_list("2023-10-06", 19):
-#     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-#         print(run_date)
-#         main(run_date)
-#         output_metrics_of_finished_matches(run_date)
-#         check_inventory_changes(run_date)
-#     else:
-#         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-#                            message=f"inventory forecasting on {run_date} nothing update.")
-
-# df = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"{METRICS_PATH}/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
-#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt')
-# df2 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
-#         .where('tag in ("ml_dynamic_model")').selectExpr('date', 'teams', 'overall_wt as overall_wt_base')
-# df3 = reduce(lambda x, y: x.union(y), [load_data_frame(spark, f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics/cd={date}") for date in get_date_list("2023-10-05", 18)]) \
-#         .where('tag in ("gt")').selectExpr('date', 'teams', 'overall_wt as overall_wt_gt')
-# res = df.join(df2, ['date', 'teams']).join(df3, ['date', 'teams'])\
-# .withColumn('new_abs_error', F.expr('abs(overall_wt/overall_wt_gt-1)'))\
-# .withColumn('old_abs_error', F.expr('abs(overall_wt_base/overall_wt_gt-1)'))
-# res.withColumn('tag', F.lit('abs_erro')).groupby('tag').agg(F.avg('overall_wt'), F.avg('overall_wt_base'),F.avg('overall_wt_gt'), F.avg('new_abs_error'), F.avg('old_abs_error')).show(1000,False)
-# print(METRICS_PATH)
-# output_metrics_of_tournament(get_date_list("2023-10-05", 18), METRICS_PATH)
-
-# load dnn prediction results
-def load_dnn_predictions_one_date(run_date, MODEL_VERSION, content_id_df):
-    last_update_date = get_last_cd(TOTAL_INVENTORY_PREDICTION_PATH, end=run_date)
-    label_path = f"{PIPELINE_BASE_PATH}/dnn_predictions{MODEL_VERSION}/cd={last_update_date}"
-    common_cols = ['content_id']
-    # load parameters predicted by dnn models
-    return load_data_frame(spark, f"{label_path}/label={FREE_RATE_LABEL}").join(content_id_df, 'content_id').where(f'date="{run_date}"') \
-        .join(load_data_frame(spark, f"{label_path}/label={FREE_WT_LABEL}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={SUB_RATE_LABEL}"), common_cols) \
-        .join(load_data_frame(spark, f"{label_path}/label={SUB_WT_LABEL}"), common_cols)
-
-
-# content_id_df = load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/').select('date', 'content_id').distinct().cache()
-# old_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, "", content_id_df) for date in get_date_list("2023-10-05", 18)])
-# new_prediction_df = reduce(lambda x, y: x.union(y), [load_dnn_predictions_one_date(date, MODEL_VERSION, content_id_df) for date in get_date_list("2023-10-05", 18)])
-# load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
-#     .join(old_prediction_df, ['date', 'content_id'])\
-#     .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
-#     .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
-#     .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
-#     .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
-#     .groupBy('tournament')\
-#     .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
-#     .show(100, False)
-# load_data_frame(spark, f'{TRAIN_MATCH_TABLE_PATH}/cd=2023-10-25/')\
-#     .join(new_prediction_df, ['date', 'content_id'])\
-#     .withColumn(f'{FREE_RATE_LABEL}_error', F.expr(f"abs(estimated_{FREE_RATE_LABEL}/{FREE_RATE_LABEL}-1)"))\
-#     .withColumn(f'{SUB_RATE_LABEL}_error', F.expr(f"abs(estimated_{SUB_RATE_LABEL}/{SUB_RATE_LABEL}-1)"))\
-#     .withColumn(f'{FREE_WT_LABEL}_error', F.expr(f"abs(estimated_{FREE_WT_LABEL}/{FREE_WT_LABEL}-1)"))\
-#     .withColumn(f'{SUB_WT_LABEL}_error', F.expr(f"abs(estimated_{SUB_WT_LABEL}/{SUB_WT_LABEL}-1)"))\
-#     .groupBy('tournament')\
-#     .agg(F.count('*'), F.avg(f"{FREE_RATE_LABEL}_error"), F.avg(f"{SUB_RATE_LABEL}_error"), F.avg(f"{FREE_WT_LABEL}_error"), F.avg(f"{SUB_WT_LABEL}_error"))\
-#     .show(100, False)
 
 
 if __name__ == '__main__':
     run_date = sys.argv[1]
-    # run_date = "2023-10-06"
     if check_s3_path_exist(f"{PREDICTION_MATCH_TABLE_PATH}/cd={run_date}/"):
-        main(run_date, bias=False)
+        main(run_date, compensate_wt_bias=False)
         output_metrics_of_finished_matches(run_date)
         check_inventory_changes(run_date)
         slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,

@@ -1,3 +1,8 @@
+"""
+APIs including:
+1. calculate sub/free vv and avg_wt for finished matches using wv_aggr table
+2. calculate inventory for finished matches using playout logs and wv table
+"""
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 import pandas as pd
@@ -6,7 +11,7 @@ from path import *
 from util import *
 
 
-# calculate free/sub reach and avg_wt
+# calculate free/sub reach and avg_wt from wv_aggr table
 def calculate_reach_and_wt_from_wv_table(spark, date):
     data_source = "watched_video_aggr_sub"
     if not check_s3_path_exist(PIPELINE_BASE_PATH + f"/label/{data_source}/cd={date}"):
@@ -39,7 +44,7 @@ def calculate_reach_and_wt_from_wv_table(spark, date):
     return match_sub_df, match_free_df
 
 
-# get break list with break_start_time, break_end_time
+# get break list with format (break_start_time, break_end_time)
 def break_info_processing(playout_df, date):
     cols = ['content_id', 'break_start_time_int', 'break_end_time_int']
     playout_df = playout_df \

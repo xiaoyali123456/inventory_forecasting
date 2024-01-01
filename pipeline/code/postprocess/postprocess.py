@@ -1,3 +1,7 @@
+"""
+1. update booking tool request as finished status
+2. trigger airflow job to fetch inventory prediction result on booking tool side
+"""
 import requests
 import sys
 import os
@@ -12,6 +16,7 @@ def check_s3_path_exist(s3_path: str) -> bool:
     return os.system(f"aws s3 ls {s3_path}_SUCCESS") == 0
 
 
+# trigger airflow job to fetch inventory prediction result on booking tool side
 def trigger_airflow(cd):
     r = requests.post(
         'https://airflow-prod.data.k8s.hotstar-labs.com/api/experimental/dags/adtech_prod_midroll_inventory_forecast/dag_runs',
