@@ -25,6 +25,7 @@ sudo python3 -m pip install \
     fsspec==2023.1.0 \
     h11==0.14.0 \
     hijri-converter==2.3.1 \
+    holidays==0.23 \
     idna==3.4 \
     importlib-metadata==6.6.0 \
     jmespath==0.10.0 \
@@ -60,9 +61,13 @@ sudo python3 -m pip install \
     urllib3==1.26.15 \
     uvicorn==0.21.1 \
     wrapt==1.15.0 \
+    xgboost==1.6.2 \
     yarl==1.9.1 \
     cachetools==5.3.1 \
     charset-normalizer==3.1.0  \
+    google-auth==2.21.0  \
+    google-auth-oauthlib==1.0.0  \
+    gspread==5.10.0  \
     idna==3.4  \
     oauthlib==3.2.2  \
     pyasn1==0.5.0  \
