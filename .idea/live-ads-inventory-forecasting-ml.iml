@@ -5,8 +5,10 @@
       <sourceFolder url="file://$MODULE_DIR$/pipeline/code/forecasting" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/forecasting/midroll/dnn_model" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pipeline/code/forecasting/rate_and_wt_regression_model" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/pipeline/code" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pipeline/code/forecasting/dataset_update" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pipeline/gec_module" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pipeline/code" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pipeline_gec_inventory/code" isTestSource="false" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.7 (venv)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

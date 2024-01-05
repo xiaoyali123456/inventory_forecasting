@@ -8,9 +8,9 @@ SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
     --conf spark.driver.memory=8g \
     --conf spark.driver.maxResultSize=0 \
-    --py-files config.py,path.py,util.py"
+    --py-files gec_config.py,gec_path.py,gec_util.py"
 
-$SPARK forecasting/gec_module/sampling.py $DATE
-$SPARK forecasting/gec_module/prediction.py $DATE
+$SPARK sampling/sampling.py $DATE
+$SPARK inventory_prediction/prediction.py $DATE
 
 

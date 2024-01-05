@@ -7,9 +7,9 @@ from prophet import Prophet
 from prophet.diagnostics import cross_validation
 from prophet.diagnostics import performance_metrics
 
-from config import *
-from path import *
-from util import *
+from gec_config import *
+from gec_path import *
+from gec_util import *
 
 
 def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, data):
@@ -20,7 +20,7 @@ def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_sea
     return m
 
 
-def inventory_prediction(forecast_date):
+def make_inventory_prediction(forecast_date):
     holidays = pd.read_csv(SUB_HOLIDAYS_FEATURE_PATH)
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
@@ -38,12 +38,13 @@ def inventory_prediction(forecast_date):
             weekly_seasonality = True
         else:
             weekly_seasonality = 'auto'
+
         # cross validation
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
-        # df_cv = cross_validation(m, initial='365 days', period='365 days', horizon='365 days', parallel="processes")
         df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
         df_p = performance_metrics(df_cv, rolling_window=1)
         cross_mape = df_p['mape'].values[0]
+
         # recent 90 days validation
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df[:-1*period])
         future = m.make_future_dataframe(periods=period)
@@ -54,6 +55,7 @@ def inventory_prediction(forecast_date):
         res.append((ad_placement, cross_mape, future_mape))
         reportDF = spark.createDataFrame(pd.DataFrame([[cross_mape, future_mape]], columns = ['cross_validation_mape', 'near_future_map']))
         reportDF.write.mode("overwrite").parquet(f"s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/report/cd={forecast_date}/ad_placement={ad_placement}")
+
         # future prediction
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         future = m.make_future_dataframe(periods=period)
@@ -70,11 +72,14 @@ def inventory_prediction(forecast_date):
 
 
 def get_inventory_number(date):
+    # get inventory number at cd, content and ad_placement level
     inventory_s3_path = f"{INVENTORY_S3_ROOT_PATH}/cd={date}"
     inventory_data = load_data_frame(spark, inventory_s3_path)\
         .groupBy('ad_placement', 'content_id', 'content_type')\
         .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
     save_data_frame(inventory_data, f"{INVENTORY_NUMBER_PATH}/cd={date}")
+
+    # get inventory number at cd and ad_placement level
     df = load_data_frame(spark, f"{INVENTORY_NUMBER_PATH}/cd={date}")\
         .filter(F.upper(col("ad_placement")).isin(supported_ad_placement)) \
         .withColumn("ad_placement", merge_ad_placement_udf('ad_placement')) \
@@ -86,6 +91,8 @@ def get_inventory_number(date):
     df.show(20, False)
     save_data_frame(df, f"{GEC_INVENTORY_BY_CD_PATH}/cd={date}")
     # load_data_frame(spark, f"{GEC_INVENTORY_BY_CD_PATH}").where('cd > "2023-12-01"').show(20, False)
+
+    # update inventory number at ad_placement level
     save_data_frame(load_data_frame(spark, f"{GEC_INVENTORY_BY_CD_PATH}"),
                     GEC_INVENTORY_BY_AD_PLACEMENT_PATH, partition_col='ad_placement')
 
@@ -105,7 +112,7 @@ merge_ad_placement_udf = F.udf(merge_ad_placement, StringType())
 if __name__ == '__main__':
     sample_date = get_date_list(sys.argv[1], -2)[0]
     get_inventory_number(sample_date)
-    inventory_prediction(sample_date)
+    make_inventory_prediction(sample_date)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                        message=f"gec prophet prediction on {sample_date} is done.")
 

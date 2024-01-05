@@ -1,11 +1,9 @@
 from pyspark.sql.types import StringType, IntegerType
 import sys
 
-from config import *
-from path import *
-from util import *
-
-filter_str = f"ad_placement in ('PREROLL', 'MIDROLL')"
+from gec_config import *
+from gec_path import *
+from gec_util import *
 
 
 @F.udf(returnType=StringType())
@@ -19,7 +17,7 @@ def merge_ad_placement(raw_ad_placement: str):
 
 
 @F.udf(returnType=StringType())
-def languages_process(language):
+def parse_language(language):
     res = []
     if language:
         language = language.lower()
@@ -113,7 +111,7 @@ def load_content_cms(spark):
     return load_data_frame(spark, CMS_DATA_PATH).cache()
 
 
-def backup_data(spark, sample_date, sample_rate):
+def backup_inventory_data(spark, sample_date, sample_rate):
     backup_path = BACKUP_PATH + f"_{sample_rate}/cd={sample_date}"
     if not check_s3_path_exist(backup_path):
         sample_bucket = int(1/sample_rate)
@@ -137,7 +135,7 @@ def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
             .withColumn("date", F.lit(sample_date))\
             .withColumn("device_carrier", parse_carrier('device_carrier'))\
             .withColumn("device_model", parse_device_model('device_model'))\
-            .withColumn("content_language", languages_process('content_language'))\
+            .withColumn("content_language", parse_language('content_language'))\
             .cache()
         enriched_inventory_data = inventory_data.join(F.broadcast(cms_data), "content_id", how="left_outer") \
             .selectExpr('adv_id', 'lower(city) as city', 'lower(state) as state',
@@ -158,10 +156,6 @@ def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
             .withColumn('age_bucket', rank_col('demo_age_range')) \
             .withColumn('sample_id_bucket', F.rand()) \
             .withColumn('day_of_week', F.dayofweek(F.col('date')))
-        # enriched_inventory_data.groupby('sample_id_bucket').count().orderBy('sample_id_bucket').show(200)
-        # print(enriched_inventory_data.columns)
-        # enriched_inventory_data.show(20, False)
-        # save_data_frame(enriched_inventory_data, SAMPLING_DATA_PATH + f"/cd={sample_date}")
         print(enriched_inventory_data.count())
         print(enriched_inventory_data.where('age_bucket = "" or gender = ""').count())
         save_data_frame(enriched_inventory_data.groupBy('ad_placement').agg(F.count("*").alias("inventory_sample_count"), F.countDistinct("adv_id").alias("reach_sample_count")), SAMPLING_DATA_SUMMARY_PATH + f"/cd={sample_date}")
@@ -169,7 +163,7 @@ def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
 
 
 @F.udf(returnType=StringType())
-def extract_targeting(col, prefix, split_str=','):
+def extract_targeting_with_special_prefix(col, prefix, split_str=','):
     if col is None:
         return ''
     targeting_list = list(set(col.split(split_str)))
@@ -198,7 +192,7 @@ def extract_device_price(col, split_str=','):
     return ','.join(res)
 
 
-def check_string(input_str):
+def check_if_3rd_party_targeting(input_str):
     if len(input_str) != 3 or (input_str[0] != 'P' and input_str[0] != 'E'):
         return False
     if input_str[1].isdigit() and input_str[2].isdigit():
@@ -219,18 +213,17 @@ def extract_3rd_party_cohorts(col, split_str=','):
     targeting_list = list(set(col.split(split_str)))
     res = []
     for targeting in targeting_list:
-        if check_string(targeting):
+        if check_if_3rd_party_targeting(targeting):
             res.append(targeting)
     return ','.join(res)
 
 
 # sample rate = 1/200, about 570k rows, about 30MB
 # TODO need to daily join shifu ad_insertion table to get the max_slot_number and max_break_duration for preroll and midroll
-# TODO add premium col in cms, but it can be changed, so we nedd to update daily
-def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=300):
+def generate_vod_sampling_and_aggr_on_content(spark, sample_date, cms_data, sample_rate=300):
     res = load_data_frame(spark, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}") \
-        .where(f"{filter_str}")
-    cols = ['content_id', 'adv_id', 'city', 'state', 'location_cluster', 'gender', 'age_bucket',
+        .where("ad_placement in ('PREROLL', 'MIDROLL')")
+    aggr_cols = ['content_id', 'adv_id', 'city', 'state', 'location_cluster', 'gender', 'age_bucket',
             'ibt', 'device_brand', 'device_model', 'device_carrier', 'user_account_type',
             'device_platform', 'ad_placement', 'content_type', 'content_language', 'break_slot_count',
             'show_id', 'genre', 'season_no', 'channel', 'premium', 'nccs', 'device_price', '3rd_party_cohorts']
@@ -238,11 +231,11 @@ def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=300):
         .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(sample_rate))) \
         .where(f'sample_id_bucket = 1')\
         .join(F.broadcast(cms_data.selectExpr('content_id', 'lower(channel) as channel', 'premium')), "content_id", how="left_outer")\
-        .withColumn('nccs', extract_targeting('user_segment', F.lit("NCCS_")))\
+        .withColumn('nccs', extract_targeting_with_special_prefix('user_segment', F.lit("NCCS_")))\
         .withColumn('device_price', extract_device_price('user_segment'))\
         .withColumn('3rd_party_cohorts', extract_3rd_party_cohorts('user_segment')) \
         .withColumn('adv_id', get_hash_and_mod('adv_id', F.lit(MAX_INT-2))) \
-        .groupBy(cols) \
+        .groupBy(aggr_cols) \
         .agg(F.count('*').alias('break_num'))\
         .withColumn('break_slot_count', F.expr('break_slot_count * break_num'))
     # 'dt', 'city', 'state', 'location_cluster', 'gender', 'age_bucket', 'ibt', 'device_brand',
@@ -257,9 +250,9 @@ def generate_sampling_for_vod(spark, sample_date, cms_data, sample_rate=300):
 if __name__ == '__main__':
     sample_date = get_date_list(sys.argv[1], -2)[0]
     spark = hive_spark("gec_sampling")
-    backup_data(spark, sample_date, 0.25)
+    backup_inventory_data(spark, sample_date, 0.25)
     cms_data = load_content_cms(spark)
     sample_data_daily(spark, sample_date, cms_data)
-    generate_sampling_for_vod(spark, sample_date, cms_data)
+    generate_vod_sampling_and_aggr_on_content(spark, sample_date, cms_data)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                        message=f"gec_sampling on {sample_date} is done.")

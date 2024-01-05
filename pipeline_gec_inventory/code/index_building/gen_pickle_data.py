@@ -4,7 +4,7 @@ from collections import defaultdict
 from pyroaring import BitMap
 import sys
 
-from util import *
+from gec_util import *
 
 
 '''

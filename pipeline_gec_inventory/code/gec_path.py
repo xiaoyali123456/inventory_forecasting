@@ -85,30 +85,37 @@ ML_STATIC_MODEL_PREDICITON_FOR_AC2023_PATH = "s3://adtech-ml-perf-ads-us-east-1-
 ML_STATIC_MODEL_PREDICITON_FOR_CWC2023_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/ml_static_model_prediction_for_cwc2023/"
 METRICS_PATH = f"s3://adtech-ml-perf-ads-us-east-1-prod-v1/data/live_ads_inventory_forecasting/pipeline/label/metrics{MODEL_VERSION}"
 
-CONTENT_ID_COL = "Content ID"
-START_TIME_COL = "Start Time"
-END_TIME_COL = "End Time"
-BREAK_DURATION_COL = "Delivered Time"
-CONTENT_LANGUAGE_COL = "Language"
-PLATFORM_COL = "Platform"
-TENANT_COL = "Tenant"
-CREATIVE_ID_COL = "Creative ID"
-BREAK_ID_COL = "Break ID"
-PLAYOUT_ID_COL = "Playout ID"
-CREATIVE_PATH_COL = "Creative Path"
-CONTENT_ID_COL2 = "_c4"
-START_TIME_COL2 = "_c2"
-END_TIME_COL2 = "_c13"
-BREAK_DURATION_COL2 = "_c15"
-CONTENT_LANGUAGE_COL2 = "_c5"
-PLATFORM_COL2 = "_c8"
-TENANT_COL2 = "_c6"
-CREATIVE_ID_COL2 = "_c9"
-BREAK_ID_COL2 = "_c10"
-PLAYOUT_ID_COL2 = "_c3"
-CREATIVE_PATH_COL2 = "_c11"
-CONTENT_LANGUAGE_COL3 = "_c1"
 
 CUSTOM_AUDIENCE_COL = "customAudienceResponses"
+
+
+# for gec
+INVENTORY_S3_ROOT_PATH = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory"
+EPISODE_TABLE = "in_cms.episode_update_s3"
+MOVIE_TABLE = "in_cms.movie_update_s3"
+CLIP_TABLE = "in_cms.clip_update_s3"
+MATCH_TABLE = "in_cms.match_update_s3"
+
+ROOT_PATH = "s3://adtech-ml-perf-ads-us-east-1-prod-v1/gec_inventory_forecasting"
+BACKUP_PATH = f"{ROOT_PATH}/backup"
+CMS_DATA_PATH = f"{ROOT_PATH}/cms_data"
+CMS_MATCH_DATA_PATH = f"{ROOT_PATH}/cms_match_data"
+SAMPLING_DATA_PATH = f"{ROOT_PATH}/sampling_data"
+SAMPLING_DATA_NEW_PATH = f"{ROOT_PATH}/sampling_data_new"
+SAMPLING_DATA_SUMMARY_PATH = f"{ROOT_PATH}/sampling_data_summary"
+VOD_SAMPLING_DATA_PREDICTION_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction"
+VOD_SAMPLING_DATA_PREDICTION_CSV_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_csv"
+VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet"
+VOD_SAMPLING_PREDICTION_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_prediction_error"
+VOD_SAMPLING_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_error"
+
+ORIGINAL_DATA_FCAP_HISTOGRAM_PATH = f"{ROOT_PATH}/original_data_fcap_histogram"
+SAMPLED_DATA_FCAP_HISTOGRAM_PATH = f"{ROOT_PATH}/sampled_data_fcap_histogram"
+USER_ID_BACKUP_PATH = f"{ROOT_PATH}/user_id_backup"
+
+GEC_INVENTORY_BY_CD_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_cd"
+GEC_INVENTORY_BY_AD_PLACEMENT_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_ad_placement"
+
+INVENTORY_NUMBER_PATH = "s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/ingest/inventoryNumber"
 
 
