@@ -1,4 +1,5 @@
 # Path definition
+from typing import Any
 
 PLAY_OUT_LOG_INPUT_PATH = "s3://hotstar-ads-data-external-us-east-1-prod/run_log/blaze/prod/test"
 WATCH_AGGREGATED_INPUT_PATH = "s3://hotstar-dp-datalake-processed-us-east-1-prod/aggregates/watched_video_daily_aggregates_ist_v4"
@@ -90,7 +91,7 @@ CUSTOM_AUDIENCE_COL = "customAudienceResponses"
 
 
 # for gec
-INVENTORY_S3_ROOT_PATH = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory"
+INVENTORY_S3_ROOT_PATH: Any = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory"
 EPISODE_TABLE = "in_cms.episode_update_s3"
 MOVIE_TABLE = "in_cms.movie_update_s3"
 CLIP_TABLE = "in_cms.clip_update_s3"
