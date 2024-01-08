@@ -26,7 +26,7 @@ def make_inventory_prediction(forecast_date):
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
     yearly_seasonality = False
-    period = 90  # days, prediction period? training period?
+    period = 90  # days, prediction period? training period? TODO: change to 100
     res = []
     for ad_placement in ["OTHERS", "MIDROLL", "BILLBOARD_HOME", "SKINNY_HOME", "PREROLL"]:
         print(ad_placement)
@@ -37,12 +37,13 @@ def make_inventory_prediction(forecast_date):
         if ad_placement in ["MIDROLL", "PREROLL"]:
             weekly_seasonality = True
         else:
-            weekly_seasonality = 'auto'  # why auto? what is auto?
+            weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
 
         # cross validation
         # train the prophet model with period days, and make prediction for the next period days
         # the moving step is also period days.
-        m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)  # why do we need to train the model here?
+        # A: why do we need to train the model here? TODO: Need to check
+        m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
         df_p = performance_metrics(df_cv, rolling_window=1)
         cross_mape = df_p['mape'].values[0]
@@ -50,7 +51,7 @@ def make_inventory_prediction(forecast_date):
         # recent 90 days validation
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df[:-1*period])  # use data before last period days for training
         future = m.make_future_dataframe(periods=period)  # make prediction for last period days
-        forecast = m.predict(future)  # cover both train and prediction days, i.e. 2 * period days
+        forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
         d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
         forecasted = d[-1*period:]  # get the prediction days
         future_mape = (((forecasted.yhat-forecasted.y)/forecasted.y).abs().mean())
@@ -73,8 +74,8 @@ def make_inventory_prediction(forecast_date):
                          'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/predicted/cd={forecast_date}/ad_placement={ad_placement}")  # why need select? TODO: use a path variable instead
 
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
-    spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # where is the script of the table creation?
-    spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")
+    spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
+    spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update
 
 
 def get_inventory_number(date):
@@ -84,8 +85,8 @@ def get_inventory_number(date):
     # load inventory event
     # calculate inventory, requests for each (ad_placement, content_id)
     # save in INVENTORY_NUMBER_PATH
-    # how to define inventory? a break?
-    # what's the relation between request and break?
+    # Q: how to define inventory? a break? A: inventory is number of breaks.
+    # Q: what's the relation between request and break? A: for midroll, 1 request vs. multiple breaks; for preroll, 1 request vs. 1 break
     inventory_data = load_data_frame(spark, inventory_s3_path)\
         .groupBy('ad_placement', 'content_id', 'content_type')\
         .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
@@ -93,8 +94,8 @@ def get_inventory_number(date):
 
     # get inventory number at cd and ad_placement level
     # save in GEC_INVENTORY_BY_CD_PATH
-    # why apply filter on ad_placement? why don't apply filter during sampling?
-    # remove sport_live preroll. how about sport_live midroll?
+    # Q: why apply filter on ad_placement? why don't apply filter during sampling? TODO: remove the filter
+    # Q: remove sport_live preroll. how about sport_live midroll? A: sport_live midroll is not in shifu event.
     df = load_data_frame(spark, f"{INVENTORY_NUMBER_PATH}/cd={date}")\
         .filter(F.upper(col("ad_placement")).isin(supported_ad_placement)) \
         .withColumn("ad_placement", merge_ad_placement_udf('ad_placement')) \
@@ -109,7 +110,7 @@ def get_inventory_number(date):
 
     # update inventory number at ad_placement level
     # save in GEC_INVENTORY_BY_AD_PLACEMENT_PATH
-    # load all cd data? any efficiency issue?
+    # Q: load all cd data? any efficiency issue? A: no, the data is very small.
     save_data_frame(load_data_frame(spark, f"{GEC_INVENTORY_BY_CD_PATH}"),
                     GEC_INVENTORY_BY_AD_PLACEMENT_PATH, partition_col='ad_placement')
 

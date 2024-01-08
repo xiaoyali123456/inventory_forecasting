@@ -8,7 +8,7 @@ SAMPLING_COLS = ['content_id', 'city', 'state', 'location_cluster', 'pincode',
 CMS_COLS = ['show_id', 'genre', 'season_no', 'title']
 FCAP_RANGE = [i for i in range(1, 11)]
 
-
+# Q: why these values?
 supported_ad_placement = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", "BILLBOARD_NEWS",
                           "SKINNY_HOME", "SKINNY_TV", "SKINNY_MOVIES", "SKINNY_SPORTS",
                           "SKINNY_MULTIPLEX", "BTF_HOME", "BTF_TV", "BTF_MOVIES", "BTF_SPORTS",
