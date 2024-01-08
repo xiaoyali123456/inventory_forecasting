@@ -130,16 +130,14 @@ def distinct_and_rank_col(col, split_str=','):
 
 
 # sampled all adplacement inventory data with sample_rate = 1/100
-def sample_data_daily(spark, sample_date, cms_data):
+def sample_data_daily(spark, sample_date, cms_data):  # further sample 1% data
     if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
         inventory_s3_path = f"{BACKUP_PATH}_{BACKUP_SAMPLE_RATE}/cd={sample_date}"  # TODO: 0.25 should be replaced with backup rate
-
         # sample 1% inventory, i.e. 4% backed inventory
         # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads
         inventory_data = load_data_frame(spark, inventory_s3_path) \
             .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(ALL_ADPLACEMENT_SAMPLE_BUCKET)))\
-            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}') \
-            .filter(F.upper(F.col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
+            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}')\
             .withColumn("ad_placement", merge_ad_placement('ad_placement'))\
             .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")')\
             .withColumn("date", F.lit(sample_date))\
@@ -240,7 +238,6 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
     res = load_data_frame(spark, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}") \
         .where("ad_placement in ('PREROLL', 'MIDROLL')")
     # sampled 1/300 preroll and midroll inventory
-    # Q: why join cms_data again? A: No need. can lower the channel when enrich the data.
     # Q: why hash adv_id with MAX_INT-2? A: convert a string to an int to save storage.
     # calculate break_num and break_slot_count for each (content_id, adv_id)
     # Q: how to ensure vod? A: only focus on preroll and midroll
@@ -273,7 +270,6 @@ if __name__ == '__main__':
 
     # load (content_id, show_id, genre, title, season_no, channel, premium) of episode, movie and clip
     # save in CMS_DATA_PATH
-    
     cms_data = load_content_cms(spark)
 
     # load backup inventory data, and sample 1% of total inventory data

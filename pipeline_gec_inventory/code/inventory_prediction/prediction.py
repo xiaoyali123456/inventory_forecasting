@@ -82,6 +82,7 @@ def make_inventory_prediction(forecast_date):
         else:
             weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
 
+        # why need fit in cv?
         # cross validation
         # train the prophet model with period days, and make prediction for the next period days
         # the moving step is also period days.
@@ -100,6 +101,7 @@ def make_inventory_prediction(forecast_date):
         future_mape = (((forecasted.yhat-forecasted.y)/forecasted.y).abs().mean())
         res.append((ad_placement, cross_mape, future_mape))
         reportDF = spark.createDataFrame(pd.DataFrame([[cross_mape, future_mape]], columns = ['cross_validation_mape', 'near_future_map']))
+
         reportDF.write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_REPORT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")
 
         # future prediction
@@ -107,7 +109,7 @@ def make_inventory_prediction(forecast_date):
         # make prediction for period days in the future
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         future = m.make_future_dataframe(periods=prediction_period)
-        forecast = m.predict(future)
+        forecast = m.predict(future)  # cover all historic days and future period days
         d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
         predictDf = spark.createDataFrame(d.reset_index().drop("cd", axis=1)[['ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
@@ -116,8 +118,8 @@ def make_inventory_prediction(forecast_date):
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
                          'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
-    spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
-    spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update
+    spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")
+    spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")
 
 
 def get_inventory_number(date):
