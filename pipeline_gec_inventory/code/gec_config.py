@@ -11,11 +11,11 @@ VOD_SAMPLING_COLS = ['content_id', 'adv_id', 'city', 'state', 'location_cluster'
             'device_platform', 'ad_placement', 'content_type', 'content_language', 'break_slot_count',
             'show_id', 'genre', 'season_no', 'channel', 'premium', 'nccs', 'device_price', '3rd_party_cohorts']
 
+
 BACKUP_SAMPLE_RATE = 0.25
 ALL_ADPLACEMENT_SAMPLE_BUCKET = 100
 VOD_SAMPLE_BUCKET = 300
 
-# why filter in prediction, but not in sampling
 SUPPORTED_AD_PLACEMENT = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", "BILLBOARD_NEWS",
                           "SKINNY_HOME", "SKINNY_TV", "SKINNY_MOVIES", "SKINNY_SPORTS",
                           "SKINNY_MULTIPLEX", "BTF_HOME", "BTF_TV", "BTF_MOVIES", "BTF_SPORTS",
