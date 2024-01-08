@@ -21,12 +21,13 @@ def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_sea
 
 
 def make_inventory_prediction(forecast_date):
-    holidays = pd.read_csv(SUB_HOLIDAYS_FEATURE_PATH)
+    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
     yearly_seasonality = False
     period = 90
+    prediction_period = 100
     res = []
     for ad_placement in ["OTHERS", "MIDROLL", "BILLBOARD_HOME", "SKINNY_HOME", "PREROLL"]:
         print(ad_placement)
@@ -39,6 +40,7 @@ def make_inventory_prediction(forecast_date):
         else:
             weekly_seasonality = 'auto'
 
+        # why need fit in cv?
         # cross validation
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
@@ -54,11 +56,11 @@ def make_inventory_prediction(forecast_date):
         future_mape = (((forecasted.yhat-forecasted.y)/forecasted.y).abs().mean())
         res.append((ad_placement, cross_mape, future_mape))
         reportDF = spark.createDataFrame(pd.DataFrame([[cross_mape, future_mape]], columns = ['cross_validation_mape', 'near_future_map']))
-        reportDF.write.mode("overwrite").parquet(f"s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/report/cd={forecast_date}/ad_placement={ad_placement}")
+        reportDF.write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_REPORT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")
 
         # future prediction
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
-        future = m.make_future_dataframe(periods=period)
+        future = m.make_future_dataframe(periods=prediction_period)
         forecast = m.predict(future)
         d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
         predictDf = spark.createDataFrame(d.reset_index().drop("cd", axis=1)[['ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
@@ -66,7 +68,7 @@ def make_inventory_prediction(forecast_date):
                          'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
         predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
-                         'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"s3://hotstar-ads-ml-us-east-1-prod/inventory_forecast/gec/predicted/cd={forecast_date}/ad_placement={ad_placement}")
+                         'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")
     spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")
     spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")
 
@@ -77,11 +79,11 @@ def get_inventory_number(date):
     inventory_data = load_data_frame(spark, inventory_s3_path)\
         .groupBy('ad_placement', 'content_id', 'content_type')\
         .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
-    save_data_frame(inventory_data, f"{INVENTORY_NUMBER_PATH}/cd={date}")
+    save_data_frame(inventory_data, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")
 
     # get inventory number at cd and ad_placement level
-    df = load_data_frame(spark, f"{INVENTORY_NUMBER_PATH}/cd={date}")\
-        .filter(F.upper(col("ad_placement")).isin(supported_ad_placement)) \
+    df = load_data_frame(spark, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")\
+        .filter(F.upper(col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
         .withColumn("ad_placement", merge_ad_placement_udf('ad_placement')) \
         .fillna('', ['content_type']) \
         .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")') \

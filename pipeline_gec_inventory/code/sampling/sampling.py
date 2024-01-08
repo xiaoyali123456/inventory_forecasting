@@ -16,6 +16,7 @@ def merge_ad_placement(raw_ad_placement: str):
     return raw_ad_placement
 
 
+# why use list
 @F.udf(returnType=StringType())
 def parse_language(language):
     res = []
@@ -73,6 +74,7 @@ def get_hash_and_mod(adv_id, mod_num=100):
     return hash(adv_id) % mod_num
 
 
+# why not remove
 @F.udf(returnType=StringType())
 def rank_col(col, split_str=','):
     if col is None:
@@ -81,7 +83,7 @@ def rank_col(col, split_str=','):
 
 
 def load_content_cms(spark):
-    spark.sql(f"REFRESH TABLE {EPISODE_TABLE}")
+    spark.sql(f"REFRESH TABLE {EPISODE_TABLE}")  # prevent cms data from updating when we are reading
     spark.sql(f"REFRESH TABLE {MOVIE_TABLE}")
     spark.sql(f"REFRESH TABLE {CLIP_TABLE}")
     cols = ["contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium"]
@@ -111,10 +113,10 @@ def load_content_cms(spark):
     return load_data_frame(spark, CMS_DATA_PATH).cache()
 
 
-def backup_inventory_data(spark, sample_date, sample_rate):
-    backup_path = BACKUP_PATH + f"_{sample_rate}/cd={sample_date}"
+def backup_inventory_data(spark, sample_date):
+    backup_path = BACKUP_PATH + f"_{BACKUP_SAMPLE_RATE}/cd={sample_date}"
     if not check_s3_path_exist(backup_path):
-        sample_bucket = int(1/sample_rate)
+        sample_bucket = int(1/BACKUP_SAMPLE_RATE)
         print(sample_bucket)
         inventory_s3_path = f"{INVENTORY_S3_ROOT_PATH}/cd={sample_date}"
         inventory_data = load_data_frame(spark, inventory_s3_path)\
@@ -124,11 +126,12 @@ def backup_inventory_data(spark, sample_date, sample_rate):
         save_data_frame(inventory_data, backup_path)
 
 
-def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
+# sampled all adplacement inventory data with sample_rate = 1/100
+def sample_data_daily(spark, sample_date, cms_data):
     if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
-        inventory_s3_path = f"{BACKUP_PATH}_0.25/cd={sample_date}"
+        inventory_s3_path = f"{BACKUP_PATH}_{BACKUP_SAMPLE_RATE}/cd={sample_date}"
         inventory_data = load_data_frame(spark, inventory_s3_path) \
-            .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(sample_rate)))\
+            .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(ALL_ADPLACEMENT_SAMPLE_BUCKET)))\
             .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}')\
             .withColumn("ad_placement", merge_ad_placement('ad_placement'))\
             .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")')\
@@ -149,12 +152,12 @@ def sample_data_daily(spark, sample_date, cms_data, sample_rate=100):
                         'lower(user_account_type) as user_account_type', 'lower(device_platform) as device_platform',
                         'lower(device_os_version) as device_os_version', 'lower(device_app_version) as device_app_version',
                         'ad_placement', 'content_id', 'lower(content_type) as content_type', 'content_language',
-                        'request_id', 'break_id', 'break_slot_count', 'date', 'hr', 'sample_id_bucket', 'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no',
+                        'request_id', 'break_id', 'break_slot_count', 'date', 'hr', 'sample_id_bucket',
+                        'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no', 'lower(channel) as channel', 'premium'
                         'custom_tags', 'user_segment') \
-            .fillna('', SAMPLING_COLS + CMS_COLS + ['demo_age_range', 'custom_tags', 'user_segment']) \
+            .fillna('', SAMPLING_COLS) \
             .withColumn('ibt', rank_col('ibt')) \
             .withColumn('age_bucket', rank_col('demo_age_range')) \
-            .withColumn('sample_id_bucket', F.rand()) \
             .withColumn('day_of_week', F.dayofweek(F.col('date')))
         print(enriched_inventory_data.count())
         print(enriched_inventory_data.where('age_bucket = "" or gender = ""').count())
@@ -218,41 +221,30 @@ def extract_3rd_party_cohorts(col, split_str=','):
     return ','.join(res)
 
 
-# sample rate = 1/200, about 570k rows, about 30MB
+# sampled vod inventory data with sample_rate = 1/300
 # TODO need to daily join shifu ad_insertion table to get the max_slot_number and max_break_duration for preroll and midroll
-def generate_vod_sampling_and_aggr_on_content(spark, sample_date, cms_data, sample_rate=300):
+def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
     res = load_data_frame(spark, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}") \
         .where("ad_placement in ('PREROLL', 'MIDROLL')")
-    aggr_cols = ['content_id', 'adv_id', 'city', 'state', 'location_cluster', 'gender', 'age_bucket',
-            'ibt', 'device_brand', 'device_model', 'device_carrier', 'user_account_type',
-            'device_platform', 'ad_placement', 'content_type', 'content_language', 'break_slot_count',
-            'show_id', 'genre', 'season_no', 'channel', 'premium', 'nccs', 'device_price', '3rd_party_cohorts']
     df = res\
-        .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(sample_rate))) \
+        .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(VOD_SAMPLE_BUCKET))) \
         .where(f'sample_id_bucket = 1')\
-        .join(F.broadcast(cms_data.selectExpr('content_id', 'lower(channel) as channel', 'premium')), "content_id", how="left_outer")\
         .withColumn('nccs', extract_targeting_with_special_prefix('user_segment', F.lit("NCCS_")))\
         .withColumn('device_price', extract_device_price('user_segment'))\
         .withColumn('3rd_party_cohorts', extract_3rd_party_cohorts('user_segment')) \
         .withColumn('adv_id', get_hash_and_mod('adv_id', F.lit(MAX_INT-2))) \
-        .groupBy(aggr_cols) \
+        .groupBy(VOD_SAMPLING_COLS) \
         .agg(F.count('*').alias('break_num'))\
         .withColumn('break_slot_count', F.expr('break_slot_count * break_num'))
-    # 'dt', 'city', 'state', 'location_cluster', 'gender', 'age_bucket', 'ibt', 'device_brand',
-    # 'device_model', 'device_carrier', 'device_network_data', 'user_account_type', 'device_platform',
-    # 'device_os_version', 'device_app_version', 'ad_placement', 'content_id', 'content_type', 'content_language',
-    # 'break_slot_count', 'date', 'show_id', 'genre', 'adv_id', 'season_no', 'day_of_week', 'break_num'
-    # df_for_csv.show(20, False)
-    # save_data_frame(df_for_csv, VOD_SAMPLING_DATA_PREDICTION_CSV_PATH + f"/cd={sample_date}", "csv", True)
-    save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"_sample_rate_{sample_rate}/cd={sample_date}")
+    save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"_sample_rate_{VOD_SAMPLE_BUCKET}/cd={sample_date}")
 
 
 if __name__ == '__main__':
     sample_date = get_date_list(sys.argv[1], -2)[0]
     spark = hive_spark("gec_sampling")
-    backup_inventory_data(spark, sample_date, 0.25)
+    backup_inventory_data(spark, sample_date)
     cms_data = load_content_cms(spark)
     sample_data_daily(spark, sample_date, cms_data)
-    generate_vod_sampling_and_aggr_on_content(spark, sample_date, cms_data)
+    generate_vod_sampling_and_aggr_on_content(spark, sample_date)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
                        message=f"gec_sampling on {sample_date} is done.")
