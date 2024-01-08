@@ -9,7 +9,7 @@ from gec_path import *
 
 
 '''
-    load sample parquet file from S3 into memory object, to save into S3 pickle file
+    load sample parquet file from S3 into memory object, convert it to bitmap data and save as the S3 pickle file
 '''
 
 
@@ -62,7 +62,7 @@ def get_targeting_cols(dt, url):
 
 
 if __name__ == '__main__':
-    sample_date = get_date_list(sys.argv[1], -2)[0]
+    sample_date = get_yesterday(sys.argv[1])
     print(sample_date)
     local_pickle_path = f'sample_data_model_300'
     cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLE_PARQUET_PATH)

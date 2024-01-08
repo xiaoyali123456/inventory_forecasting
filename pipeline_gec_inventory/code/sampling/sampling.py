@@ -20,45 +20,44 @@ def merge_ad_placement(raw_ad_placement: str):
 
 # why use list
 @F.udf(returnType=StringType())
-def parse_language(language):  # TODO: don't need list here
-    res = []
+def parse_language(language):
     if language:
         language = language.lower()
         if language.startswith("ben"):
-            res.append("bengali")
+            return "bengali"
         elif language.startswith("dug"):
-            res.append("dugout")
+            return "dugout"
         elif language.startswith("eng"):
-            res.append("english")
+            return "english"
         elif language.startswith("guj"):
-            res.append("gujarati")
+            return "gujarati"
         elif language.startswith("hin"):
-            res.append("hindi")
+            return "hindi"
         elif language.startswith("kan"):
-            res.append("kannada")
+            return "kannada"
         elif language.startswith("mal"):
-            res.append("malayalam")
+            return "malayalam"
         elif language.startswith("mar"):
-            res.append("marathi")
+            return "marathi"
         elif language.startswith("tam"):
-            res.append("tamil")
+            return "tamil"
         elif language.startswith("tel"):
-            res.append("telugu")
+            return "telugu"
         elif language.startswith("unknown") or language == "":
-            res.append("unknown")
+            return "unknown"
         else:
-            res.append(language)
+            return language
     else:
-        res.append("unknown")
-    return res[0]
+        return "unknown"
 
 
 @F.udf(returnType=StringType())
 def parse_carrier(carrier):
     # Q: why these six? A: probably they are big
+    carrier = carrier.lower()
     allow_list = ['bsnl', 'vodafone', 'vi', 'idea', 'airtel', 'jio']  # 'others'
     for x in allow_list:
-        if x in carrier.lower():  # TODO: move lower outside
+        if x in carrier:
             return x
     return 'other'
 
@@ -75,7 +74,6 @@ def get_hash_and_mod(adv_id, mod_num=100):
     if adv_id is None:
         return VALID_SAMPLE_TAG + 1
     return hash(adv_id) % mod_num
-
 
 
 def load_content_cms(spark):  # content_id, show_id, genre, title, season_no, channel, premium
@@ -109,7 +107,6 @@ def load_content_cms(spark):  # content_id, show_id, genre, title, season_no, ch
     return load_data_frame(spark, CMS_DATA_PATH).cache()
 
 
-
 def backup_inventory_data(spark, sample_date):  # remove invalid adv_id and then backup 25% data
     backup_path = BACKUP_PATH + f"_{BACKUP_SAMPLE_RATE}/cd={sample_date}"
     if not check_s3_path_exist(backup_path):
@@ -127,7 +124,6 @@ def backup_inventory_data(spark, sample_date):  # remove invalid adv_id and then
         save_data_frame(inventory_data, backup_path)
 
 
-
 # sampled all adplacement inventory data with sample_rate = 1/100
 def sample_data_daily(spark, sample_date, cms_data):
     if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
@@ -135,7 +131,8 @@ def sample_data_daily(spark, sample_date, cms_data):
         # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads        
         inventory_data = load_data_frame(spark, inventory_s3_path) \
             .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(ALL_ADPLACEMENT_SAMPLE_BUCKET)))\
-            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}')\
+            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}') \
+            .filter(F.upper(F.col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
             .withColumn("ad_placement", merge_ad_placement('ad_placement'))\
             .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")')\
             .withColumn("date", F.lit(sample_date))\
@@ -162,10 +159,7 @@ def sample_data_daily(spark, sample_date, cms_data):
                         'request_id', 'break_id', 'break_slot_count', 'date', 'hr', 'sample_id_bucket',
                         'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no', 'lower(channel) as channel', 'premium'
                         'custom_tags', 'user_segment') \
-            .fillna('', SAMPLING_COLS) \
-            .withColumn('ibt', rank_col('ibt')) \
-            .withColumn('age_bucket', rank_col('demo_age_range')) \
-            .withColumn('day_of_week', F.dayofweek(F.col('date')))
+            .fillna('', SAMPLING_COLS)
         print(enriched_inventory_data.count())
         print(enriched_inventory_data.where('age_bucket = "" or gender = ""').count())
 
@@ -255,7 +249,7 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
 
 
 if __name__ == '__main__':
-    sample_date = get_date_list(sys.argv[1], -2)[0]  # TODO: optimize it
+    sample_date = get_yesterday(sys.argv[1])
     spark = hive_spark("gec_sampling")
     
     # load inventory event from INVENTORY_S3_ROOT_PATH, remove invalid adv_id and then sample 25% data

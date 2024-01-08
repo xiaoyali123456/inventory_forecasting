@@ -21,7 +21,7 @@ def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_sea
 
 
 def make_inventory_prediction(forecast_date):
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: upload this file in the repo
+    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
@@ -95,9 +95,8 @@ def get_inventory_number(date):
 
     # get inventory number at cd and ad_placement level
     # save in GEC_INVENTORY_BY_CD_PATH
-    # Q: why apply filter on ad_placement? why don't apply filter during sampling? TODO: remove the filter
     # Q: remove sport_live preroll. how about sport_live midroll? A: sport_live midroll is not in shifu event.
-    df = load_data_frame(spark, f"{INVENTORY_NUMBER_PATH}/cd={date}")\
+    df = load_data_frame(spark, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")\
         .filter(F.upper(col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
         .withColumn("ad_placement", merge_ad_placement_udf('ad_placement')) \
         .fillna('', ['content_type']) \
@@ -129,7 +128,7 @@ merge_ad_placement_udf = F.udf(merge_ad_placement, StringType())
 
 
 if __name__ == '__main__':
-    sample_date = get_date_list(sys.argv[1], -2)[0]  # TODO: optimize it.
+    sample_date = get_yesterday(sys.argv[1])
 
     # get inventory number at cd and ad_placement level (one day)
     # save in GEC_INVENTORY_BY_CD_PATH

@@ -39,6 +39,10 @@ def get_date_list(date: str, days: int) -> list:
         return [(dt + timedelta(days=n)).strftime('%Y-%m-%d') for n in range(days + 1, 1)]
 
 
+def get_yesterday(date):
+    return get_date_list(date, -2)[0]
+
+
 def load_data_frame(spark: SparkSession, path: str, fmt: str = 'parquet', header: bool = False, delimiter: str = ','
                     ) -> DataFrame:
     if fmt == 'parquet':
