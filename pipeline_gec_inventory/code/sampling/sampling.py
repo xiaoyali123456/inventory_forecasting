@@ -137,7 +137,8 @@ def sample_data_daily(spark, sample_date, cms_data):  # further sample 1% data
         # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads
         inventory_data = load_data_frame(spark, inventory_s3_path) \
             .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(ALL_ADPLACEMENT_SAMPLE_BUCKET)))\
-            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}')\
+            .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}') \
+            .filter(F.upper(F.col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
             .withColumn("ad_placement", merge_ad_placement('ad_placement'))\
             .where('ad_placement != "PREROLL" or (ad_placement = "PREROLL" and lower(content_type) != "sport_live")')\
             .withColumn("date", F.lit(sample_date))\
