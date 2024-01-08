@@ -21,7 +21,7 @@ def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_sea
 
 
 def make_inventory_prediction(forecast_date):
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH) # TODO: upload this file in the repo
+    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
@@ -40,11 +40,10 @@ def make_inventory_prediction(forecast_date):
         else:
             weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
 
-        # why need fit in cv?
         # cross validation
         # train the prophet model with period days, and make prediction for the next period days
         # the moving step is also period days.
-        # A: why do we need to train the model here? TODO: Need to check
+        # Q: why do we need to train the model here? A: because the cross_validation function needs a fitted prophet model
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
         df_p = performance_metrics(df_cv, rolling_window=1)
@@ -95,9 +94,8 @@ def get_inventory_number(date):
 
     # get inventory number at cd and ad_placement level
     # save in GEC_INVENTORY_BY_CD_PATH
-    # Q: why apply filter on ad_placement? why don't apply filter during sampling? TODO: remove the filter
     # Q: remove sport_live preroll. how about sport_live midroll? A: sport_live midroll is not in shifu event.
-    df = load_data_frame(spark, f"{INVENTORY_NUMBER_PATH}/cd={date}")\
+    df = load_data_frame(spark, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")\
         .filter(F.upper(col("ad_placement")).isin(SUPPORTED_AD_PLACEMENT)) \
         .withColumn("ad_placement", merge_ad_placement_udf('ad_placement')) \
         .fillna('', ['content_type']) \
@@ -129,7 +127,7 @@ merge_ad_placement_udf = F.udf(merge_ad_placement, StringType())
 
 
 if __name__ == '__main__':
-    sample_date = get_date_list(sys.argv[1], -2)[0]  # TODO: optimize it.
+    sample_date = get_yesterday(sys.argv[1])
 
     # get inventory number at cd and ad_placement level (one day)
     # save in GEC_INVENTORY_BY_CD_PATH

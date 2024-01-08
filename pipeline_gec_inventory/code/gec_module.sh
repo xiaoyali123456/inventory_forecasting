@@ -12,5 +12,6 @@ SPARK="spark-submit --deploy-mode client \
 
 $SPARK sampling/sampling.py $DATE
 $SPARK inventory_prediction/prediction.py $DATE
+$SPARK index_building/index_building.py $DATE
 
 
