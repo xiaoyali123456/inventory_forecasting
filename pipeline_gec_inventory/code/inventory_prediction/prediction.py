@@ -20,13 +20,55 @@ def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_sea
     return m
 
 
+def customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df, cutoff, period):
+    m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality,
+                           holidays, df[:cutoff])  # use data before last period days for training
+    future = m.make_future_dataframe(periods=period)  # make prediction for last period days
+    forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
+    # print(len(forecast))
+    # print(forecast['ds'])
+    d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
+    # print(d[-1 * period:])
+    forecasted = d[-1 * period:]  # get the prediction days
+    future_error = (forecasted.yhat.sum() - forecasted.y.sum()) / forecasted.y.sum()
+    return future_error
+
+
+def make_customer_inventory_cross_validation():
+    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
+    changepoint_prior_scale = 0.01
+    holidays_prior_scale = 10
+    yearly_seasonality = False
+    for ad_placement in ["MIDROLL", "PREROLL"]:
+        print(ad_placement)
+        res = []
+        f = GEC_INVENTORY_BY_AD_PLACEMENT_PATH + "/ad_placement=" + ad_placement
+        df = pd.read_parquet(f)
+        df = df.sort_values(by=['cd'])
+        df['ds'] = pd.to_datetime(df['cd'])
+        if ad_placement in ["MIDROLL", "PREROLL"]:
+            weekly_seasonality = True
+        else:
+            weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
+        total_days = len(df)
+        print(total_days)
+        init_days = 365
+        period = 7
+        for cutoff in range(init_days, total_days, period):
+            print(cutoff)
+            res.append(customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df, cutoff, period))
+            # break
+        print(res)
+        print(sum(res) / len(res))
+
+
 def make_inventory_prediction(forecast_date):
     holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
     yearly_seasonality = False
-    period = 90
+    period = 90  # days, prediction period? training period?
     prediction_period = 100
     res = []
     for ad_placement in ["OTHERS", "MIDROLL", "BILLBOARD_HOME", "SKINNY_HOME", "PREROLL"]:
@@ -72,7 +114,7 @@ def make_inventory_prediction(forecast_date):
                          'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
         predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
-                         'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")
+                         'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
     spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
     spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update

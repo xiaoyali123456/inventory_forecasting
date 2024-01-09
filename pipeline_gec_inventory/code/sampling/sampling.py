@@ -76,33 +76,33 @@ def get_hash_and_mod(adv_id, mod_num=100):
 
 
 def load_content_cms(spark):  # content_id, show_id, genre, title, season_no, channel, premium
-    # spark.sql(f"REFRESH TABLE {EPISODE_TABLE}")  # prevent cms data from updating when we are reading
-    # spark.sql(f"REFRESH TABLE {MOVIE_TABLE}")
-    # spark.sql(f"REFRESH TABLE {CLIP_TABLE}")
-    # cols = ["contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium"]
-    # episode_cms_data = load_hive_table(spark, EPISODE_TABLE)\
-    #     .filter('deleted = False')\
-    #     .select("contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium")
-    # movie_cms_data = load_hive_table(spark, MOVIE_TABLE)\
-    #     .filter('deleted = False')\
-    #     .select("contentid", "showcontentid", "primarygenre", "title", "premium")\
-    #     .withColumn("seasonno", F.lit(None).cast(StringType()))\
-    #     .withColumn("channelname", F.lit(None).cast(StringType()))
-    # clip_cms_data = load_hive_table(spark, CLIP_TABLE)\
-    #     .filter('deleted = False')\
-    #     .select("contentid", "showcontentid", "primarygenre", "title", "premium")\
-    #     .withColumn("seasonno", F.lit(None).cast(StringType()))\
-    #     .withColumn("channelname", F.lit(None).cast(StringType()))
-    # # match_cms_data = load_hive_table(spark, "in_cms.match_update_s3")
-    # # join with cms data to get show_id, season_id,
-    # cms_data = (episode_cms_data.select(*cols).union(movie_cms_data.select(*cols)).union(clip_cms_data.select(*cols)).
-    #             withColumnRenamed("contentid", "content_id").
-    #             withColumnRenamed("primarygenre", "genre").
-    #             withColumnRenamed("showcontentid", "show_id").
-    #             withColumnRenamed("seasonno", "season_no").
-    #             withColumnRenamed("channelname", "channel").
-    #             distinct()).cache()  # Q: why do we need select(*cols)? A: keep the order
-    # save_data_frame(cms_data, CMS_DATA_PATH)
+    spark.sql(f"REFRESH TABLE {EPISODE_TABLE}")  # prevent cms data from updating when we are reading
+    spark.sql(f"REFRESH TABLE {MOVIE_TABLE}")
+    spark.sql(f"REFRESH TABLE {CLIP_TABLE}")
+    cols = ["contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium"]
+    episode_cms_data = load_hive_table(spark, EPISODE_TABLE)\
+        .filter('deleted = False')\
+        .select("contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium")
+    movie_cms_data = load_hive_table(spark, MOVIE_TABLE)\
+        .filter('deleted = False')\
+        .select("contentid", "showcontentid", "primarygenre", "title", "premium")\
+        .withColumn("seasonno", F.lit(None).cast(StringType()))\
+        .withColumn("channelname", F.lit(None).cast(StringType()))
+    clip_cms_data = load_hive_table(spark, CLIP_TABLE)\
+        .filter('deleted = False')\
+        .select("contentid", "showcontentid", "primarygenre", "title", "premium")\
+        .withColumn("seasonno", F.lit(None).cast(StringType()))\
+        .withColumn("channelname", F.lit(None).cast(StringType()))
+    # match_cms_data = load_hive_table(spark, "in_cms.match_update_s3")
+    # join with cms data to get show_id, season_id,
+    cms_data = (episode_cms_data.select(*cols).union(movie_cms_data.select(*cols)).union(clip_cms_data.select(*cols)).
+                withColumnRenamed("contentid", "content_id").
+                withColumnRenamed("primarygenre", "genre").
+                withColumnRenamed("showcontentid", "show_id").
+                withColumnRenamed("seasonno", "season_no").
+                withColumnRenamed("channelname", "channel").
+                distinct()).cache()  # Q: why do we need select(*cols)? A: keep the order
+    save_data_frame(cms_data, CMS_DATA_PATH)
     return load_data_frame(spark, CMS_DATA_PATH).cache()
 
 
@@ -132,8 +132,10 @@ def distinct_and_rank_col(col, split_str=','):
 # sampled all adplacement inventory data with sample_rate = 1/100
 def sample_data_daily(spark, sample_date, cms_data):
     if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
-        inventory_s3_path = f"{BACKUP_PATH}_{BACKUP_SAMPLE_RATE}/cd={sample_date}"
-        # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads        
+        inventory_s3_path = f"{BACKUP_PATH}_{BACKUP_SAMPLE_RATE}/cd={sample_date}"  # TODO: 0.25 should be replaced with backup rate
+
+        # sample 1% inventory, i.e. 4% backed inventory
+        # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads
         inventory_data = load_data_frame(spark, inventory_s3_path) \
             .withColumn("sample_id_bucket", get_hash_and_mod('adv_id', F.lit(ALL_ADPLACEMENT_SAMPLE_BUCKET)))\
             .where(f'sample_id_bucket = {VALID_SAMPLE_TAG}') \
@@ -145,11 +147,10 @@ def sample_data_daily(spark, sample_date, cms_data):
             .withColumn("device_model", parse_device_model('device_model'))\
             .withColumn("content_language", parse_language('content_language'))\
             .cache()
-        # inventory_data.withColumn('gender', F.explode(F.split(F.col('demo_gender'), ","))).groupBy('gender').count().show(100, False)
         # add content attributes to inventory data
         # Q: can have multiple age_buckets? A: from difference sources, or broad and standard
         # Q: why random sample_id_bucket? A: No need, can be removed
-        # Q: why distince and rank cols? A: to save space after aggregation
+        # Q: why distinct and rank cols? A: to save space after aggregation
         enriched_inventory_data = inventory_data.join(F.broadcast(cms_data), "content_id", how="left_outer") \
             .selectExpr('adv_id', 'lower(city) as city', 'lower(state) as state',
                         'lower(location_cluster) as location_cluster',
@@ -256,10 +257,10 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
     save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"_sample_rate_{VOD_SAMPLE_BUCKET}/cd={sample_date}")
 
 
-cms_data = load_content_cms(spark)
-for sample_date in get_date_list("2023-08-22", 1):
-    sample_data_daily(spark, sample_date, cms_data)
-    generate_vod_sampling_and_aggr_on_content(spark, sample_date)
+# cms_data = load_content_cms(spark)
+# for sample_date in get_date_list("2023-08-23", 300):
+#     sample_data_daily(spark, sample_date, cms_data)
+#     generate_vod_sampling_and_aggr_on_content(spark, sample_date)
 
 
 if __name__ == '__main__':

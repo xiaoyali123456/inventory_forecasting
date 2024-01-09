@@ -31,6 +31,7 @@ BACKUP_SAMPLE_RATE = 0.25
 ALL_ADPLACEMENT_SAMPLE_BUCKET = 100
 VOD_SAMPLE_BUCKET = 300
 
+# Q: why these values? A: there are all from shifu adplacements except audience platfrom
 SUPPORTED_AD_PLACEMENT = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", "BILLBOARD_NEWS",
                           "SKINNY_HOME", "SKINNY_TV", "SKINNY_MOVIES", "SKINNY_SPORTS",
                           "SKINNY_MULTIPLEX", "BTF_HOME", "BTF_TV", "BTF_MOVIES", "BTF_SPORTS",
