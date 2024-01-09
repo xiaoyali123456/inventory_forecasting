@@ -157,7 +157,7 @@ def sample_data_daily(spark, sample_date, cms_data):
                         'lower(device_os_version) as device_os_version', 'lower(device_app_version) as device_app_version',
                         'ad_placement', 'content_id', 'lower(content_type) as content_type', 'content_language',
                         'request_id', 'break_id', 'break_slot_count', 'date', 'hr', 'sample_id_bucket',
-                        'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no', 'lower(channel) as channel', 'premium'
+                        'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no', 'lower(channel) as channel', 'premium',
                         'custom_tags', 'user_segment') \
             .fillna('', SAMPLING_COLS)
         print(enriched_inventory_data.count())
