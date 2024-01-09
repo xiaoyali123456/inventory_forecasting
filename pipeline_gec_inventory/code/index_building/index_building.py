@@ -65,9 +65,9 @@ if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])
     print(sample_date)
     local_pickle_path = f'sample_data_model_300'
-    cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLE_PARQUET_PATH)
+    cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
     os.makedirs(local_pickle_path, exist_ok=True)
-    res = load_from_parquet(sample_date, VOD_SAMPLE_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
+    res = load_from_parquet(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
         pickle.dump(res, f)
     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")

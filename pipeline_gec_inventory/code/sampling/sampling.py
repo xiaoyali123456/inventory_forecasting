@@ -254,7 +254,7 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
         .groupBy(VOD_SAMPLING_COLS) \
         .agg(F.count('*').alias('break_num'))\
         .withColumn('break_slot_count', F.expr('break_slot_count * break_num'))
-    save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"_sample_rate_{VOD_SAMPLE_BUCKET}/cd={sample_date}")
+    save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"/cd={sample_date}")
 
 
 # cms_data = load_content_cms(spark)

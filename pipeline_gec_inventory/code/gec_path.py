@@ -1,3 +1,5 @@
+from gec_config import *
+
 INVENTORY_S3_ROOT_PATH = "s3://hotstar-ads-targeting-us-east-1-prod/trackers/shifu_ad_events/ad_inventory"
 EPISODE_TABLE = "in_cms.episode_update_s3"
 MOVIE_TABLE = "in_cms.movie_update_s3"
@@ -12,7 +14,7 @@ SAMPLING_DATA_NEW_PATH = f"{ROOT_PATH}/sampling_data_sample_rate_100"
 SAMPLING_DATA_SUMMARY_PATH = f"{ROOT_PATH}/sampling_data_summary"
 VOD_SAMPLING_DATA_PREDICTION_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction"
 VOD_SAMPLING_DATA_PREDICTION_CSV_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_csv"
-VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet"
+VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet_sample_rate_{VOD_SAMPLE_BUCKET}"
 VOD_SAMPLING_PREDICTION_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_prediction_error"
 VOD_SAMPLING_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_error"
 
@@ -27,8 +29,7 @@ GEC_INVENTORY_PREDICTION_RESULT_PATH = f"{ROOT_PATH}/prophet/predicted"
 GEC_INVENTORY_PREDICTION_REPORT_PATH = f"{ROOT_PATH}/prophet/report"
 GEC_INVENTORY_NUMBER_PATH = f"{ROOT_PATH}/ingest/inventoryNumber"
 
-VOD_SAMPLE_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet_sample_rate_300"
-VOD_BITMAP_PICKLE_PATH = f"{ROOT_PATH}/vod_sampling_bitmap_data_300/"
+VOD_BITMAP_PICKLE_PATH = f"{ROOT_PATH}/vod_sampling_bitmap_data_{VOD_SAMPLE_BUCKET}/"
 
 
 
