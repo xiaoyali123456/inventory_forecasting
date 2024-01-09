@@ -43,7 +43,7 @@ def make_inventory_prediction(forecast_date):
         # cross validation
         # train the prophet model with period days, and make prediction for the next period days
         # the moving step is also period days.
-        # Q: why do we need to train the model here? A: because the cross_validation function needs a fitted prophet model
+        # Q: why do we need to train the model here? A: because the cross_validation function needs a fitted prophet model as the parameter
         m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
         df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
         df_p = performance_metrics(df_cv, rolling_window=1)
