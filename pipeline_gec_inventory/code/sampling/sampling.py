@@ -154,7 +154,7 @@ def sample_data_daily(spark, sample_date, cms_data):
             .selectExpr('adv_id', 'lower(city) as city', 'lower(state) as state',
                         'lower(location_cluster) as location_cluster',
                         'lower(pincode) as pincode',
-                        'lower(demo_gender) as demo_gender'
+                        'lower(demo_gender) as demo_gender',
                         'lower(demo_age_range) as demo_age_range',
                         'demo_source', 'lower(ibt) as ibt', 'lower(device_brand) as device_brand',
                         'lower(device_model) as device_model',
@@ -169,9 +169,8 @@ def sample_data_daily(spark, sample_date, cms_data):
             .withColumn('ibt', distinct_and_rank_col('ibt')) \
             .withColumn('age_bucket', distinct_and_rank_col('demo_age_range'))\
             .withColumn('gender', distinct_and_rank_col('demo_gender'))
-        print(enriched_inventory_data.count())
-        print(enriched_inventory_data.where('age_bucket = "" or gender = ""').count())
-
+        # print(enriched_inventory_data.count())
+        # print(enriched_inventory_data.where('age_bucket = "" or gender = ""').count())
         # save inventory (sample count) and reach of each ad_placement in SAMPLING_DATA_SUMMARY_PATH
         # save enriched inventory data in SAMPLING_DATA_NEW_PATH
         save_data_frame(enriched_inventory_data.groupBy('ad_placement').agg(F.count("*").alias("inventory_sample_count"), F.countDistinct("adv_id").alias("reach_sample_count")), SAMPLING_DATA_SUMMARY_PATH + f"/cd={sample_date}")
@@ -255,6 +254,12 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
         .agg(F.count('*').alias('break_num'))\
         .withColumn('break_slot_count', F.expr('break_slot_count * break_num'))
     save_data_frame(df, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH + f"_sample_rate_{VOD_SAMPLE_BUCKET}/cd={sample_date}")
+
+
+cms_data = load_content_cms(spark)
+for sample_date in get_date_list("2023-08-22", 1):
+    sample_data_daily(spark, sample_date, cms_data)
+    generate_vod_sampling_and_aggr_on_content(spark, sample_date)
 
 
 if __name__ == '__main__':

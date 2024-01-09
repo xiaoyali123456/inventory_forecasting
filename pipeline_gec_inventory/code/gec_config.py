@@ -5,7 +5,7 @@ SAMPLING_COLS = ['city',
                  'state',
                  'location_cluster',
                  'pincode',
-                 'demo_gender'
+                 'demo_gender',
                  'demo_age_range',
                  'demo_source',
                  'ibt',
