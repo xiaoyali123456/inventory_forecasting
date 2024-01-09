@@ -4,8 +4,8 @@ from collections import defaultdict
 from pyroaring import BitMap
 import sys
 
-from gec_util import *
-from gec_path import *
+from ..gec_util import *
+from ..gec_path import *
 
 
 '''
@@ -21,8 +21,8 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
     df = pd.read_parquet(f"{url}/cd={dt}")
     # start_time = time.time()
     # print(init_time - start_time)
-    inverted_index = defaultdict(dict)  # targeting -> tag -> bitmap of sample_id
-    forward_index = []
+    inverted_index = defaultdict(dict)  # targeting col -> targeting col value -> bitmap of sample_id
+    forward_index = []  # sample's non-targeting cols' value list: 'adv_id', 'break_num', 'break_slot_count'
     for index, row in df.iterrows():
         for idx in targeting_idx_list:
             tags = str(row[idx]).split(',')
@@ -44,11 +44,12 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
 
 
 def get_targeting_cols(dt, url):
+    # Q: how does the data in VOD_SAMPLE_PARQUET_PATH come from?
     cols = list(pd.read_parquet(f"{url}/cd={dt}").columns)
     # print(cols)
-    none_targeting_idx_dic = {}
-    none_targeting_idx_list = []
-    targeting_idx_list = []
+    none_targeting_idx_dic = {}  # store col index: {col: idx}
+    none_targeting_idx_list = []  # store col index: [idx]
+    targeting_idx_list = []  # store targeting col index: [idx]
     for idx in range(len(cols)):
         if cols[idx] in ['adv_id', 'break_num', 'break_slot_count']:
             none_targeting_idx_dic[cols[idx]] = idx
@@ -66,8 +67,12 @@ if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])
     print(sample_date)
     local_pickle_path = f'sample_data_model_300'
+
+    # get the targeting col dict, list and non-targeting col list
     cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
     os.makedirs(local_pickle_path, exist_ok=True)
+
+    # build forward and inverted indexes
     res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
         pickle.dump(res, f)
