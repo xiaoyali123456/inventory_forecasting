@@ -16,7 +16,6 @@ VOD_SAMPLING_DATA_PREDICTION_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction"
 VOD_SAMPLING_DATA_PREDICTION_CSV_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_csv"
 VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet_sample_rate_{VOD_SAMPLE_BUCKET}"
 VOD_SAMPLING_PREDICTION_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_prediction_error"
-VOD_SAMPLING_ERROR_PATH = f"{ROOT_PATH}/vod_sampling_error"
 
 ORIGINAL_DATA_FCAP_HISTOGRAM_PATH = f"{ROOT_PATH}/original_data_fcap_histogram"
 SAMPLED_DATA_FCAP_HISTOGRAM_PATH = f"{ROOT_PATH}/sampled_data_fcap_histogram"

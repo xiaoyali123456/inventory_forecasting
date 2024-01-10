@@ -78,4 +78,16 @@ if __name__ == '__main__':
         pickle.dump(res, f)
     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
 
-
+# for offline data backfilling
+# local_pickle_path = f'sample_data_model_300'
+# # get the targeting col dict, list and non-targeting col list
+# cols, targeting_idx_list, value_idx_list = get_targeting_cols("2023-08-22", VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
+# os.makedirs(local_pickle_path, exist_ok=True)
+# for sample_date in get_date_list("2023-08-22", 300):
+#     print(sample_date)
+#     res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list,
+#                          value_idx_list)
+#     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
+#         pickle.dump(res, f)
+#     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
+#

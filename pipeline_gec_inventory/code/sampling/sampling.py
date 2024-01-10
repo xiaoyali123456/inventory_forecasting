@@ -166,7 +166,7 @@ def sample_data_daily(spark, sample_date, cms_data):  # further sample 1% data
                         'request_id', 'break_id', 'break_slot_count', 'date', 'hr',
                         'show_id', 'lower(genre) as genre', 'lower(title) as title', 'season_no', 'lower(channel) as channel', 'premium',
                         'custom_tags', 'user_segment') \
-            .fillna('', SAMPLING_COLS) \
+            .fillna('', STRING_SAMPLING_COLS) \
             .withColumn('ibt', distinct_and_rank_col('ibt')) \
             .withColumn('age_bucket', distinct_and_rank_col('demo_age_range'))\
             .withColumn('gender', distinct_and_rank_col('demo_gender'))
