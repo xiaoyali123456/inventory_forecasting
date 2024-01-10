@@ -258,7 +258,7 @@ def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
 
 
 # cms_data = load_content_cms(spark)
-# for sample_date in get_date_list("2023-08-23", 300):
+# for sample_date in get_date_list("2023-12-25", 300):
 #     sample_data_daily(spark, sample_date, cms_data)
 #     generate_vod_sampling_and_aggr_on_content(spark, sample_date)
 

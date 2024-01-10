@@ -15,7 +15,8 @@ from gec_path import *
 
 # inventory 12mn, 1.8 sample --> 4.8 sample, inventory 24mn; 10 inv * 300 * 2
 # {key1: {key2: value}}, key1: gender, key2: male, value: set of sample_id
-def load_from_parquet(dt, url, cols, targeting_idx_list, value_idx_list):
+# col = ["gender", "age", ...]
+def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
     # init_time = time.time()
     df = pd.read_parquet(f"{url}/cd={dt}")
     # start_time = time.time()
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     local_pickle_path = f'sample_data_model_300'
     cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
     os.makedirs(local_pickle_path, exist_ok=True)
-    res = load_from_parquet(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
+    res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
         pickle.dump(res, f)
     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
