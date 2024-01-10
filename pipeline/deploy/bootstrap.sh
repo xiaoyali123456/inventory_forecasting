@@ -1,3 +1,4 @@
+# Q: do we need both bootstrap.sh and this one?
 sudo yum -y install python3-devel libffi-devel
 sudo python3 -m pip install pip==23.1.1 # upgrade pip first
 sudo python3 -m pip install \

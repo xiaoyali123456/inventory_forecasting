@@ -7,8 +7,8 @@ import os
 
 import pandas as pd
 from datetime import datetime, timedelta
-from util import s3
-from path import *
+from ..util import s3
+from ..path import *
 
 
 def set_ids_as_int(df):
@@ -112,10 +112,11 @@ def dump_to_json_str(x):
 
 def main(cd):
     req_list = []
-    page_size = 10
+    page_size = 10  # why 10?
     i, total = 0, 1
-    # fetch request at page level
+    # fetch request at page level from booking tool api
     while i < total:
+        # any credentials?
         url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?status=INIT&page-size={page_size}&page-number={i}'
         # url = f'{BOOKING_TOOL_URL}/api/v1/inventory/forecast-request?page-size={page_size}&page-number={i}'
         df = pd.read_json(url)

@@ -4,8 +4,8 @@ from collections import defaultdict
 from pyroaring import BitMap
 import sys
 
-from ..gec_util import *
-from ..gec_path import *
+from gec_util import *
+from gec_path import *
 
 
 '''
@@ -29,7 +29,7 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
             # print(tags)
             for key in tags:
                 if key not in inverted_index[cols[idx]]:
-                    inverted_index[cols[idx]][key] = BitMap()
+                    inverted_index[cols[idx]][key] = BitMap()  # dense storage, like 00110100
                 inverted_index[cols[idx]][key].add(index)
         # uid, breaks, slots
         forward_index.append([int(row[idx]) for idx in value_idx_list])
@@ -44,7 +44,7 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
 
 
 def get_targeting_cols(dt, url):
-    # Q: how does the data in VOD_SAMPLE_PARQUET_PATH come from?
+    # Q: how does the data in VOD_SAMPLE_PARQUET_PATH come from? A: result of sampling.py
     cols = list(pd.read_parquet(f"{url}/cd={dt}").columns)
     # print(cols)
     none_targeting_idx_dic = {}  # store col index: {col: idx}

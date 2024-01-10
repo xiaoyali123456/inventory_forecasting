@@ -83,6 +83,7 @@ def load_content_cms(spark):  # content_id, show_id, genre, title, season_no, ch
     episode_cms_data = load_hive_table(spark, EPISODE_TABLE)\
         .filter('deleted = False')\
         .select("contentid", "showcontentid", "primarygenre", "title", "seasonno", "channelname", "premium")
+    # show_id for movie and clip has very low coverage. TODO: need to check how to use show_id.
     movie_cms_data = load_hive_table(spark, MOVIE_TABLE)\
         .filter('deleted = False')\
         .select("contentid", "showcontentid", "primarygenre", "title", "premium")\
