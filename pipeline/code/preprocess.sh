@@ -11,7 +11,6 @@ aws s3 sync $CODE . --quiet
 
 SLACK_NOTIFICATION_TOPIC="arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION="us-east-1"
-#aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "booking tool server starts" --region $REGION
 
 SPARK="spark-submit --deploy-mode client \
     --packages org.apache.hudi:hudi-spark-bundle_2.11:0.9.0 \
@@ -19,7 +18,7 @@ SPARK="spark-submit --deploy-mode client \
     --py-files config.py,path.py,util.py"
 
 $SPARK preprocess/fetch_requests.py $DATE
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_requests on $DATE done" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "live midroll inventory forecasting" --message "fetch_requests on $DATE done" --region $REGION
 
 $SPARK preprocess/fetch_match_cms.py $DATE
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "fetch_match_cms $DATE done" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "live midroll inventory forecasting" --message "fetch_match_cms $DATE done" --region $REGION

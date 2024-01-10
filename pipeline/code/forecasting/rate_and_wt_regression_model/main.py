@@ -16,7 +16,7 @@ from dnn_configuration import *
 
 
 def slack_notification(topic, region, message):
-    cmd = f'aws sns publish --topic-arn "{topic}" --subject "midroll inventory forecasting" --message "{message}" --region {region}'
+    cmd = f'aws sns publish --topic-arn "{topic}" --subject "live midroll inventory forecasting" --message "{message}" --region {region}'
     os.system(cmd)
 
 

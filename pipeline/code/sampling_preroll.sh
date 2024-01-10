@@ -15,4 +15,4 @@ $SPARK sampling/preroll/etl.py $DATE
 
 SLACK_NOTIFICATION_TOPIC="arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION="us-east-1"
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "preroll inventory forecasting" --message "sampling done" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "live preroll inventory forecasting" --message "sampling done" --region $REGION

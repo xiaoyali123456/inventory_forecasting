@@ -7,8 +7,8 @@ import os
 
 import pandas as pd
 from datetime import datetime, timedelta
-from ..util import s3
-from ..path import *
+from util import s3
+from path import *
 
 
 def set_ids_as_int(df):

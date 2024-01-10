@@ -11,7 +11,7 @@ REGION="us-east-1"
 python3 -m pip install --user -r postprocess/requirements.txt
 #bash booking/server.sh &
 #sleep 5
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "postprocess packages installed done" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "live midroll inventory forecasting" --message "postprocess packages installed done" --region $REGION
 
 
 #curl http://adtech-inventory-booking-service-alb-0-int.internal.sgp.hotstar.com/api/v1/inventory/forecast-request\?page-size\=10\&page-number\=0
@@ -27,4 +27,4 @@ $SPARK postprocess/combine.py $DATE
 
 PYTHONPATH="$PWD" python3 postprocess/postprocess.py $DATE
 
-aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "midroll inventory forecasting" --message "postprocess done" --region $REGION
+aws sns publish --topic-arn "$SLACK_NOTIFICATION_TOPIC" --subject "live midroll inventory forecasting" --message "postprocess done" --region $REGION
