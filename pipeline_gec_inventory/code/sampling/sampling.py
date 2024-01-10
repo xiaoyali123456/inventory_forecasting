@@ -132,7 +132,7 @@ def distinct_and_rank_col(col, split_str=','):
 
 # sampled all adplacement inventory data with sample_rate = 1/100
 def sample_data_daily(spark, sample_date, cms_data):  # further sample 1% data
-    if not check_s3_path_exist(SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}"):
+    if not check_s3_path_exist(SAMPLING_DATA_ALL_ADPLACEMENT_PATH + f"/cd={sample_date}"):
         inventory_s3_path = f"{BACKUP_PATH}_{BACKUP_SAMPLE_RATE}/cd={sample_date}"  # TODO: 0.25 should be replaced with backup rate
         # sample 1% inventory, i.e. 4% backed inventory
         # Q: remove sport_live preroll. how about sport_live midroll? A: shifu contains all preroll ads
@@ -175,7 +175,7 @@ def sample_data_daily(spark, sample_date, cms_data):  # further sample 1% data
         # save inventory (sample count) and reach of each ad_placement in SAMPLING_DATA_SUMMARY_PATH
         # save enriched inventory data in SAMPLING_DATA_NEW_PATH
         save_data_frame(enriched_inventory_data.groupBy('ad_placement').agg(F.count("*").alias("inventory_sample_count"), F.countDistinct("adv_id").alias("reach_sample_count")), SAMPLING_DATA_SUMMARY_PATH + f"/cd={sample_date}")
-        save_data_frame(enriched_inventory_data, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}")
+        save_data_frame(enriched_inventory_data, SAMPLING_DATA_ALL_ADPLACEMENT_PATH + f"/cd={sample_date}")
 
 
 @F.udf(returnType=StringType())
@@ -237,7 +237,7 @@ def extract_3rd_party_cohorts(col, split_str=','):
 # sampled vod inventory data with sample_rate = 1/300
 # TODO need to daily join shifu ad_insertion table to get the max_slot_number and max_break_duration for preroll and midroll
 def generate_vod_sampling_and_aggr_on_content(spark, sample_date):
-    res = load_data_frame(spark, SAMPLING_DATA_NEW_PATH + f"/cd={sample_date}") \
+    res = load_data_frame(spark, SAMPLING_DATA_ALL_ADPLACEMENT_PATH + f"/cd={sample_date}") \
         .where("ad_placement in ('PREROLL', 'MIDROLL')")
     # sampled 1/300 preroll and midroll inventory
     # Q: why hash adv_id with MAX_INT-2? A: convert a string to an int to save storage.
