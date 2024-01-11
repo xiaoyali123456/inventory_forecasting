@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 from pyroaring import BitMap
 import sys
+import base64
 
 from gec_util import *
 from gec_path import *
@@ -63,6 +64,15 @@ def get_targeting_cols(dt, url):
     return cols, targeting_idx_list, none_targeting_idx_list
 
 
+def dump_index_to_json(res):
+    inverted_index = res['inverted_index']
+    for key in inverted_index:
+        for tag in inverted_index[key]:
+            bm = inverted_index[key][tag]
+            val = base64.b64encode(bm.serialize())
+            inverted_index[key][tag] = val.decode('utf-8')
+    return json.dumps(res)
+
 if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])
     print(sample_date)
@@ -74,9 +84,15 @@ if __name__ == '__main__':
 
     # build forward and inverted indexes
     res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
+    
     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
         pickle.dump(res, f)
     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
+
+    jstr = dump_index_to_json(res)
+    with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f: 
+        f.write(jstr)
+    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_PICKLE_PATH}")
 
 # for offline data backfilling
 # local_pickle_path = f'sample_data_model_300'
