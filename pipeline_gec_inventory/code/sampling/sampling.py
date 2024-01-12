@@ -306,4 +306,4 @@ if __name__ == '__main__':
     generate_vod_sampling_and_aggr_on_content(spark, sample_date)
 
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                       message=f"gec_sampling on {sample_date} is done.")
+                       message=f"gec sampling on {sys.argv[1]} is done.")

@@ -5,6 +5,25 @@ from path import *
 from util import get_last_cd
 
 
+# cd = "2024-01-13"
+# df = pd.read_parquet(PREPROCESSED_INPUT_PATH + f'cd=2023-12-06/p0.parquet')
+# df['abandoned'] = 0
+# df['if_contain_india_team'] = df.apply(lambda row: 1 if 'india' in [row['team1'].lower(), row['team2'].lower()] else 0, axis=1)
+# cols = ['date', 'abandoned', 'vod_type', 'match_stage', 'tournament_name',
+#         'match_type', 'if_contain_india_team', 'tournament_type']
+# df = df.rename(columns={'matchDate': 'date',
+#                      'tournamentType': 'vod_type',
+#                      'matchType': 'match_stage',
+#                      'tournamentName': 'tournament_name',
+#                      'matchCategory': 'tournament_type'}).set_index('date', inplace=True)
+# last_cd = get_last_cd(PROPHET_FEATURES_PATH, cd)
+# old_df = pd.read_csv(f"{PROPHET_FEATURES_PATH}/cd={last_cd}/feature.csv").set_index('date', inplace=True)
+# new_df = pd.merge(old_df, df[cols].set_index('date', inplace=True), on='date', how='right')
+# res_df = pd.concat(old_df, new_df)
+# res_df.to_csv(f"{PROPHET_FEATURES_PATH}/cd={cd}/feature.csv", index=False)
+# generate_holidays(f"{PROPHET_FEATURES_PATH}/cd={cd}/feature.csv", f"{PROPHET_HOLIDAYS_PATH}/cd={cd}/holidays.csv")
+
+
 def update_features_for_prophet(df: pd.DataFrame, cd):
     df['abandoned'] = 0
     df['if_contain_india_team'] = df.apply(lambda row: 1 if 'india' in [row['team1'].lower(), row['team2'].lower()] else 0, axis=1)

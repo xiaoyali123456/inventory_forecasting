@@ -131,11 +131,12 @@ def get_inventory_number(date):
     # save in INVENTORY_NUMBER_PATH
     # Q: how to define inventory? a break? A: inventory is number of breaks.
     # Q: what's the relation between request and break? A: for midroll, 1 request vs. multiple breaks; for preroll, 1 request vs. 1 break
-    inventory_data = load_data_frame(spark, inventory_s3_path)\
-        .groupBy('ad_placement', 'content_id', 'content_type')\
-        .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
-    # if want to countDistinct(adv_id), need to put content_type sport filter here in advance
-    save_data_frame(inventory_data, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")
+    if not check_s3_path_exist(f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}"):
+        inventory_data = load_data_frame(spark, inventory_s3_path)\
+            .groupBy('ad_placement', 'content_id', 'content_type')\
+            .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
+        # if want to countDistinct(adv_id), need to put content_type sport filter here in advance
+        save_data_frame(inventory_data, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")
 
     # get inventory number at cd and ad_placement level
     # save in GEC_INVENTORY_BY_CD_PATH
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
     make_inventory_prediction(sample_date)
     slack_notification(topic=SLACK_NOTIFICATION_TOPIC, region=REGION,
-                       message=f"gec prophet prediction on {sample_date} is done.")
+                       message=f"gec prophet prediction on {sys.argv[1]} is done.")
 
 
 
