@@ -78,6 +78,7 @@ def dump_index_to_json(res):
     inverted_index = format_targeting_col(res['inverted_index'])
     for key in inverted_index:
         for tag in inverted_index[key]:
+            print(key, tag)
             bm = inverted_index[key][tag]
             val = base64.b64encode(bm.serialize())
             inverted_index[key][tag] = val.decode('utf-8')
@@ -86,35 +87,39 @@ def dump_index_to_json(res):
 
 if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])
-    print(sample_date)
-    local_pickle_path = f'sample_data_model_300'
-
-    # get the targeting col dict, list and non-targeting col list
-    cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
-    os.makedirs(local_pickle_path, exist_ok=True)
-
-    # build forward and inverted indexes
-    res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
-    
-    with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
-        pickle.dump(res, f)
-    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
-
-    jstr = dump_index_to_json(res)
-    with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f: 
-        f.write(jstr)
-    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_JSON_PATH}")
+    # print(sample_date)
+    # local_pickle_path = f'sample_data_model_300'
+    #
+    # # get the targeting col dict, list and non-targeting col list
+    # cols, targeting_idx_list, value_idx_list = get_targeting_cols(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
+    # os.makedirs(local_pickle_path, exist_ok=True)
+    #
+    # # build forward and inverted indexes
+    # res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
+    #
+    # with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
+    #     pickle.dump(res, f)
+    # os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
+    #
+    # jstr = dump_index_to_json(res)
+    # with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f:
+    #     f.write(jstr)
+    # os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_JSON_PATH}")
 
 # for offline data backfilling
 # local_pickle_path = f'sample_data_model_300'
 # # get the targeting col dict, list and non-targeting col list
-# cols, targeting_idx_list, value_idx_list = get_targeting_cols("2023-08-22", VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
-# os.makedirs(local_pickle_path, exist_ok=True)
+# # cols, targeting_idx_list, value_idx_list = get_targeting_cols("2023-08-22", VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH)
+# # os.makedirs(local_pickle_path, exist_ok=True)
+# os.system(f"aws s3 sync {VOD_BITMAP_PICKLE_PATH} {local_pickle_path}/")
 # for sample_date in get_date_list("2023-08-22", 300):
 #     print(sample_date)
-#     res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list,
-#                          value_idx_list)
-#     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
-#         pickle.dump(res, f)
-#     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
-#
+#     # res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list,
+#     #                      value_idx_list)
+#     with open(f'{local_pickle_path}/{sample_date}.pkl', 'rb') as f:
+#         res = pickle.load(f)
+#     jstr = dump_index_to_json(res)
+#     with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f:
+#         f.write(jstr)
+#     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_JSON_PATH}")
+

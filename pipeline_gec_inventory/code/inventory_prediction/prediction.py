@@ -116,7 +116,7 @@ def make_inventory_prediction(forecast_date):
                          'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
         predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                          'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
-                         'weekly_upper', 'yhat', 'y').write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
+                         'weekly_upper', 'yhat', 'y').repartition(1).write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
     spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
     spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update
