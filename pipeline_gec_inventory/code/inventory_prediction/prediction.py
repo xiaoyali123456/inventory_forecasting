@@ -134,6 +134,7 @@ def get_inventory_number(date):
     inventory_data = load_data_frame(spark, inventory_s3_path)\
         .groupBy('ad_placement', 'content_id', 'content_type')\
         .agg(F.countDistinct('break_id').alias('inventory'), F.countDistinct('request_id').alias('request_id'))
+    # if want to countDistinct(adv_id), need to put content_type sport filter here in advance
     save_data_frame(inventory_data, f"{GEC_INVENTORY_NUMBER_PATH}/cd={date}")
 
     # get inventory number at cd and ad_placement level

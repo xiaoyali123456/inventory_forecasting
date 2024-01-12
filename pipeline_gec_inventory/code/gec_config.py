@@ -1,4 +1,5 @@
 # for gec
+# used for adv_id(uid) string hash
 MAX_INT = 2147483647
 VALID_SAMPLE_TAG = 1
 STRING_SAMPLING_COLS = ['city', 'state', 'location_cluster',
@@ -24,6 +25,9 @@ VOD_SAMPLING_COLS = ['adv_id',
                      'show_id', 'genre', 'season_no', 'channel', 'premium',
                      'nccs']
 
+# 1. adv_id % 4 == 1   => setA
+# 2. adv_id % 100 == 1 on setA => setB
+# 3. adv_id % 300 == 1 on setB => set(PREROLL,MIDROLL)
 BACKUP_SAMPLE_RATE = 0.25
 ALL_ADPLACEMENT_SAMPLE_BUCKET = 100
 VOD_SAMPLE_BUCKET = 300
@@ -34,6 +38,7 @@ SUPPORTED_AD_PLACEMENT = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", 
                           "SKINNY_MULTIPLEX", "BTF_HOME", "BTF_TV", "BTF_MOVIES", "BTF_SPORTS",
                           "BTF_HOMELOW", "BTF_MOVIESLOW2", "PREROLL", "MIDROLL"]
 
+# hotstar-dev sns
 SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION = "us-east-1"
 

@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 from pyroaring import BitMap
 import sys
+import base64
 
 from gec_util import *
 from gec_path import *
@@ -62,6 +63,26 @@ def get_targeting_cols(dt, url):
     # print(targeting_idx_list)
     return cols, targeting_idx_list, none_targeting_idx_list
 
+def snake_to_camel(snake_str):
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+def format_targeting_col(inverted_index):
+    result = {}
+    for key, value in inverted_index.items():
+        new_key = snake_to_camel(key)
+        result[new_key] = value
+    return result
+
+def dump_index_to_json(res):
+    inverted_index = format_targeting_col(res['inverted_index'])
+    for key in inverted_index:
+        for tag in inverted_index[key]:
+            bm = inverted_index[key][tag]
+            val = base64.b64encode(bm.serialize())
+            inverted_index[key][tag] = val.decode('utf-8')
+    res['inverted_index'] = inverted_index
+    return json.dumps(res)
 
 if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])
@@ -74,9 +95,15 @@ if __name__ == '__main__':
 
     # build forward and inverted indexes
     res = index_building(sample_date, VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH, cols, targeting_idx_list, value_idx_list)
+    
     with open(f'{local_pickle_path}/{sample_date}.pkl', 'wb') as f:
         pickle.dump(res, f)
     os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.pkl {VOD_BITMAP_PICKLE_PATH}")
+
+    jstr = dump_index_to_json(res)
+    with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f: 
+        f.write(jstr)
+    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_PICKLE_PATH}")
 
 # for offline data backfilling
 # local_pickle_path = f'sample_data_model_300'
