@@ -161,7 +161,7 @@ cython_debug/
 .idea/
 pipeline_gec_inventory/.idea
 
-/pipeline/code/forecasting/dataset_update/data
+/pipeline/code/preprocess/data
 /data
 .DS_Store
 .vscode
