@@ -103,7 +103,7 @@ if __name__ == '__main__':
     jstr = dump_index_to_json(res)
     with open(f'{local_pickle_path}/{sample_date}.json', 'w') as f: 
         f.write(jstr)
-    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_PICKLE_PATH}")
+    os.system(f"aws s3 cp {local_pickle_path}/{sample_date}.json {VOD_BITMAP_JSON_PATH}")
 
 # for offline data backfilling
 # local_pickle_path = f'sample_data_model_300'

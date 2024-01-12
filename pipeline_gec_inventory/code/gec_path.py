@@ -21,6 +21,7 @@ GEC_INVENTORY_PREDICTION_REPORT_PATH = f"{ROOT_PATH}/prophet/report"
 GEC_INVENTORY_NUMBER_PATH = f"{ROOT_PATH}/ingest/inventoryNumber"
 
 VOD_BITMAP_PICKLE_PATH = f"{ROOT_PATH}/vod_sampling_bitmap_data_{VOD_SAMPLE_BUCKET}/"
+VOD_BITMAP_JSON_PATH = f"{ROOT_PATH}/vod_sampling_bitmap_json_data_{VOD_SAMPLE_BUCKET}/"
 
 
 
