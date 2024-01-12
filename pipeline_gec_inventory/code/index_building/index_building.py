@@ -63,14 +63,25 @@ def get_targeting_cols(dt, url):
     # print(targeting_idx_list)
     return cols, targeting_idx_list, none_targeting_idx_list
 
+def snake_to_camel(snake_str):
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+def format_targeting_col(inverted_index):
+    result = {}
+    for key, value in inverted_index.items():
+        new_key = snake_to_camel(key)
+        result[new_key] = value
+    return result
 
 def dump_index_to_json(res):
-    inverted_index = res['inverted_index']
+    inverted_index = format_targeting_col(res['inverted_index'])
     for key in inverted_index:
         for tag in inverted_index[key]:
             bm = inverted_index[key][tag]
             val = base64.b64encode(bm.serialize())
             inverted_index[key][tag] = val.decode('utf-8')
+    res['inverted_index'] = inverted_index
     return json.dumps(res)
 
 if __name__ == '__main__':
