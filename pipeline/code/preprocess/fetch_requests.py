@@ -132,8 +132,6 @@ def main(cd):
     df_new = convert_list_to_df(req_list, cd)
     print('df_new')
     print(df_new)
-    if len(df_new) > 0:
-        generate_prophet_holidays.update_features_for_prophet(df_new, cd)
     df_new['requestDate'] = cd
     df_old = load_yesterday_request(cd)
     print('df_old')
@@ -147,6 +145,8 @@ def main(cd):
     print('df_uni')
     # print(df_uni[['seasonId', 'matchId', 'tournamentId']])
     df_uni.to_parquet(PREPROCESSED_INPUT_PATH + f'cd={cd}/p0.parquet')
+    if len(df_new) > 0:
+        generate_prophet_holidays.update_features_for_prophet(df_uni, cd)
 
 
 if __name__ == '__main__':
