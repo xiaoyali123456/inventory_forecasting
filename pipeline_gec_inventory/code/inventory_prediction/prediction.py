@@ -1,3 +1,7 @@
+"""
+    1. calculate and save inventory number per ad placement of yesterday, and update the prophet training dataset
+    2. use prophet model to do cross validation, recent days test and future 100 days prediction at ad placement level
+"""
 import sys
 from pyspark.sql.functions import col
 from pyspark.sql.types import StringType
@@ -12,17 +16,19 @@ from gec_path import *
 from gec_util import *
 
 
-def load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, data):
-    m = Prophet(changepoint_prior_scale=changepoint_prior_scale, holidays_prior_scale=holidays_prior_scale,
-                weekly_seasonality=weekly_seasonality, yearly_seasonality=yearly_seasonality, holidays=holidays)
+def load_prophet_model(ad_placement, holidays, data):
+    m = Prophet(changepoint_prior_scale=PROPHET_CONFIG[ad_placement]['changepoint_prior_scale'],
+                holidays_prior_scale=PROPHET_CONFIG[ad_placement]['holidays_prior_scale'],
+                weekly_seasonality=PROPHET_CONFIG[ad_placement]['weekly_seasonality'],
+                yearly_seasonality=PROPHET_CONFIG[ad_placement]['yearly_seasonality'],
+                holidays=holidays)
     m.add_country_holidays(country_name='IN')
     m.fit(data)
     return m
 
 
-def customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df, cutoff, period):
-    m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality,
-                           holidays, df[:cutoff])  # use data before last period days for training
+def customer_performance_metrics(ad_placement, holidays, df, cutoff, period):
+    m = load_prophet_model(ad_placement, holidays, df[:cutoff])  # use data before last cutoff date for training
     future = m.make_future_dataframe(periods=period)  # make prediction for last period days
     forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
     # print(len(forecast))
@@ -37,9 +43,6 @@ def customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, 
 def make_customer_inventory_cross_validation():
     last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
     holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
-    changepoint_prior_scale = 0.01
-    holidays_prior_scale = 10
-    yearly_seasonality = False
     for ad_placement in ["MIDROLL", "PREROLL"]:
         print(ad_placement)
         res = []
@@ -47,78 +50,88 @@ def make_customer_inventory_cross_validation():
         df = pd.read_parquet(f)
         df = df.sort_values(by=['cd'])
         df['ds'] = pd.to_datetime(df['cd'])
-        if ad_placement in ["MIDROLL", "PREROLL"]:
-            weekly_seasonality = True
-        else:
-            weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
         total_days = len(df)
         print(total_days)
         init_days = 365
         period = 7
         for cutoff in range(init_days, total_days, period):
             print(cutoff)
-            res.append(customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df, cutoff, period))
+            res.append(customer_performance_metrics(ad_placement, holidays, df, cutoff, period))
             # break
         print(res)
-        print(sum(res) / len(res))
+        print(sum([abs(item) for item in res]) / len(res))
+
+
+# why need fit in cv?
+# make prediction for the next horizon days every period days, details in https://facebook.github.io/prophet/docs/diagnostics.html
+# the moving step is also period days.
+# Q: why do we need to train the model here? A: because the cross_validation function needs a fitted prophet model as the parameter
+# cross validation
+def prophet_cross_validation(ad_placement, holidays, df):
+    m = load_prophet_model(ad_placement, holidays, df)
+    df_cv = cross_validation(m, initial=f'{test_period} days', period=f'{test_period} days',
+                             horizon=f'{test_period} days', parallel="processes")
+    df_p = performance_metrics(df_cv, rolling_window=1)
+    cross_mape = df_p['mape'].values[0]
+    return cross_mape
+
+
+def prophet_recent_days_test(ad_placement, holidays, df):
+    m = load_prophet_model(ad_placement, holidays, df[:-1 * test_period])  # use data before last period days for training
+    future = m.make_future_dataframe(periods=test_period)  # make prediction for last period days
+    forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
+    d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
+    forecasted = d[-1 * test_period:]  # get the prediction days
+    future_mape = (((forecasted.yhat - forecasted.y) / forecasted.y).abs().mean())
+    return future_mape
+
+
+def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
+    m = load_prophet_model(ad_placement, holidays, df)
+    future = m.make_future_dataframe(periods=prediction_period)
+    forecast = m.predict(future)  # cover all historic days and future period days
+    d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
+    predictDf = spark.createDataFrame(
+        d.reset_index().drop("cd", axis=1)[['ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
+                                            'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
+                                            'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
+    predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
+                     'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
+                     'weekly_upper', 'yhat', 'y')\
+        .repartition(1).write.mode("overwrite")\
+        .parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
 
 
 def make_inventory_prediction(forecast_date):
     last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
     holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
     spark = hive_spark('statistics')
-    changepoint_prior_scale = 0.01
-    holidays_prior_scale = 10
-    yearly_seasonality = False
-    period = 90  # days, prediction period? training period?
-    prediction_period = 100
-    res = []
     for ad_placement in ["OTHERS", "MIDROLL", "BILLBOARD_HOME", "SKINNY_HOME", "PREROLL"]:
         print(ad_placement)
         f = GEC_INVENTORY_BY_AD_PLACEMENT_PATH + "/ad_placement=" + ad_placement
         df = pd.read_parquet(f)
         df = df.sort_values(by=['cd'])
         df['ds'] = pd.to_datetime(df['cd'])
-        if ad_placement in ["MIDROLL", "PREROLL"]:
-            weekly_seasonality = True
-        else:
-            weekly_seasonality = 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
 
         # why need fit in cv?
-        # cross validation
-        # train the prophet model with period days, and make prediction for the next period days
+        # make prediction for the next horizon days every period days, details in https://facebook.github.io/prophet/docs/diagnostics.html
         # the moving step is also period days.
         # Q: why do we need to train the model here? A: because the cross_validation function needs a fitted prophet model as the parameter
-        m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
-        df_cv = cross_validation(m, initial=f'{period} days', period=f'{period} days', horizon=f'{period} days', parallel="processes")
-        df_p = performance_metrics(df_cv, rolling_window=1)
-        cross_mape = df_p['mape'].values[0]
+        # cross validation
+        cross_mape = prophet_cross_validation(ad_placement, holidays, df)
 
         # recent 90 days validation
-        m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df[:-1*period])  # use data before last period days for training
-        future = m.make_future_dataframe(periods=period)  # make prediction for last period days
-        forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
-        d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
-        forecasted = d[-1*period:]  # get the prediction days
-        future_mape = (((forecasted.yhat-forecasted.y)/forecasted.y).abs().mean())
-        res.append((ad_placement, cross_mape, future_mape))
-        reportDF = spark.createDataFrame(pd.DataFrame([[cross_mape, future_mape]], columns = ['cross_validation_mape', 'near_future_map']))
+        recent_days_mape = prophet_recent_days_test(ad_placement, holidays, df)
 
+        # save report data
+        reportDF = spark.createDataFrame(pd.DataFrame([[cross_mape, recent_days_mape]], columns=['cross_validation_mape', 'near_future_map']))
         reportDF.write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_REPORT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")
 
         # future prediction
         # train the model by all historic data
         # make prediction for period days in the future
-        m = load_prophet_model(changepoint_prior_scale, holidays_prior_scale, weekly_seasonality, yearly_seasonality, holidays, df)
-        future = m.make_future_dataframe(periods=prediction_period)
-        forecast = m.predict(future)  # cover all historic days and future period days
-        d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
-        predictDf = spark.createDataFrame(d.reset_index().drop("cd", axis=1)[['ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
-                         'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
-                         'weekly_upper', 'yhat', 'y']]).replace(float('nan'), None)
-        predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
-                         'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
-                         'weekly_upper', 'yhat', 'y').repartition(1).write.mode("overwrite").parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
+        prophet_future_prediction(ad_placement, holidays, df, forecast_date)
+
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
     spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
     spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update

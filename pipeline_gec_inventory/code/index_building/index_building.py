@@ -1,3 +1,7 @@
+"""
+    load vod sampled parquet file from S3 into memory object, convert it to bitmap data and save as the S3 pickle and json file
+
+"""
 import pickle
 import pandas as pd
 from collections import defaultdict

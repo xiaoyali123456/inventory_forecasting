@@ -1,3 +1,9 @@
+"""
+    make sampling for gec inventory forecasting service, mainly including 3 types of outputs:
+        set 1. adv_id % 4 == 1   => backup inventory data
+        set 2. adv_id % 100 == 1 on set1 => sampling for all gec ad placements
+        set 3. adv_id % 300 == 1 on set2 => sampling for PREROLL and MIDROLL
+"""
 from pyspark.sql.types import StringType, IntegerType
 import sys
 

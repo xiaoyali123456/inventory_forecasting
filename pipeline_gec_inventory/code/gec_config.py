@@ -42,4 +42,41 @@ SUPPORTED_AD_PLACEMENT = ["BILLBOARD_HOME", "BILLBOARD_TV", "BILLBOARD_MOVIES", 
 SLACK_NOTIFICATION_TOPIC = "arn:aws:sns:us-east-1:253474845919:sirius-notification"
 REGION = "us-east-1"
 
+
+# prophet config:
+PROPHET_CONFIG = {
+    "OTHERS": {
+        'changepoint_prior_scale': 0.01,
+        'holidays_prior_scale': 10,
+        'yearly_seasonality': False,
+        'weekly_seasonality': 'auto'  # Q: why auto? what is auto? A: can be True, no too much difference
+    },
+    "MIDROLL": {
+        'changepoint_prior_scale': 0.01,
+        'holidays_prior_scale': 10,
+        'yearly_seasonality': False,
+        'weekly_seasonality': True
+    },
+    "BILLBOARD_HOME": {
+        'changepoint_prior_scale': 0.01,
+        'holidays_prior_scale': 10,
+        'yearly_seasonality': False,
+        'weekly_seasonality': 'auto'
+    },
+    "SKINNY_HOME": {
+        'changepoint_prior_scale': 0.01,
+        'holidays_prior_scale': 10,
+        'yearly_seasonality': False,
+        'weekly_seasonality': 'auto'
+    },
+    "PREROLL": {
+        'changepoint_prior_scale': 0.01,
+        'holidays_prior_scale': 10,
+        'yearly_seasonality': False,
+        'weekly_seasonality': True
+    }
+}
+test_period = 90
+prediction_period = 100
+
 # git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
