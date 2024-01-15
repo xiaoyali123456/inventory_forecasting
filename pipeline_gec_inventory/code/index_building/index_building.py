@@ -40,7 +40,7 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
         forward_index.append([int(row[idx]) for idx in value_idx_list])
     # end_time = time.time()
     # print(end_time - start_time)
-    return {'inverted_index': inverted_index, 'forward_index': forward_index}
+    return {'inverted_index': format_targeting_col(inverted_index), 'forward_index': forward_index}
 
 
 '''
@@ -67,9 +67,11 @@ def get_targeting_cols(dt, url):
     # print(targeting_idx_list)
     return cols, targeting_idx_list, none_targeting_idx_list
 
+
 def snake_to_camel(snake_str):
     components = snake_str.split('_')
     return components[0] + ''.join(x.title() for x in components[1:])
+
 
 def format_targeting_col(inverted_index):
     result = {}
@@ -78,8 +80,9 @@ def format_targeting_col(inverted_index):
         result[new_key] = value
     return result
 
+
 def dump_index_to_json(res):
-    inverted_index = format_targeting_col(res['inverted_index'])
+    inverted_index = res['inverted_index']
     for key in inverted_index:
         for tag in inverted_index[key]:
             print(key, tag)
@@ -88,6 +91,7 @@ def dump_index_to_json(res):
             inverted_index[key][tag] = val.decode('utf-8')
     res['inverted_index'] = inverted_index
     return json.dumps(res)
+
 
 if __name__ == '__main__':
     sample_date = get_yesterday(sys.argv[1])

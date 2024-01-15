@@ -17,10 +17,10 @@ from gec_util import *
 
 
 def load_prophet_model(ad_placement, holidays, data):
-    m = Prophet(changepoint_prior_scale=PROPHET_CONFIG[ad_placement]['changepoint_prior_scale'],
-                holidays_prior_scale=PROPHET_CONFIG[ad_placement]['holidays_prior_scale'],
-                weekly_seasonality=PROPHET_CONFIG[ad_placement]['weekly_seasonality'],
-                yearly_seasonality=PROPHET_CONFIG[ad_placement]['yearly_seasonality'],
+    m = Prophet(changepoint_prior_scale=PROPHET_MODEL_CONFIG[ad_placement]['changepoint_prior_scale'],
+                holidays_prior_scale=PROPHET_MODEL_CONFIG[ad_placement]['holidays_prior_scale'],
+                weekly_seasonality=PROPHET_MODEL_CONFIG[ad_placement]['weekly_seasonality'],
+                yearly_seasonality=PROPHET_MODEL_CONFIG[ad_placement]['yearly_seasonality'],
                 holidays=holidays)
     m.add_country_holidays(country_name='IN')
     m.fit(data)
@@ -69,26 +69,26 @@ def make_customer_inventory_cross_validation():
 # cross validation
 def prophet_cross_validation(ad_placement, holidays, df):
     m = load_prophet_model(ad_placement, holidays, df)
-    df_cv = cross_validation(m, initial=f'{test_period} days', period=f'{test_period} days',
-                             horizon=f'{test_period} days', parallel="processes")
+    df_cv = cross_validation(m, initial=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD * 3} days', period=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD} days',
+                             horizon=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD} days', parallel="processes")
     df_p = performance_metrics(df_cv, rolling_window=1)
     cross_mape = df_p['mape'].values[0]
     return cross_mape
 
 
 def prophet_recent_days_test(ad_placement, holidays, df):
-    m = load_prophet_model(ad_placement, holidays, df[:-1 * test_period])  # use data before last period days for training
-    future = m.make_future_dataframe(periods=test_period)  # make prediction for last period days
+    m = load_prophet_model(ad_placement, holidays, df[:-1 * PROPHET_MODEL_CONFIG.TEST_PERIOD])  # use data before last period days for training
+    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG.TEST_PERIOD)  # make prediction for last period days
     forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
     d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
-    forecasted = d[-1 * test_period:]  # get the prediction days
+    forecasted = d[-1 * PROPHET_MODEL_CONFIG.TEST_PERIOD:]  # get the prediction days
     future_mape = (((forecasted.yhat - forecasted.y) / forecasted.y).abs().mean())
     return future_mape
 
 
 def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
     m = load_prophet_model(ad_placement, holidays, df)
-    future = m.make_future_dataframe(periods=prediction_period)
+    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG.PREDICTION_PERIOD)
     forecast = m.predict(future)  # cover all historic days and future period days
     d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
     predictDf = spark.createDataFrame(
@@ -133,6 +133,7 @@ def make_inventory_prediction(forecast_date):
         prophet_future_prediction(ad_placement, holidays, df, forecast_date)
 
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
+    # dashboard: https://redash-analytics.data.k8s.hotstar-labs.com/dashboards/2449-gec-inventory-forecasting-monitor
     spark.sql("msck repair table adtech.gec_inventory_forecast_report_daily")  # Q: where is the script of the table creation? A: offline manual creation
     spark.sql("msck repair table adtech.gec_inventory_forecast_prediction_daily")  # enable the dashboard "GEC inventory forecasting monitor" to show the update
 

@@ -44,7 +44,7 @@ REGION = "us-east-1"
 
 
 # prophet config:
-PROPHET_CONFIG = {
+PROPHET_MODEL_CONFIG = {
     "OTHERS": {
         'changepoint_prior_scale': 0.01,
         'holidays_prior_scale': 10,
@@ -74,9 +74,9 @@ PROPHET_CONFIG = {
         'holidays_prior_scale': 10,
         'yearly_seasonality': False,
         'weekly_seasonality': True
-    }
+    },
+    'TEST_PERIOD': 90,
+    'PREDICTION_PERIOD': 365
 }
-test_period = 90
-prediction_period = 100
 
 # git clone git@github.com:hotstar/live-ads-inventory-forecasting-ml.git
