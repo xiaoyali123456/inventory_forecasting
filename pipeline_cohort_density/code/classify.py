@@ -317,6 +317,7 @@ def transform(df):
         if backward[i] in config.tagType.tolist():
             row = config[config.tagType == backward[i]].iloc[0]
             meta = row.metaData
+            # demo cols need be replaced by the aggregated values
             if meta['type'] == 'map':
                 for x in row.acceptableValues:
                     meta[x] = x
@@ -346,6 +347,11 @@ def transform(df):
             elif meta['type'] == 'gender':
                 pass
     df3 = df3.groupby(basic).agg({'reach': sum, 'index': list}).reset_index()
+    # rank:
+    # - method：指定用于处理相同排名的方法，可选值包括 average（默认值，相同值取平均排名）、min（取最小排名）、max（取最大排名）、first（按值在数据中出现的顺序排名）。
+    # - ascending：指定排名的顺序，为 True 表示升序排名，为 False 表示降序排名。
+    # - na_option：指定对缺失值的处理方式，可选值包括 keep（保留缺失值的位置）、top（将缺失值排名为最大值）、bottom（将缺失值排名为最小值）。
+    # - pct: 参数用于指定是否返回排名的百分比而不是具体的排名值。当 pct=True 时，rank 函数会返回排名的百分比。
     df3['rank'] = df3.reach.rank(method='first', ascending=False, pct=True)
     df3['density'] = df3['rank'].map(lambda x: classify(x, 0.02, 0.5))
     # apply df3 class to df2

@@ -44,11 +44,16 @@ def predict(df, holidays):
 def forecast(end, true_vv_path):
     # df = pd.read_parquet(new_path) # pandas read has problem
     df = spark.read.parquet(true_vv_path).toPandas()
-    sub_holidays = pd.read_csv(SUB_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
-    free_holidays = pd.read_csv(FREE_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
-    _, f = predict(df.rename(columns={'vv': 'y'}), free_holidays)
-    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), sub_holidays)
-    _, f3 = predict(df.rename(columns={'free_vv': 'y'}), free_holidays)
+    # sub_holidays = pd.read_csv(SUB_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
+    # free_holidays = pd.read_csv(FREE_HOLIDAYS_FEATURE_PATH)  # TODO: this should be automatically updated.
+    # _, f = predict(df.rename(columns={'vv': 'y'}), free_holidays)
+    # _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), sub_holidays)
+    # _, f3 = predict(df.rename(columns={'free_vv': 'y'}), free_holidays)
+    last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
+    holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
+    _, f = predict(df.rename(columns={'vv': 'y'}), holidays)
+    _, f2 = predict(df.rename(columns={'sub_vv': 'y'}), holidays)
+    _, f3 = predict(df.rename(columns={'free_vv': 'y'}), holidays)
     forecast_df = pd.concat([f.ds.astype(str).str[:10], f.yhat.rename('vv'), f2.yhat.rename('sub_vv'), f3.yhat.rename('free_vv')], axis=1)
     # print(forecast_df.ds)
     forecast_df.to_parquet(f'{DAU_FORECAST_PATH}cd={end}/forecast.parquet')

@@ -79,14 +79,6 @@ def generate_holidays(input_file, output_file):
     df2.to_csv(output_file, index=False)
     print(len(df2))
 
-    # df0 = pd.read_csv('dataset_update/data/holidays_v4.csv')
-    # df1 = pd.read_csv(output_file)
-    # print(len(df0))
-    # print(len(df1))
-    #
-    # print(set(df1['ds'])-set(df0['ds']))
-    # print(set(df1['ds'])-set(df0['ds']))
-
 
 if __name__ == '__main__':
     input_file = "data/prophet_features.csv"

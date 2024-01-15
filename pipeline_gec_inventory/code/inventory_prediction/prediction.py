@@ -35,7 +35,8 @@ def customer_performance_metrics(changepoint_prior_scale, holidays_prior_scale, 
 
 
 def make_customer_inventory_cross_validation():
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
+    last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
+    holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10
     yearly_seasonality = False
@@ -63,7 +64,8 @@ def make_customer_inventory_cross_validation():
 
 
 def make_inventory_prediction(forecast_date):
-    holidays = pd.read_csv(HOLIDAYS_FEATURE_PATH)
+    last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
+    holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
     spark = hive_spark('statistics')
     changepoint_prior_scale = 0.01
     holidays_prior_scale = 10

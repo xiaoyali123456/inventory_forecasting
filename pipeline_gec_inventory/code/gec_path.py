@@ -13,7 +13,8 @@ SAMPLING_DATA_ALL_ADPLACEMENT_PATH = f"{ROOT_PATH}/sampling_data_sample_rate_100
 SAMPLING_DATA_SUMMARY_PATH = f"{ROOT_PATH}/sampling_data_summary"
 VOD_SAMPLING_DATA_PREDICTION_PARQUET_PATH = f"{ROOT_PATH}/vod_sampling_data_prediction_parquet_sample_rate_{VOD_SAMPLE_BUCKET}"
 
-HOLIDAYS_FEATURE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v5_sub.csv'
+# HOLIDAYS_FEATURE_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/holidays_v5_sub.csv'
+PROPHET_HOLIDAYS_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/holidays/latest/prophet_holidays'
 GEC_INVENTORY_BY_CD_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_cd"
 GEC_INVENTORY_BY_AD_PLACEMENT_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_ad_placement"
 GEC_INVENTORY_PREDICTION_RESULT_PATH = f"{ROOT_PATH}/prophet/predicted"
