@@ -85,7 +85,7 @@ def dump_index_to_json(res):
     inverted_index = res['inverted_index']
     for key in inverted_index:
         for tag in inverted_index[key]:
-            print(key, tag)
+            # print(key, tag)
             bm = inverted_index[key][tag]
             val = base64.b64encode(bm.serialize())
             inverted_index[key][tag] = val.decode('utf-8')

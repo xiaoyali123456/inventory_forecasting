@@ -16,6 +16,7 @@ from gec_path import *
 from gec_util import *
 
 
+# prophet config experiment result: https://docs.google.com/spreadsheets/d/1vjTNlVWJyYw6LlFNHBkd0U6IMaeBRyhKEiWhdUOiS4E/edit#gid=1408618858
 def load_prophet_model(ad_placement, holidays, data):
     m = Prophet(changepoint_prior_scale=PROPHET_MODEL_CONFIG[ad_placement]['changepoint_prior_scale'],
                 holidays_prior_scale=PROPHET_MODEL_CONFIG[ad_placement]['holidays_prior_scale'],
@@ -69,26 +70,26 @@ def make_customer_inventory_cross_validation():
 # cross validation
 def prophet_cross_validation(ad_placement, holidays, df):
     m = load_prophet_model(ad_placement, holidays, df)
-    df_cv = cross_validation(m, initial=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD * 3} days', period=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD} days',
-                             horizon=f'{PROPHET_MODEL_CONFIG.TEST_PERIOD} days', parallel="processes")
+    df_cv = cross_validation(m, initial=f'{PROPHET_MODEL_CONFIG["TEST_PERIOD"] * 3} days', period=f'{PROPHET_MODEL_CONFIG["TEST_PERIOD"]} days',
+                             horizon=f'{PROPHET_MODEL_CONFIG["TEST_PERIOD"]} days', parallel="processes")
     df_p = performance_metrics(df_cv, rolling_window=1)
     cross_mape = df_p['mape'].values[0]
     return cross_mape
 
 
 def prophet_recent_days_test(ad_placement, holidays, df):
-    m = load_prophet_model(ad_placement, holidays, df[:-1 * PROPHET_MODEL_CONFIG.TEST_PERIOD])  # use data before last period days for training
-    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG.TEST_PERIOD)  # make prediction for last period days
+    m = load_prophet_model(ad_placement, holidays, df[:-1 * PROPHET_MODEL_CONFIG["TEST_PERIOD"]])  # use data before last period days for training
+    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG["TEST_PERIOD"])  # make prediction for last period days
     forecast = m.predict(future)  # cover both train and prediction days, i.e. all days
     d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
-    forecasted = d[-1 * PROPHET_MODEL_CONFIG.TEST_PERIOD:]  # get the prediction days
+    forecasted = d[-1 * PROPHET_MODEL_CONFIG["TEST_PERIOD"]:]  # get the prediction days
     future_mape = (((forecasted.yhat - forecasted.y) / forecasted.y).abs().mean())
     return future_mape
 
 
 def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
     m = load_prophet_model(ad_placement, holidays, df)
-    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG.PREDICTION_PERIOD)
+    future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG["PREDICTION_PERIOD"])
     forecast = m.predict(future)  # cover all historic days and future period days
     d = forecast.set_index('ds').join(df.set_index('ds'), how='left', on='ds')
     predictDf = spark.createDataFrame(
