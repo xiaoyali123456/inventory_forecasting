@@ -99,7 +99,7 @@ def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
     predictDf.select('ds', 'trend', 'yhat_lower', 'yhat_upper', 'trend_lower', 'trend_upper',
                      'holidays', 'holidays_lower', 'holidays_upper', 'weekly', 'weekly_lower',
                      'weekly_upper', 'yhat', 'y')\
-        .repartition(1).write.mode("overwrite")\
+        .repartition(1).orderBy('ds').write.mode("overwrite")\
         .parquet(f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}/ad_placement={ad_placement}")   # why need select? TODO: use a path variable instead
 
 
