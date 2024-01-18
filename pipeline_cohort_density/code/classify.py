@@ -1,3 +1,10 @@
+"""
+    make cohort density classification according to the cohort size
+    input: cohort distribution from live inventory forecasting pipeline, cols = ('content_id', 'playout_id', 'language', 'platform', 'country', 'city', 'state', 'cohort', 'ad_time', 'reach')
+    output:
+        1. density forecasting only aggregation on demo cohorts
+        2. density forecasting aggregation on all cohorts
+"""
 import os
 import sys
 
@@ -312,7 +319,7 @@ def transform(df):
     config['basic'] = config.tagType.map(lambda x: forward.get(x, x))
     basic = [x for x in config['basic'] if x in df.columns]
     # cohorts that would be delivered, grouped by `key` of config
-    df2 = df.groupby(basic).reach.sum().reset_index()
+    df_before_aggr = df.groupby(basic).reach.sum().reset_index()
     for i in basic:
         if backward[i] in config.tagType.tolist():
             row = config[config.tagType == backward[i]].iloc[0]
@@ -326,15 +333,15 @@ def transform(df):
                     meta2 = {demo_short_to_long[k]: v for k, v in meta.items() if k in demo_short_to_long}
                     meta = {**meta, **meta2}
                     # "PHONE_MALE_25-34" is mapped to "18T30"
-                    df2[i] = df2[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
+                    df_before_aggr[i] = df_before_aggr[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
                 else:
-                    df2[i] = df2[i].map(lambda x: x if x in meta else row.defaultValue)
+                    df_before_aggr[i] = df_before_aggr[i].map(lambda x: x if x in meta else row.defaultValue)
             elif meta['type'] == 'gender':
-                df2[i] = df2[i].map(lambda x: x if x in ['f', 'm'] else row.defaultValue)
-    df2 = df2.groupby(basic).reach.sum().reset_index()
+                df_before_aggr[i] = df_before_aggr[i].map(lambda x: x if x in ['f', 'm'] else row.defaultValue)
+    df_before_aggr = df_before_aggr.groupby(basic).reach.sum().reset_index()
     # simulate how these cohorts are treated in SSAI, grouped by `value` of config, num(`key`) > num(`value`)
     # However, this simulation is not always accurate since Ads SDK is a blackbox
-    df3 = df2.reset_index()
+    df_after_aggr = df_before_aggr.reset_index()  # copy index as a single col
     for i in basic:
         if backward[i] in config.tagType.tolist():
             row = config[config.tagType == backward[i]].iloc[0]
@@ -343,54 +350,54 @@ def transform(df):
                 for x in row.acceptableValues:
                     meta[x] = x
                 # for ageTag, there is an identity map, e.g. "18T30" --> "18T30"
-                df3[i] = df3[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
+                df_after_aggr[i] = df_after_aggr[i].map(lambda x: meta[x] if x in meta else row.defaultValue)
             elif meta['type'] == 'gender':
                 pass
-    df3 = df3.groupby(basic).agg({'reach': sum, 'index': list}).reset_index()
+    df_after_aggr = df_after_aggr.groupby(basic).agg({'reach': sum, 'index': list}).reset_index()
     # rank:
     # - method：指定用于处理相同排名的方法，可选值包括 average（默认值，相同值取平均排名）、min（取最小排名）、max（取最大排名）、first（按值在数据中出现的顺序排名）。
     # - ascending：指定排名的顺序，为 True 表示升序排名，为 False 表示降序排名。
     # - na_option：指定对缺失值的处理方式，可选值包括 keep（保留缺失值的位置）、top（将缺失值排名为最大值）、bottom（将缺失值排名为最小值）。
     # - pct: 参数用于指定是否返回排名的百分比而不是具体的排名值。当 pct=True 时，rank 函数会返回排名的百分比。
-    df3['rank'] = df3.reach.rank(method='first', ascending=False, pct=True)
-    df3['density'] = df3['rank'].map(lambda x: classify(x, 0.02, 0.5))
-    # apply df3 class to df2
-    for k, v in df3.groupby('density').index.sum().items():
-        df2.loc[v, 'density'] = k
-    return df2, df3
+    df_after_aggr['rank'] = df_after_aggr.reach.rank(method='first', ascending=False, pct=True)
+    df_after_aggr['density'] = df_after_aggr['rank'].map(lambda x: classify(x, 0.02, 0.5))
+    # apply df_after_aggr class to df_before_aggr
+    for k, v in df_after_aggr.groupby('density').index.sum().items():
+        df_before_aggr.loc[v, 'density'] = k
+    return df_before_aggr, df_after_aggr
 
 
 def main(cd):
     '''
     df: raw inventory as input
-    df2: segment -> density
-    df3: SSAI(after aggregation) -> density
+    df_before_aggr: segment -> density
+    df_after_aggr: SSAI(after aggregation) -> density
     '''
     df = load_history(cd)
-    df2, df3 = transform(df)
-    df2.to_json(output_path, orient='records')
-    df2['proportion'] = df2.reach / df2.reach.sum()
-    df3['proportion'] = df3.reach / df3.reach.sum()
-    df3.drop(columns='index', inplace=True)
-    df2.to_json(output2_path + cd + '.json', orient='records')  # save for future check
+    df_before_aggr, df_after_aggr = transform(df)
+    df_before_aggr.to_json(output_path, orient='records')
+    df_before_aggr['proportion'] = df_before_aggr.reach / df_before_aggr.reach.sum()
+    df_after_aggr['proportion'] = df_after_aggr.reach / df_after_aggr.reach.sum()
+    df_after_aggr.drop(columns='index', inplace=True)
+    df_before_aggr.to_json(output2_path + cd + '.json', orient='records')  # save for future check
 
     # upload result to google sheet: https://docs.google.com/spreadsheets/d/1SpSU7OEu_ytIG8a_MK-wCq5dbVksp5_hTTvXFrsOncg/edit#gid=2053132069
     os.system('aws s3 cp s3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/minliang.lin@hotstar.com-service-account.json my_service_account.json')
     gc = gspread.service_account('my_service_account.json')
     sheet = gc.open('ssai_cohort_density_forecast')
     sheet.sheet1.clear()
-    sheet.sheet1.update([df2.columns.values.tolist()] + df2.values.tolist())
+    sheet.sheet1.update([df_before_aggr.columns.values.tolist()] + df_before_aggr.values.tolist())
     sheet2 = sheet.get_worksheet(1)
     sheet2.clear()
-    sheet2.update([df3.columns.values.tolist()] + df3.values.tolist())
+    sheet2.update([df_after_aggr.columns.values.tolist()] + df_after_aggr.values.tolist())
 
     # check performance comparing to baseline
     bl = load_baseline()
     bl2, _ = transform(bl)
     basic = ['age', 'device', 'gender', 'state', 'city', 'platform', 'nccs']
-    cmp = df2.merge(bl2, on=basic, how='outer', suffixes=('', '_bl'))
-    print(df2.groupby('density').size())
-    print('total', len(df2))
+    cmp = df_before_aggr.merge(bl2, on=basic, how='outer', suffixes=('', '_bl'))
+    print(df_before_aggr.groupby('density').size())
+    print('total', len(df_before_aggr))
     print(cmp[cmp.density != cmp.density_bl])
     print('predict reach', cmp.reach.sum())
     print('baseline reach', cmp.reach_bl.sum())
