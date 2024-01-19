@@ -98,6 +98,18 @@ def convert_df_to_json(df, outer_key, inner_key, inner_val):
     return json.dumps(res)
 
 
+# dump prediction results as json
+def save_future_prediction_as_json(forecast_date):
+    local_json_path = f'json_prediction'
+    os.makedirs(local_json_path, exist_ok=True)
+    predictDF = load_data_frame(spark, f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}")
+    jstr = convert_df_to_json(predictDF.withColumn('ds', F.substring(F.col('ds').cast(StringType()), 1, 10)),
+                              outer_key="ad_placement", inner_key="ds", inner_val="yhat")
+    with open(f'{local_json_path}/{forecast_date}.json', 'w') as f:
+        f.write(jstr)
+    os.system(f"aws s3 cp {local_json_path}/{forecast_date}.json {GEC_INVENTORY_PREDICTION_RESULT_JSON_PATH}")
+
+
 def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
     m = load_prophet_model(ad_placement, holidays, df)
     future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG["PREDICTION_PERIOD"])
@@ -145,13 +157,7 @@ def make_inventory_prediction(forecast_date):
         prophet_future_prediction(ad_placement, holidays, df, forecast_date)
 
     # dump prediction results as json
-    local_pickle_path = f'sample_data_model_300'
-    os.makedirs(local_pickle_path, exist_ok=True)
-    predictDF = load_data_frame(spark, f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}")
-    jstr = convert_df_to_json(predictDF.withColumn('ds', F.substring(F.col('ds').cast(StringType()), 1, 10)), outer_key="ad_placement", inner_key="ds", inner_val="yhat")
-    with open(f'{local_pickle_path}/{forecast_date}.json', 'w') as f:
-        f.write(jstr)
-    os.system(f"aws s3 cp {local_pickle_path}/{forecast_date}.json {GEC_INVENTORY_PREDICTION_RESULT_JSON_PATH}")
+    save_future_prediction_as_json(forecast_date)
 
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
     # dashboard: https://redash-analytics.data.k8s.hotstar-labs.com/dashboards/2449-gec-inventory-forecasting-monitor
