@@ -18,6 +18,7 @@ PROPHET_HOLIDAYS_PATH = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventor
 GEC_INVENTORY_BY_CD_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_cd"
 GEC_INVENTORY_BY_AD_PLACEMENT_PATH = f"{ROOT_PATH}/prophet/gec_inventory_by_ad_placement"
 GEC_INVENTORY_PREDICTION_RESULT_PATH = f"{ROOT_PATH}/prophet/predicted"
+GEC_INVENTORY_PREDICTION_RESULT_JSON_PATH = f"{ROOT_PATH}/prophet/predicted_json/"
 GEC_INVENTORY_PREDICTION_REPORT_PATH = f"{ROOT_PATH}/prophet/report"
 GEC_INVENTORY_NUMBER_PATH = f"{ROOT_PATH}/ingest/inventoryNumber"
 

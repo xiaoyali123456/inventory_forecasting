@@ -87,6 +87,17 @@ def prophet_recent_days_test(ad_placement, holidays, df):
     return future_mape
 
 
+def convert_df_to_json(df, outer_key, inner_key, inner_val):
+    df.select(outer_key, inner_key, inner_val).show()
+    data = df.select(outer_key, inner_key, inner_val).collect()
+    res = {}
+    for row in data:
+        if row[0] not in res:
+            res[row[0]] = {}
+        res[row[0]][row[1]] = row[2]
+    return json.dumps(res)
+
+
 def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
     m = load_prophet_model(ad_placement, holidays, df)
     future = m.make_future_dataframe(periods=PROPHET_MODEL_CONFIG["PREDICTION_PERIOD"])
@@ -132,6 +143,15 @@ def make_inventory_prediction(forecast_date):
         # train the model by all historic data
         # make prediction for period days in the future
         prophet_future_prediction(ad_placement, holidays, df, forecast_date)
+
+    # dump prediction results as json
+    local_pickle_path = f'sample_data_model_300'
+    os.makedirs(local_pickle_path, exist_ok=True)
+    predictDF = load_data_frame(spark, f"{GEC_INVENTORY_PREDICTION_RESULT_PATH}/cd={forecast_date}")
+    jstr = convert_df_to_json(predictDF.withColumn('ds', F.substring(F.col('ds').cast(StringType()), 1, 10)), outer_key="ad_placement", inner_key="ds", inner_val="yhat")
+    with open(f'{local_pickle_path}/{forecast_date}.json', 'w') as f:
+        f.write(jstr)
+    os.system(f"aws s3 cp {local_pickle_path}/{forecast_date}.json {GEC_INVENTORY_PREDICTION_RESULT_JSON_PATH}")
 
     # Synchronize the inconsistencies between Hive table metadata and actual data files.
     # dashboard: https://redash-analytics.data.k8s.hotstar-labs.com/dashboards/2449-gec-inventory-forecasting-monitor
