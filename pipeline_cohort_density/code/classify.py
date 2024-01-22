@@ -20,6 +20,9 @@ config_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adte
 output_path = 's3://hotstar-ads-data-internal-us-east-1-prod/data/workflows/adtech-segment-management/prod/forecast_information/100/forecast_information.json'
 # save for review
 output2_path = 's3://adtech-ml-perf-ads-us-east-1-prod-v1/live_inventory_forecasting/data/cohort_density/forecast_information/'
+REGION = 'us-east-1'
+SNS_TOPIC = 'arn:aws:sns:us-east-1:253474845919:sirius-notification'
+
 
 s3 = s3fs.S3FileSystem()
 age_mapping = {
@@ -407,6 +410,13 @@ def main(cd):
     print('mismatch reach_baseline%', cmp[cmp.density!=cmp.density_bl].reach_bl.sum()/cmp.reach_bl.sum())
 
 
+def slack_notification(topic, region, message):
+    cmd = f'aws sns publish --topic-arn "{topic}" --subject "gec inventory forecasting" --message "{message}" --region {region}'
+    os.system(cmd)
+
+
 if __name__ == '__main__':
     cd = sys.argv[1]
     main(cd)
+    slack_notification(topic=SNS_TOPIC, region=REGION,
+                       message=f"live cohort density on {sys.argv[1]} is done.")
