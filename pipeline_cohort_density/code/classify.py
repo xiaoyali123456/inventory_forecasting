@@ -411,7 +411,7 @@ def main(cd):
 
 
 def slack_notification(topic, region, message):
-    cmd = f'aws sns publish --topic-arn "{topic}" --subject "gec inventory forecasting" --message "{message}" --region {region}'
+    cmd = f'aws sns publish --topic-arn "{topic}" --subject "live cohort density" --message "{message}" --region {region}'
     os.system(cmd)
 
 
@@ -419,4 +419,4 @@ if __name__ == '__main__':
     cd = sys.argv[1]
     main(cd)
     slack_notification(topic=SNS_TOPIC, region=REGION,
-                       message=f"live cohort density on {sys.argv[1]} is done.")
+                       message=f"on {sys.argv[1]} is done.")
