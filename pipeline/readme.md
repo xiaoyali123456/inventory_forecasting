@@ -6,16 +6,21 @@ graph LR
     direction TB
     A(fetch_requests.py) --> B(fetch_match_cms.py)
   end
-  subgraph forecast.sh
+  subgraph dataset_update.sh
     direction TB
-    C(active_user_etl_and_predict.py) --> D(feature.py, xgb_model.py, inventory_prediction.py)
+    H(dau_update.py) --> I(dataset_update.py)
+  end
+  subgraph inventory_forecast.sh
+    direction TB
+    C(inventory_prediction.py)
   end
   subgraph sampling.sh
     direction TB
-    E(etl.py) --> F(ewma.py) --> G(combine.py)
+    E(etl.py) --> F(ewma.py)
   end
   subgraph postprocess.sh
-    H(postprocess.py)
+    G(combine.py) --> H(postprocess.py)
   end
-  preprocess.sh --> forecast.sh --> sampling.sh --> postprocess.sh
+  preprocess.sh --> dataset_update.sh --> inventory_forecast.sh --> postprocess.sh
+  sampling.sh --> postprocess.sh
 ```
