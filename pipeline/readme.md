@@ -8,7 +8,7 @@ graph LR
   end
   subgraph dataset_update.sh
     direction TB
-    H(dau_update.py) --> I(dataset_update.py)
+    I(dau_update.py) --> J(dataset_update.py)
   end
   subgraph inventory_forecast.sh
     direction TB
