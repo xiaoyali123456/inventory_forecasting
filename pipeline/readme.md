@@ -19,6 +19,7 @@ graph LR
     E(etl.py) --> F(ewma.py)
   end
   subgraph postprocess.sh
+    direction TB
     G(combine.py) --> H(postprocess.py)
   end
   preprocess.sh --> dataset_update.sh --> inventory_forecast.sh --> postprocess.sh
