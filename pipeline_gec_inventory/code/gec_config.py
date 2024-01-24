@@ -44,6 +44,7 @@ REGION = "us-east-1"
 
 
 # prophet config:
+# changepoint_prior_scale: 变化点灵活性的参数。较高的值将允许更多的灵活性，即模型对趋势变化的适应性更强，默认值0.05
 PROPHET_MODEL_CONFIG = {
     "OTHERS": {
         'changepoint_prior_scale': 0.01,

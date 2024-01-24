@@ -75,6 +75,7 @@ def prophet_cross_validation(ad_placement, holidays, df):
     df_p = performance_metrics(df_cv, rolling_window=1)
     cross_mape = df_p['mape'].values[0]
     return cross_mape
+# By default, the initial training period is set to three times the horizon, and cutoffs are made every half a horizon.
 
 
 def prophet_recent_days_test(ad_placement, holidays, df):
@@ -128,7 +129,7 @@ def prophet_future_prediction(ad_placement, holidays, df, forecast_date):
 
 def make_inventory_prediction(forecast_date):
     last_cd = get_last_cd(PROPHET_HOLIDAYS_PATH)
-    holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv")
+    holidays = pd.read_csv(f"{PROPHET_HOLIDAYS_PATH}/cd={last_cd}/holidays.csv") # This is generated in live inventroy forecasting project
     spark = hive_spark('statistics')
     for ad_placement in ["OTHERS", "MIDROLL", "BILLBOARD_HOME", "SKINNY_HOME", "PREROLL"]:
         print(ad_placement)

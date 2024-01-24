@@ -41,7 +41,15 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
     # end_time = time.time()
     # print(end_time - start_time)
     return {'inverted_index': format_targeting_col(inverted_index), 'forward_index': forward_index}
-
+### inverted index could look like this:
+# {
+#     'age': {
+#         '1-18': BitMap(1, 3),
+#         '18-26': BitMap(1),
+#         '26-50': BitMap(2),
+#         '50+': BitMap(4),
+#     }
+# }
 
 '''
     prepare targeting options of sample data for building index

@@ -77,7 +77,7 @@ def parse_device_model(device_model):
 @F.udf(returnType=IntegerType())
 def get_hash_and_mod(adv_id, mod_num=100):
     if adv_id is None:
-        return VALID_SAMPLE_TAG + 1
+        return VALID_SAMPLE_TAG + 1 # to assign a different value from VALID_SAMPLE_TAG, which will be used to filter hash(adv_id)%mod_num and sample accordingly
     return hash(adv_id) % mod_num
 
 
@@ -133,7 +133,7 @@ def backup_inventory_data(spark, sample_date):  # remove invalid adv_id and then
 def distinct_and_rank_col(col, split_str=','):
     if col is None:
         return ''
-    return ','.join(sorted(list(set(col.split(split_str)))))
+    return ','.join(sorted(list(set(col.split(split_str))))) # keep the distinct value of one col, and rank them by alphabet order.
 
 
 # sampled all adplacement inventory data with sample_rate = 1/100
