@@ -129,6 +129,7 @@ def backup_inventory_data(spark, sample_date):  # remove invalid adv_id and then
         save_data_frame(inventory_data, backup_path)
 
 
+# col = "shopping,shopping,travel" --> "shopping,travel"
 @F.udf(returnType=StringType())
 def distinct_and_rank_col(col, split_str=','):
     if col is None:

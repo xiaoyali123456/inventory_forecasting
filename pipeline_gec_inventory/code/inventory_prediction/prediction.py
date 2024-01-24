@@ -99,7 +99,7 @@ def convert_df_to_json(df, outer_key, inner_key, inner_val):
     return json.dumps(res)
 
 
-# dump prediction results as json
+# dump prediction results as json: {adPlacement: {date -> inventory}}
 def save_future_prediction_as_json(forecast_date):
     local_json_path = f'json_prediction'
     os.makedirs(local_json_path, exist_ok=True)

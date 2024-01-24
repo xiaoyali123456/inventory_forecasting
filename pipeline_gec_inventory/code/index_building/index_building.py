@@ -18,12 +18,16 @@ from gec_path import *
 '''
 
 
+# gender=male, index = 0
+# gender=female, index = 100
+# {'gender': {'male': 1, 'female': 1000000000000000000000000000}}
+# {'age': {'20-30': 1, '30-40': 1000001000000000000000000000}}
 # inventory 12mn, 1.8 sample --> 4.8 sample, inventory 24mn; 10 inv * 300 * 2
-# {key1: {key2: value}}, key1: gender, key2: male, value: set of sample_id
+# {key1: {key2: value}}, key1: gender, key2: male, value: set of sample index
 # col = ["gender", "age", ...]
-def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
+def index_building(dt, sampled_data_path, cols, targeting_idx_list, value_idx_list):
     # init_time = time.time()
-    df = pd.read_parquet(f"{url}/cd={dt}")
+    df = pd.read_parquet(f"{sampled_data_path}/cd={dt}")
     # start_time = time.time()
     # print(init_time - start_time)
     inverted_index = defaultdict(dict)  # targeting col -> targeting col value -> bitmap of sample_id
@@ -56,9 +60,9 @@ def index_building(dt, url, cols, targeting_idx_list, value_idx_list):
 '''
 
 
-def get_targeting_cols(dt, url):
+def get_targeting_cols(dt, sampled_data_path):
     # Q: how does the data in VOD_SAMPLE_PARQUET_PATH come from? A: result of sampling.py
-    cols = list(pd.read_parquet(f"{url}/cd={dt}").columns)
+    cols = list(pd.read_parquet(f"{sampled_data_path}/cd={dt}").columns)
     # print(cols)
     none_targeting_idx_dic = {}  # store col index: {col: idx}
     none_targeting_idx_list = []  # store col index: [idx]
